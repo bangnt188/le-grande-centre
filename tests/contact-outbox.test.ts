@@ -17,7 +17,7 @@ test("contact outbox commits atomically, retries durable receipts, fences overla
   const idempotencyKey = crypto.randomUUID(), ipHash = "a".repeat(64), actor = "system:notification-dispatch";
   const seen: { key: string; text: string }[] = [];
   const accepted = new Map<string, string>();
-  let mode: "hold" | "lost-ack" | "accept" | "invalid" | "unknown" | "failure" | "redirect" | "flaky" = "failure";
+  let mode: "hold" | "lost-ack" | "accept" | "invalid" | "unknown" | "failure" | "redirect" | "flaky" | "gmail-failure" = "failure";
   let failureStatus = 409;
   let redirected = 0;
   let failuresLeft = 0;
@@ -44,6 +44,7 @@ test("contact outbox commits atomically, retries durable receipts, fences overla
     seen.push({ key, text: body.text });
     if (mode === "hold") { incoming?.(); await new Promise<void>(resolve => { release = resolve; }); }
     if (mode === "flaky" && failuresLeft-- > 0) { response.writeHead(503); response.end("{}"); return; }
+    if (mode === "gmail-failure" && body.channel === "gmail") { response.writeHead(503); response.end("{}"); return; }
     if (mode === "redirect") { response.writeHead(302, { Location: "/redirect-recipient" }); response.end(); return; }
     if (mode === "failure") { response.writeHead(failureStatus); response.end('{"error":"website_unlinked"}'); return; }
     if (mode === "invalid") { response.writeHead(200, { "Content-Type": "application/json" }); response.end('{"ok":true}'); return; }
@@ -157,6 +158,18 @@ test("contact outbox commits atomically, retries durable receipts, fences overla
     assert.equal(seen.filter(row => row.key.endsWith(":zalo")).length, zaloCalls, "Gmail recovery must not resend Zalo");
     assert.equal(accepted.size, 2, "one stable remote event per channel");
     assert.deepEqual(await dispatchContactNotifications(), { claimed: 0, forwarded: 0 });
+    const concurrent = await submitContact({ ...input, name: input.name + " concurrent" }, { idempotencyKey: crypto.randomUUID(), ipHash: "c".repeat(64) });
+    mode = "gmail-failure";
+    assert.deepEqual(await dispatchContactNotifications(), { claimed: 2, forwarded: 1 });
+    await withTransaction(actor, async client => {
+      const rows = (await client.query("SELECT channel,forwarded_at,payload FROM leasing.contact_notification_outbox WHERE intake_id=$1 ORDER BY channel", [concurrent.id])).rows;
+      assert.equal(rows[0].channel, "gmail"); assert.equal(rows[0].forwarded_at, null); assert.ok(rows[0].payload);
+      assert.equal(rows[1].channel, "zalo"); assert.ok(rows[1].forwarded_at); assert.equal(rows[1].payload, null);
+      await client.query("UPDATE leasing.contact_notification_outbox SET available_at=now() WHERE intake_id=$1 AND channel='gmail'", [concurrent.id]);
+    });
+    mode = "accept";
+    assert.deepEqual(await dispatchContactNotifications(), { claimed: 1, forwarded: 1 });
+    assert.equal(seen.filter(row => row.key === `contact:${concurrent.id}:zalo`).length, 1, "shared batch token must not acknowledge or replay the sibling channel");
   } finally {
     release?.();
     globalThis.fetch = originalFetch;
