@@ -37,8 +37,9 @@ test("contact outbox commits atomically, retries durable receipts, fences overla
     const key = String(request.headers["idempotency-key"]);
     assert.equal(request.url, "/v1/notifications");
     assert.equal(request.headers.authorization, "Bearer test-website-key");
-    assert.deepEqual(Object.keys(body).sort(), ["channel", "text"]);
-    assert.equal(body.channel, "zalo");
+    assert.deepEqual(Object.keys(body).sort(), body.channel === "gmail" ? ["channel", "subject", "text"] : ["channel", "text"]);
+    assert.ok(["zalo", "gmail"].includes(body.channel));
+    if (body.channel === "gmail") assert.match(body.subject, /^Le Grande Centre — Lead /);
     assert.equal(body.text.includes(input.note), false);
     seen.push({ key, text: body.text });
     if (mode === "hold") { incoming?.(); await new Promise<void>(resolve => { release = resolve; }); }
@@ -50,7 +51,7 @@ test("contact outbox commits atomically, retries durable receipts, fences overla
     accepted.set(key, remoteId);
     if (mode === "lost-ack") { response.destroy(); return; }
     response.writeHead(202, { "Content-Type": "application/json" });
-    response.end(JSON.stringify({ id: remoteId, channel: "zalo", status: mode === "unknown" ? "unknown" : "queued", createdAt: new Date().toISOString(), sentAt: null }));
+    response.end(JSON.stringify({ id: remoteId, channel: body.channel, status: mode === "unknown" ? "unknown" : "queued", createdAt: new Date().toISOString(), sentAt: null }));
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -86,7 +87,10 @@ test("contact outbox commits atomically, retries durable receipts, fences overla
     assert.equal(replay.created, false); assert.equal(replay.id, intake.id);
     await withTransaction(actor, async client => {
       const rows = (await client.query("SELECT * FROM leasing.contact_notification_outbox WHERE intake_id=$1", [intake.id])).rows;
-      assert.equal(rows.length, 1); assert.equal(rows[0].request_key, `contact:${intake.id}:zalo`); assert.equal(rows[0].forwarded_at, null);
+      assert.equal(rows.length, 2);
+      assert.deepEqual(rows.map(row => row.request_key).sort(), [`contact:${intake.id}:gmail`, `contact:${intake.id}:zalo`]);
+      assert.ok(rows.every(row => row.forwarded_at === null));
+      await client.query("UPDATE leasing.contact_notification_outbox SET available_at=now()+interval '1 day' WHERE intake_id=$1 AND channel='gmail'", [intake.id]);
       // Isolate pending rows made by other regression files without deleting their evidence.
       await client.query("UPDATE leasing.contact_notification_outbox SET available_at=now()+interval '1 day' WHERE intake_id<>$1 AND forwarded_at IS NULL", [intake.id]);
     });
@@ -98,36 +102,36 @@ test("contact outbox commits atomically, retries durable receipts, fences overla
     for (const failure of [409, 401, 503, "redirect", "invalid", "unknown", "lost-ack"] as const) {
       mode = typeof failure === "number" ? "failure" : failure;
       if (typeof failure === "number") failureStatus = failure;
-      await withTransaction(actor, client => client.query("UPDATE leasing.contact_notification_outbox SET available_at=now() WHERE intake_id=$1", [intake.id]));
+      await withTransaction(actor, client => client.query("UPDATE leasing.contact_notification_outbox SET available_at=now() WHERE intake_id=$1 AND channel='zalo'", [intake.id]));
       const beforeAttempts: number = seen.length;
       assert.deepEqual(await dispatchContactNotifications(), { claimed: 1, forwarded: 0 });
       assert.equal(seen.length - beforeAttempts, 3, "each failed batch makes exactly three stable-key attempts");
       await withTransaction(actor, async client => {
-        const row = (await client.query("SELECT * FROM leasing.contact_notification_outbox WHERE intake_id=$1", [intake.id])).rows[0];
+        const row = (await client.query("SELECT * FROM leasing.contact_notification_outbox WHERE intake_id=$1 AND channel='zalo'", [intake.id])).rows[0];
         assert.equal(row.forwarded_at, null); assert.ok(row.payload); assert.equal(row.lease_token, null); assert.ok(new Date(row.available_at).getTime() > Date.now());
       });
     }
     assert.equal(redirected, 0, "never forward the website credential to a redirected endpoint");
     mode = "hold";
-    await withTransaction(actor, client => client.query("UPDATE leasing.contact_notification_outbox SET available_at=now() WHERE intake_id=$1", [intake.id]));
+    await withTransaction(actor, client => client.query("UPDATE leasing.contact_notification_outbox SET available_at=now() WHERE intake_id=$1 AND channel='zalo'", [intake.id]));
     const running = dispatchContactNotifications();
     await arrived;
     try {
       // This write would block if the network request still held a database transaction/row lock.
       await withTransaction(actor, async client => {
         await client.query("SET LOCAL lock_timeout='1s'");
-        await client.query("UPDATE leasing.contact_notification_outbox SET available_at=now() WHERE intake_id=$1", [intake.id]);
-        const row = (await client.query("SELECT lease_until FROM leasing.contact_notification_outbox WHERE intake_id=$1", [intake.id])).rows[0];
+        await client.query("UPDATE leasing.contact_notification_outbox SET available_at=now() WHERE intake_id=$1 AND channel='zalo'", [intake.id]);
+        const row = (await client.query("SELECT lease_until FROM leasing.contact_notification_outbox WHERE intake_id=$1 AND channel='zalo'", [intake.id])).rows[0];
         assert.ok(new Date(row.lease_until).getTime() > Date.now() + 120_000);
       });
       assert.deepEqual(await dispatchContactNotifications(), { claimed: 0, forwarded: 0 });
     } finally { release?.(); }
     assert.deepEqual(await running, { claimed: 1, forwarded: 1 });
     await withTransaction(actor, async client => {
-      const row = (await client.query("SELECT * FROM leasing.contact_notification_outbox WHERE intake_id=$1", [intake.id])).rows[0];
+      const row = (await client.query("SELECT * FROM leasing.contact_notification_outbox WHERE intake_id=$1 AND channel='zalo'", [intake.id])).rows[0];
       assert.ok(row.forwarded_at); assert.equal(row.payload, null); assert.equal(row.remote_id, accepted.get(`contact:${intake.id}:zalo`));
       // Simulate an abandoned process claim: the next scheduled run must recover it.
-      await client.query("UPDATE leasing.contact_notification_outbox SET forwarded_at=NULL,payload=$2,remote_id=NULL,lease_token=$3,lease_until=now()-interval '1 second',available_at=now() WHERE intake_id=$1", [intake.id, seen[0].text, crypto.randomUUID()]);
+      await client.query("UPDATE leasing.contact_notification_outbox SET forwarded_at=NULL,payload=$2,remote_id=NULL,lease_token=$3,lease_until=now()-interval '1 second',available_at=now() WHERE intake_id=$1 AND channel='zalo'", [intake.id, seen[0].text, crypto.randomUUID()]);
     });
     mode = "flaky"; failuresLeft = 2;
     const beforeRecoveryAttempts = seen.length;
@@ -136,6 +140,22 @@ test("contact outbox commits atomically, retries durable receipts, fences overla
     assert.equal(new Set(seen.map(row => row.key)).size, 1);
     assert.equal(new Set(seen.map(row => row.text)).size, 1);
     assert.equal(accepted.size, 1, "uncertain HTTP ACK retries reuse the remote receipt");
+    assert.deepEqual(await dispatchContactNotifications(), { claimed: 0, forwarded: 0 });
+    const zaloCalls = seen.filter(row => row.key.endsWith(":zalo")).length;
+    mode = "failure"; failureStatus = 503;
+    await withTransaction(actor, client => client.query("UPDATE leasing.contact_notification_outbox SET available_at=now() WHERE intake_id=$1 AND channel='gmail'", [intake.id]));
+    assert.deepEqual(await dispatchContactNotifications(), { claimed: 1, forwarded: 0 });
+    assert.equal(seen.filter(row => row.key.endsWith(":gmail")).length, 3);
+    await withTransaction(actor, async client => {
+      const rows = (await client.query("SELECT channel,forwarded_at,payload FROM leasing.contact_notification_outbox WHERE intake_id=$1 ORDER BY channel", [intake.id])).rows;
+      assert.equal(rows[0].channel, "gmail"); assert.equal(rows[0].forwarded_at, null); assert.ok(rows[0].payload);
+      assert.equal(rows[1].channel, "zalo"); assert.ok(rows[1].forwarded_at); assert.equal(rows[1].payload, null);
+      await client.query("UPDATE leasing.contact_notification_outbox SET available_at=now() WHERE intake_id=$1 AND channel='gmail'", [intake.id]);
+    });
+    mode = "accept";
+    assert.deepEqual(await dispatchContactNotifications(), { claimed: 1, forwarded: 1 });
+    assert.equal(seen.filter(row => row.key.endsWith(":zalo")).length, zaloCalls, "Gmail recovery must not resend Zalo");
+    assert.equal(accepted.size, 2, "one stable remote event per channel");
     assert.deepEqual(await dispatchContactNotifications(), { claimed: 0, forwarded: 0 });
   } finally {
     release?.();

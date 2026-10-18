@@ -13,16 +13,16 @@ not a sandbox. The noindex stage2 Worker uses separate branch
 **`lgc-bot-test` (`br-wispy-morning-b33h15x4`)** for form/bot tests. It was forked
 from production after the reset. Neon Auth and media remain shared with production.
 
-`legrandecentre.vn` currently resolves to Vercel. This repository's Cloudflare
-deploy command targets only the stage2 Worker; the Vercel project and its runtime
-database configuration are not linked/verified here.
+Owner confirms this project is **not deployed on Vercel**. The current release
+target is the existing noindex Cloudflare stage2 Worker; do not infer deployment
+from domain responses or HTTP headers.
+See the [deployment runbook](../docs/deployment.md).
 
-Production and `lgc-bot-test` both have baseline+migrations **001–012**.
-Parent verified that the production Neon endpoint matches the canonical local
-`DATABASE_URL_UNPOOLED`, then applied only reviewed 011+012 SQL and migration
-checksums transactionally with the normal advisory lock; no seed/backfill/reset.
-The same migrations were applied to the verified stage2 test branch.
-This does not establish which DB the currently deployed Vercel app uses.
+Production and `lgc-bot-test` both have baseline+migrations **001–013**.
+Verified endpoints received reviewed011–013 SQL and checksum records without
+seed/backfill/reset. Migration013 preserves existing Zalo jobs and changes
+source identity to `(intake_id,channel)` for independent new Zalo/Gmail jobs.
+Migration confirmation is not evidence that the latest application source has been released to the Worker.
 
 `011-metadata-only-leases.sql` replaces the mandatory contract-document
 predicate with recorded lease metadata, retaining inventory/period/exclusivity
@@ -68,15 +68,14 @@ production-backed sign-in also reached the workspace, read six floors/81 slots,
 survived reload and ended in API 401 after logout. Those earlier observations do
 not verify mail delivery/recovery or the current private-media Worker path.
 
-The noindex Worker is
-`https://le-grande-centre-stage2.nguyenbang-skyone.workers.dev`; it uses isolated
-`lgc-bot-test`. Neon Auth and media remain production services. The live custom
-domain is still served by Vercel; no Vercel deployment from this repository has
-been made. The Cloudflare `npm run deploy` command updates stage2 only. Private
-cache R2 `le-grande-centre-stage2-next-cache` and D1
-`le-grande-centre-stage2-next-tags` retain the hosting suffix. Private PDFs remain
-in `mall-documents`. Verified cache invalidation and remaining Worker CPU-limit
-failures are in [readiness](../docs/backend-readiness.md).
+The noindex Worker is `https://le-grande-centre-stage2.nguyenbang-skyone.workers.dev`; it uses
+isolated `lgc-bot-test`. Neon Auth and media are production services. Owner confirms
+there is no Vercel deployment. `npm run deploy` targets stage2; record its
+release/version and runtime DB in the [deployment runbook](../docs/deployment.md).
+Private cache R2 `le-grande-centre-stage2-next-cache` and D1
+`le-grande-centre-stage2-next-tags` keep the stage2 suffix. Private PDFs stay in
+`mall-documents`. See [readiness](../docs/backend-readiness.md) for cache and
+Worker CPU-limit evidence.
 
 ## Operator configuration and migration
 
@@ -153,12 +152,13 @@ not registered. Existing metadata that differs from verified bytes/hash is rejec
   lives in a separate Neon DB. Render never receives website DB credentials.
   `public:intake` can enqueue; only `system:notification-dispatch` reads/updates
   source rows through RLS. Existing receipts are not backfilled.
-- Dispatcher claims up to five rows with 180-second leases/`SKIP LOCKED`, closes
-  transactions before network, and retries the generated stable
-  `contact:<intake-id>:zalo` key after failures/lost ACK. Only valid HTTP200/202
-  `queued`/`sending`/`sent` receipts set `forwarded_at`/`remote_id` and clear payload.
-  Source delay grows 30 seconds–1 hour. Forwarded means Render durably accepted,
-  not all recipients delivered; provider ACK/crash retries are at-least-once.
+- Dispatcher claims up to5 channel jobs with180second leases/`SKIP LOCKED`,
+  closes transactions before network, tries up to3 times/batch (40seconds each)
+  with stable `contact:<intake-id>:<channel>` key/payload. Only a matching-channel
+  valid200/202 receipt clears that source job. All3 failures retain it with
+  persistent30second–1hour delay for later cron. Gmail failure/recovery must not
+  block or resend successful Zalo, and vice versa. Forwarded means Render accepted
+  responsibility, not final recipient delivery; provider ACK/crash is at-least-once.
 
 ## Owned disposable local PostgreSQL regression
 
@@ -188,5 +188,6 @@ Latest parent-observed owned local PostgreSQL regression: **5 passed**; website
 admin suite **51 passed / 2 skipped**, typecheck and Next/OpenNext builds passed.
 These checks used controlled fixtures/owned DBs, not live production delivery;
 this documentation update ran no checks. Historical checks and Worker media limits
-remain in [readiness](../docs/backend-readiness.md). Vercel runtime DB/deployment
-and production contact-to-group acceptance remain separate launch gates.
+remain in [readiness](../docs/backend-readiness.md).
+Current Worker release evidence and production contact-to-group acceptance remain
+separate launch gates.

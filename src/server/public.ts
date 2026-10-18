@@ -59,7 +59,7 @@ export async function submitContact(input:ContactSubmission,options:{idempotency
   const createdLead=await client.query("INSERT INTO leasing.leads(id,property_id,name,interest,floor_number,source,status,note,email,phone) VALUES($1,$2,$3,$4,$5,'Form website','Mới',$6,$7,$8) RETURNING reference_code",[lead,p,fields.name,interest,floor,fields.note,fields.email,fields.phone]);
   const referenceCode=createdLead.rows[0].reference_code as string;
   await client.query('INSERT INTO leasing.contact_intake(id,property_id,idempotency_key,request_sha256,ip_hash,lead_id,intent,company_name,business,area_preference,timing,space_code,scope,visit_date,visit_time) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',[id,p,options.idempotencyKey,hash,options.ipHash,lead,fields.intent,fields.company,fields.business,fields.area,fields.timing,fields.unitId??fields.space,fields.scope??null,fields.visitDate??null,fields.visitTime??null]);
-  await client.query('INSERT INTO leasing.contact_notification_outbox(intake_id,payload) VALUES($1,$2)',[id,contactNotificationText({...fields,referenceCode})]);
+  await client.query("INSERT INTO leasing.contact_notification_outbox(intake_id,channel,payload,subject) VALUES($1,'zalo',$2,NULL),($1,'gmail',$2,$3)",[id,contactNotificationText({...fields,referenceCode}),`Le Grande Centre — Lead ${referenceCode}`]);
   await client.query('UPDATE leasing.properties SET workspace_revision=workspace_revision+1 WHERE id=$1',[p]);
   await client.query("INSERT INTO leasing.audit_events(property_id,system_actor,action_code,entity_type,entity_id) VALUES($1,'public:intake','contact.submit','lead',$2)",[p,lead]);
   // A visit request is a lead/intake record, not a booked appointment or a fabricated company.

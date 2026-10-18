@@ -1,7 +1,7 @@
 import { authorizeNotificationDispatch, dispatchContactNotifications } from "@/server/contact-notifications";
 
 export const dynamic = "force-dynamic";
-// Allow the server-side cold-start wait on Vercel; public intake never waits here.
+// Bound server-side retries independently from public intake, which never waits here.
 export const maxDuration = 180;
 
 export async function POST(request: Request): Promise<Response> {
