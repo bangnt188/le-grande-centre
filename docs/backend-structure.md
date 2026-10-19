@@ -71,7 +71,7 @@ Transfer means schema+migrations, relational records, object keys/catalog and ve
 
 ## Runtime limits and checks
 
-Next `output: standalone` supports Node SSR; OpenNext packages the existing Worker. Earlier native Worker → Neon S3/Functions probes returned 403 HTML while Node worked; no all-Worker media readiness claim. Wrangler currently labels `NEON_BRANCH=lgc-bot-test`, but runtime `DATABASE_URL` is a separate secret and its deployed value is unverified. Custom-domain/DNS remain explicitly deferred and the Worker remains noindex. Cache invalidation/performance are tracked separately in readiness, not claimed complete.
+Next `output: standalone` supports Node SSR; OpenNext packages the existing Worker. Earlier native Worker → Neon S3/Functions probes returned 403 HTML while Node worked; no all-Worker media readiness claim. The noindex stage2 Worker runtime `DATABASE_URL` currently targets Neon `production`; the misleading `NEON_BRANCH` label was removed from Wrangler. Custom-domain/DNS remain explicitly deferred. Cache invalidation/performance are tracked separately in readiness, not claimed complete.
 
 Canonical operator commands are `npm run dev`, `npm start`, `npm run db:migrate`, `npm run auth:set-password` (load `.env.local`) and `npm run deploy` (build/deploy the existing Worker with separately supplied runtime secrets); no multi-profile setup or deploy aliases.
 

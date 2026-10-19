@@ -4,7 +4,7 @@
 
 Owner explicitly confirms this project is **not deployed on Vercel**. Do not request Vercel login/deploy or infer repository deployment from HTTP headers. This rollout targets the existing Cloudflare Worker `https://le-grande-centre-stage2.nguyenbang-skyone.workers.dev` plus the Render notification service. Deploy does not change DNS/custom-domain routing.
 
-Canonical local `.env.local` uses verified Neon `production` (`br-tiny-butterfly-b3uuw92p`); Wrangler labels Worker `NEON_BRANCH=lgc-bot-test` (`br-wispy-morning-b33h15x4`), while deployed runtime `DATABASE_URL` must be verified separately. The last recorded checks found migrations011–013 on both branches, preserving existing business records and no historical notification backfill. Auth/media remain separate runtime targets. Build/deploy never runs migrations or seeds DB.
+Canonical local `.env.local` and stage2 Worker runtime `DATABASE_URL` use Neon `production` (`br-tiny-butterfly-b3uuw92p`). The former test branch `lgc-bot-test` was removed on 19/10/2026 after moving the Worker to production. Production has migrations 001–015 and the approved plan seed. Auth/media remain separate runtime targets. Build/deploy never runs migrations or seeds DB; no historical notification backfill was performed.
 
 ## Business commit and two independent channels
 

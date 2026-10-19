@@ -9,14 +9,13 @@ Runtime composition lives in `src/server/{database,workspace,public,public-data}
 ## Current state — 19/10/2026
 
 Neon branch **`production` (`br-tiny-butterfly-b3uuw92p`)** is the production
-database and local `.env.local` target. Local writes are real production writes,
-not a sandbox. `wrangler.jsonc` labels the noindex stage2 Worker with
-`NEON_BRANCH=lgc-bot-test` (`br-wispy-morning-b33h15x4`), but application code
-connects through the runtime secret `DATABASE_URL`; the label does not prove which
-branch a deployed Worker uses. Verify the deployed binding before writes. Wrangler
-does bind the shared bucket names `mall-documents` and `mall-assets`; Neon Auth
-and media-function runtime targets are separate configuration and are not proven
-by the branch label.
+database and local `.env.local` target. Local and stage2 Worker writes are real
+production writes, not sandbox writes. On 19/10/2026, the owner confirmed this is
+the intended Worker database; the `DATABASE_URL` secret was set from the verified
+local production connection. The obsolete `lgc-bot-test` branch was removed after
+the Worker was moved. Wrangler binds the shared bucket names `mall-documents` and
+`mall-assets`; Neon Auth and media-function runtime targets are separate and are
+not proven by the database connection.
 
 Owner confirms this project is **not deployed on Vercel**. The current release
 target is the existing noindex Cloudflare stage2 Worker; do not infer deployment
@@ -32,10 +31,12 @@ parse returned 6 floors, 81 slots and 22 shared plan features. No customer or
 lease transactions were seeded. Migration confirmation is not evidence that the
 latest application source has been released to the Worker.
 
-The Cloudflare Worker still has a separately managed runtime `DATABASE_URL`.
-Its deployed branch was not inspected in this migration; the last recorded
-stage2 schema state is 001–013 and has not been rechecked. Do not infer it from
-the `NEON_BRANCH` Wrangler label.
+The Cloudflare Worker has a separately managed runtime `DATABASE_URL`. On
+19/10/2026 it was updated from the verified local production connection, which
+had already been checked with `current_setting('neon.branch_id')`. The public
+projection was then verified against the Worker after release. The Worker does
+not expose its connection string or branch identifier; the deployment record
+documents the secret source without printing the credential.
 
 Migration **014** was applied to the verified local production branch. It appends provisional
 architectural-reference versions for the 22 floor 1/2 slots, retaining their
@@ -96,10 +97,10 @@ survived reload and ended in API 401 after logout. Those earlier observations do
 not verify mail delivery/recovery or the current private-media Worker path.
 
 The noindex Worker target is `https://le-grande-centre-stage2.nguyenbang-skyone.workers.dev`.
-Wrangler labels it `lgc-bot-test`, while its deployed `DATABASE_URL` must be
-verified independently. Owner confirms there is no Vercel deployment.
-`npm run deploy` targets stage2; record its
-release/version and runtime DB in the [deployment runbook](../docs/deployment.md).
+Its runtime `DATABASE_URL` targets `production`; Wrangler no longer carries a
+branch-name label. Owner confirms there is no Vercel deployment. `npm run deploy`
+targets stage2; record its release/version and runtime DB in the
+[deployment runbook](../docs/deployment.md).
 Private cache R2 `le-grande-centre-stage2-next-cache` and D1
 `le-grande-centre-stage2-next-tags` keep the stage2 suffix. Private PDFs stay in
 `mall-documents`. See [readiness](../docs/backend-readiness.md) for cache and

@@ -4,7 +4,7 @@
 
 Mall dùng Neon PostgreSQL thật qua `@neondatabase/serverless`. Admin/write dùng Pool: `src/server/database.ts` tạo pool theo request, pin client trong transaction, `SET LOCAL ROLE leasing_runtime` và actor context; không giữ socket xuyên Worker requests. Public uncached reader trong `src/server/public-data.ts` dùng một HTTP transaction bốn statement và projection riêng, cùng role/actor/property share lock; không thay transport của interactive writes. Public render cache không phải nguồn dữ liệu cho authorization/intake. Workspace giữ property lock, revision CAS, idempotency receipts, audit và RLS; `AdminSnapshot` là DTO đọc, không phải persistence format.
 
-`database/schema.sql` là baseline. Snapshot ngay sau reset owner duyệt ngày 15/10/2026 có migrations 001–009 trên `production` (`br-tiny-butterfly-b3uuw92p`); đây là trạng thái lịch sử, không phải schema hiện tại. Lần xác minh live gần nhất ghi nhận `production` và `lgc-bot-test` đến migration 013. Checkout hiện có migration 014/015; migration 015 cần cho truy vấn floor-plan hiện tại, nhưng chưa có xác minh live cho chúng. Local `.env.local` trỏ production; Wrangler chỉ khai báo nhãn `NEON_BRANCH=lgc-bot-test`, còn Worker dùng runtime secret `DATABASE_URL`. Catalog/root/logo/reset evidence và private backup xem [database guide](../database/README.md). Migration operator-only qua `npm run db:migrate` nạp `.env.local`, direct `DATABASE_URL_UNPOOLED`, không bước build/deploy. Regression DB dùng owned disposable local PostgreSQL, không tạo Neon branch.
+`database/schema.sql` là baseline. Snapshot ngay sau reset owner duyệt ngày 15/10/2026 có migrations 001–009 trên `production` (`br-tiny-butterfly-b3uuw92p`); đây là trạng thái lịch sử, không phải schema hiện tại. Ngày 19/10/2026, production có migrations 001–015 và seed floor-plan; Worker runtime `DATABASE_URL` được đồng bộ với local production connection. Branch stage2 `lgc-bot-test` đã xóa sau cutover. Catalog/root/logo/reset evidence và private backup xem [database guide](../database/README.md). Migration operator-only qua `npm run db:migrate` nạp `.env.local`, direct `DATABASE_URL_UNPOOLED`, không bước build/deploy. Regression DB dùng owned disposable local PostgreSQL, không tạo Neon branch.
 
 ## Đổi provider
 
@@ -24,7 +24,7 @@ Provider credentials và API quản trị không phải browser SQL credential. 
 
 ## Giới hạn đã biết
 
-Các probe trước đây ghi nhận native Cloudflare Worker → Neon S3/Functions 403 HTML trước provider, Node requests được; đây không phải lỗi SQL portability đã được giải quyết. Local real-cloud runtime không chứng minh all-Worker media ready. Runtime DB branch và Auth/function targets của Worker chưa được xác minh bằng secret/deployment evidence trong lần cập nhật này; không suy chúng từ tên stage2 hoặc `NEON_BRANCH`. Custom-domain/DNS vẫn do người dùng hoãn. [Readiness](backend-readiness.md) tách bằng chứng lịch sử, trạng thái sau reset và cache/performance đang chẩn đoán; không có live cloud verification mới trong lần chỉnh docs này.
+Các probe trước đây ghi nhận native Cloudflare Worker → Neon S3/Functions 403 HTML trước provider, Node requests được; đây không phải lỗi SQL portability đã được giải quyết. Local real-cloud runtime không chứng minh all-Worker media ready. Runtime DB của Worker hiện dùng Neon `production`; Auth/function targets vẫn là runtime secrets riêng và chưa được kiểm chứng cùng release này. Custom-domain/DNS vẫn do người dùng hoãn. [Readiness](backend-readiness.md) tách bằng chứng lịch sử và cache/performance đang chẩn đoán.
 
 ## Nguồn chính thức
 

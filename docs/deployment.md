@@ -1,6 +1,6 @@
 # Deployment architecture and runbook
 
-Cập nhật theo xác nhận owner và source checkout ngày **18/10/2026**. Đây là nguồn chuẩn cho target triển khai hiện tại của repository.
+Cập nhật theo xác nhận owner và source checkout ngày **19/10/2026**. Đây là nguồn chuẩn cho target triển khai hiện tại của repository.
 
 ## Quyết định kiến trúc
 
@@ -9,11 +9,11 @@ Owner xác nhận source của dự án này **không được triển khai trê
 | Thành phần | Target hiện tại | Cấu hình và ranh giới |
 | --- | --- | --- |
 | Website SSR/API | Cloudflare Worker `le-grande-centre-stage2` | `wrangler.jsonc`; URL `https://le-grande-centre-stage2.nguyenbang-skyone.workers.dev`; giữ `SEO_INDEXABLE=false` |
-| Website database | `wrangler.jsonc` khai báo `NEON_BRANCH=lgc-bot-test`; Worker đọc runtime secret `DATABASE_URL` | Giá trị `NEON_BRANCH` chỉ là nhãn cấu hình; checkout không xác minh secret hoặc nhánh DB mà deployment đang dùng |
+| Website database | Worker đọc runtime secret `DATABASE_URL`, hiện trỏ Neon `production` (`br-tiny-butterfly-b3uuw92p`) | Secret được cấp từ `.env.local` đã xác minh branch ID; không lưu credential trong source hoặc log |
 | Auth và media | Wrangler bind R2 `mall-documents` và `mall-assets`; Auth/function endpoint lấy từ runtime config/secrets | Các binding R2 có tên bucket dùng chung; target Neon Auth/function hiện tại cần kiểm tra ở deployment, không suy ra từ nhãn stage2 |
 | Notification relay | Render bot service | DB/queue riêng; Worker gửi source outbox tới Render. Không có external/Vercel cron target |
 
-`src/server/database.ts` dùng `DATABASE_URL`; mã nguồn không dùng `NEON_BRANCH` để chọn DB. Vì vậy, xác nhận target trước mọi thao tác ghi bằng cấu hình runtime đã triển khai và bằng chứng nhánh từ kết nối ứng dụng; không in connection string hoặc secret vào log.
+`src/server/database.ts` dùng `DATABASE_URL`; mã nguồn không dùng `NEON_BRANCH` để chọn DB, nên biến nhãn đó đã được gỡ khỏi Wrangler. Ngày 19/10/2026, owner xác nhận Worker phải dùng `production`; runtime secret được cập nhật từ local connection đã xác minh branch ID. Không in connection string hoặc secret vào log.
 
 ## Lệnh triển khai
 
@@ -31,7 +31,7 @@ npm run build:cloudflare && opennextjs-cloudflare deploy
 
 `PUBLIC_BUILD_ORIGIN` mặc định gọi public API của Worker stage2. `scripts/public-build-env.mjs` chỉ giữ public projection đã validate và đưa snapshot đó vào prerender; không lấy DB credentials làm dữ liệu build. Với target Worker stage2, kiểm tra endpoint và nội dung stage2 trước build. Nếu kiến trúc có thêm Worker production trong tương lai, phải quyết định riêng public projection origin và runtime DB trước khi sửa cấu hình; không đổi target bằng suy luận từ hostname.
 
-Local `.env.local` dùng Neon `production` và lệnh migration nạp trực tiếp file đó. Ngày 19/10/2026, `DATABASE_URL` và `DATABASE_URL_UNPOOLED` được xác nhận cùng vào branch production; migration 014/015 và seed plan đã chạy thành công ở đó. Code hiện truy vấn các cột plan-version và `leasing.plan_features` do 015 tạo. Branch của secret `DATABASE_URL` trên Worker chưa được xác minh và chưa migrate trong lần này; kiểm tra đúng branch rồi áp migration/seed đã duyệt trước khi phát hành source. Build/deploy không áp migrations.
+Local `.env.local` dùng Neon `production` và lệnh migration nạp trực tiếp file đó. Ngày 19/10/2026, `DATABASE_URL` và `DATABASE_URL_UNPOOLED` đã được xác nhận cùng vào branch production; migration 014/015 và seed plan đã chạy thành công ở đó. Trước khi phát hành, Worker `DATABASE_URL` được đồng bộ với local production target để source có schema mà floor-plan projection cần. Build/deploy không áp migrations.
 
 Secrets DB/Auth/media/API được cấp ở đúng runtime secret store, không đặt trong `NEXT_PUBLIC_*`, source, log hoặc build artifact. `.env.local` là operator config cho production: không ghi đè bằng biến tải từ host khác và không dùng để tạo dữ liệu thử. `stage2` không tự chứng minh mức cô lập của database/Auth/storage; xác minh từng binding và secret target trước khi chạy thao tác có side effect.
 
@@ -42,8 +42,8 @@ Cloudflare scheduled wrapper chạy mỗi phút qua OpenNext self-binding, dispa
 ## Trình tự phát hành và bằng chứng
 
 1. Kiểm tra `git status`, branch/commit và các gitlink private `packages/ui`, `packages/backend`; chỉ phát hành source đã được chọn rõ ràng.
-2. Xác nhận target Worker cùng `wrangler.jsonc`, đặc biệt runtime `DATABASE_URL` và Auth/function secrets, noindex, buckets, D1/DO bindings và scheduled trigger. `NEON_BRANCH` không thay cho xác minh DB secret. Không chỉnh bindings theo phỏng đoán.
-3. Kiểm tra public build origin và public projection. Production đã có migration 014/015; xác minh riêng branch của Worker runtime secret và áp migration/seed nếu còn thiếu. Không chạy migration từ build hoặc deploy.
+2. Xác nhận target Worker cùng `wrangler.jsonc`, đặc biệt runtime `DATABASE_URL` và Auth/function secrets, noindex, buckets, D1/DO bindings và scheduled trigger. Không chỉnh bindings theo phỏng đoán.
+3. Kiểm tra public build origin và public projection. Production đã có migration 014/015; nếu runtime target đổi, xác minh branch trước khi phát hành. Không chạy migration từ build hoặc deploy.
 4. Chạy `npm run deploy` khi đã chủ định cập nhật Worker stage2. Nếu chỉ cần build, dùng `npm run build:cloudflare`.
 5. Trong Cloudflare deployment details, đối chiếu source/version và trạng thái `Ready`; sau đó kiểm tra homepage, public API và route smoke phù hợp trên Worker URL. Ghi DB branch và side effects đã kiểm tra. Không dùng HTTP `Server` header của một hostname khác làm release proof.
 
