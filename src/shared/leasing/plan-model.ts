@@ -80,8 +80,17 @@ export function parsePlanGeometry(value: unknown, canvasWidth: number, canvasHei
   if (row.points !== undefined) {
     if (!Array.isArray(row.points) || row.points.length < 3 || row.points.length > 64) throw new Error("Invalid floor plan polygon.");
     points = row.points.map(point => {
-      if (!Array.isArray(point) || point.length !== 2) throw new Error("Invalid floor plan polygon point.");
-      return { x: number(point[0], 0, width), y: number(point[1], 0, height) };
+      let pointX: unknown, pointY: unknown;
+      if (Array.isArray(point) && point.length === 2) {
+        [pointX, pointY] = point;
+      } else if (point && typeof point === "object" && !Array.isArray(point)) {
+        const coordinates = point as Record<string, unknown>;
+        pointX = coordinates.x;
+        pointY = coordinates.y;
+      } else {
+        throw new Error("Invalid floor plan polygon point.");
+      }
+      return { x: number(pointX, 0, width), y: number(pointY, 0, height) };
     });
   }
 
