@@ -147,7 +147,7 @@ test("malformed screen and collection DTOs fail closed instead of inventing load
 
 test("a brochure slot with unspecified width still renders, but negative dimensions fail", () => {
   const slot = { id: "slot-f2", floor: 6, code: "F.2", order: 2, side: null, area: 1020, width: 0, tenant: "", status: "Còn trống" };
-  const response = { revision: 5, slots: [slot], groups: [], companies: [], requests: [], reservations: [], leases: [] };
+  const response = { revision: 5, floorPlans: [], slots: [slot], groups: [], companies: [], requests: [], reservations: [], leases: [] };
   assert.equal(parseScreenResponse("slot", response).slots[0].width, 0);
   assert.throws(() => parseScreenResponse("slot", { ...response, slots: [{ ...slot, width: -1 }] }), AdminSessionError);
 });

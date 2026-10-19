@@ -6,8 +6,19 @@ import { publicBuildEnv } from "../scripts/public-build-env.mjs";
 
 const projection = () => ({
   website: { ...DEFAULT_WEBSITE_SETTINGS }, logoUrl: null,
-  floors: [{ number: 1, publicTitle: "Tầng 1", publicDescription: "Nội dung công khai" }],
-  units: [{ id: "6bd43851-f9b6-4c37-8448-92c78df62a4d", code: "A.1", floor: 1, area: 100, status: "Còn trống" }],
+  floors: [{
+    number: 1, publicTitle: "Tầng 1", publicDescription: "Nội dung công khai",
+    plan: {
+      floor: 1, versionId: "plan-v1", coordinateSystem: "diagram-reference",
+      canvasWidth: 100, canvasHeight: 100, sourceDocument: null, sourcePage: null,
+      sourceSheet: null, orientation: null, features: [], slots: [],
+    },
+  }],
+  units: [{
+    id: "6bd43851-f9b6-4c37-8448-92c78df62a4d", code: "A.1", floor: 1, area: 100,
+    status: "Còn trống", geometry: { x: 0, y: 0, width: 10, height: 10 },
+    types: [], orientation: "", dimensions: null, note: "",
+  }],
 });
 
 test("public prerender data cannot carry private API fields into pages", () => {
