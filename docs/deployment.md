@@ -23,7 +23,7 @@ Trong `package.json`, `npm run deploy` chạy:
 npm run build:cloudflare && opennextjs-cloudflare deploy
 ```
 
-Đây là lệnh deploy Worker theo `wrangler.jsonc`; không phải lệnh build/deploy Vercel. Repo hiện có một Wrangler config, không có alias theo môi trường. Lệnh này không đổi DNS/custom domain, không deploy Render bot và không chạy migration database.
+Đây là lệnh deploy Worker theo `wrangler.jsonc`; không phải lệnh build/deploy Vercel. Repo hiện có một Wrangler config, không có alias theo môi trường. Lệnh này không đổi DNS/custom domain, không deploy Render bot, và không chạy migration Neon/business data. OpenNext có thể khởi tạo hoặc cập nhật schema D1 tag-cache do adapter quản lý theo cách idempotent, đồng thời nạp lại incremental cache lên R2.
 
 `npm run build:cloudflare` chỉ tạo OpenNext artifact, không phát hành Worker. `.github/workflows/backend-ci.yml` lấy private submodules để chạy CI/build; workflow đó không tự deploy. Sau mỗi release, ghi nhận source commit, Worker version/deployment ID, URL, DB branch đã xác minh và kết quả route smoke. Build thành công không chứng minh Worker runtime, DB, R2 hay quota production hoạt động.
 
@@ -53,7 +53,10 @@ Cloudflare scheduled wrapper chạy mỗi phút qua OpenNext self-binding, dispa
 - `npm run build:cloudflare` hoàn tất TypeScript, Next prerender và OpenNext build. Public projection lúc build có 6 tầng/81 căn, không chứa dữ liệu riêng tư. Artifact scan kiểm tra 1.759 file với 11 giá trị credential; không tìm thấy credential trong artifact. Neon S3 endpoint là public media origin được khai báo trong source, không chứa URL credentials.
 - Worker secret `DATABASE_URL` được cập nhật từ local Neon connection đã xác minh bằng `current_setting('neon.branch_id')` là `br-tiny-butterfly-b3uuw92p` (`production`). Sau khi Worker chuyển nhánh, branch test `lgc-bot-test` đã được xóa theo yêu cầu owner.
 - Worker smoke: `/`, `/mat-bang/`, `/tong-quan/`, `/tong-quan-tang/`, `/lien-he/`, `/robots.txt`, `/sitemap.xml`, `/api/public/website/` đều trả HTTP 200. API trả 6 tầng/81 căn; homepage trả đúng bốn feature icons với bốn SVG path khác nhau. 17/17 JS/CSS asset được tham chiếu trả HTTP 200; meta `noindex, nofollow` còn hiệu lực.
-- Wrangler in cảnh báo lúc deploy về Durable Object class binding; artifact OpenNext có export `DOQueueHandler`, nhưng route smoke này không kiểm tra queue/cache invalidation. Release không đổi DNS/domain, không chạy migration, và không deploy Render bot.
+- Lần deploy 08:14 UTC in cảnh báo Durable Object class binding; follow-up bên dưới xác định cảnh báo phát ra từ Wrangler local proxy trong bước chuẩn bị của OpenNext, không phải từ upload Worker.
+- Follow-up deploy cùng source commit `a0fdc645a667944431a9fddf366e17d15d7356d6` lúc 08:30 UTC tạo Worker version `8250f151-894a-4ab7-b973-6fc261c73222` và nhận 100% traffic. OpenNext nạp lại 12 cache objects vào R2 và chạy bước D1 tag-cache `CREATE TABLE IF NOT EXISTS`/compatibility `ALTER TABLE`; schema sau deploy có đủ `stale` và `expire`. `/`, `/mat-bang/`, `/tong-quan/`, `/api/public/website/` đều trả HTTP 200 sau deploy.
+- Cảnh báo DO xuất hiện trong bước OpenNext gọi Wrangler `getPlatformProxy()` để lấy biến môi trường cục bộ, trước khi populate R2; Wrangler ghi rõ internal DO chỉ không hoạt động trong local development và sẽ hoạt động ở production. Bundle cuối cùng export `DOQueueHandler`, Wrangler upload thành công, báo Worker Startup Time 20 ms và liệt kê binding này. Không có thay đổi code/config để che cảnh báo.
+- Local TTL smoke trả HTTP 200 nhưng local D1 emulator chưa có bảng `revalidations`, nên không xác nhận được tag-cache/revalidation end-to-end. Truy vấn schema chỉ đọc trên D1 production xác nhận bảng `revalidations` tồn tại; chưa ép revalidation production để kiểm tra hàng đợi.
 
 ## Chẩn đoán
 
