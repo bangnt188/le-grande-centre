@@ -31,9 +31,36 @@ const PUBLIC_PROJECTION_SQL = `
       SELECT jsonb_agg(jsonb_build_object(
         'number', f.floor_number,
         'publicTitle', f.public_title,
-        'publicDescription', f.public_description
+        'publicDescription', f.public_description,
+        'plan', jsonb_build_object(
+          'floor', f.floor_number,
+          'versionId', pv.id,
+          'coordinateSystem', pv.coordinate_system,
+          'canvasWidth', pv.canvas_width::float8,
+          'canvasHeight', pv.canvas_height::float8,
+          'sourceDocument', CASE WHEN pv.coordinate_system LIKE 'architectural%' THEN NULL ELSE pv.source_document END,
+          'sourcePage', CASE WHEN pv.coordinate_system LIKE 'architectural%' THEN NULL ELSE pv.source_page END,
+          'sourceSheet', NULL,
+          'orientation', pv.orientation_facts,
+          'features', coalesce((
+            SELECT jsonb_agg(jsonb_build_object(
+              'code', pf.feature_code,
+              'kind', pf.feature_kind,
+              'label', pf.label,
+              'geometry', pf.geometry
+            ) ORDER BY pf.display_order, pf.feature_code)
+            FROM leasing.plan_features pf
+            WHERE pf.plan_version_id = pv.id AND pf.property_id = p.id AND pf.floor_id = f.id
+          ), '[]'::jsonb),
+          'slots', '[]'::jsonb
+        )
       ) ORDER BY f.floor_number)
       FROM leasing.floors f
+      JOIN LATERAL (
+        SELECT * FROM leasing.plan_versions
+        WHERE property_id = p.id AND floor_id = f.id AND public_state IN ('reference','published')
+        ORDER BY version_number DESC LIMIT 1
+      ) pv ON true
       WHERE f.property_id = p.id
     ), '[]'::jsonb) AS floors,
     coalesce((
@@ -42,18 +69,29 @@ const PUBLIC_PROJECTION_SQL = `
         'code', s.code,
         'floor', f.floor_number,
         'area', m.area_m2::float8,
+        'geometry', v.geometry,
+        'types', to_jsonb(v.public_types),
+        'orientation', coalesce(v.orientation_description, ''),
+        'dimensions', CASE WHEN jsonb_typeof(v.technical_spec->'dimensions')='object' THEN v.technical_spec->'dimensions' ELSE NULL END,
+        'note', v.public_note,
         'status', CASE
           WHEN l.id IS NOT NULL THEN 'Đã thuê'
-          WHEN s.operational_status = 'Đang thuê' THEN 'Đã thuê'
-          WHEN s.operational_status = 'Trống' THEN 'Còn trống'
-          ELSE s.operational_status
+          WHEN s.operational_status IN ('Đang thuê','Đã thuê') THEN 'Đã thuê'
+          WHEN s.operational_status IN ('Trống','Còn trống') THEN 'Còn trống'
+          ELSE 'Liên hệ'
         END
       ) ORDER BY f.floor_number, s.display_order)
       FROM leasing.slots s
       JOIN leasing.floors f ON f.id = s.floor_id AND f.property_id = p.id
       JOIN LATERAL (
-        SELECT id FROM leasing.slot_versions
-        WHERE slot_id = s.id AND property_id = p.id
+        SELECT id FROM leasing.plan_versions
+        WHERE property_id = p.id AND floor_id = f.id AND public_state IN ('reference','published')
+        ORDER BY version_number DESC LIMIT 1
+      ) pv ON true
+      JOIN LATERAL (
+        SELECT id, plan_version_id, geometry, public_types, orientation_description, technical_spec, public_note
+        FROM leasing.slot_versions
+        WHERE slot_id = s.id AND property_id = p.id AND plan_version_id = pv.id
         ORDER BY version_number DESC LIMIT 1
       ) v ON true
       JOIN leasing.slot_measurements m

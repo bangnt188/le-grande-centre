@@ -1,0 +1,1204 @@
+{
+  "floors": [
+    {
+      "floor": 1,
+      "coordinateSystem": "architectural-drawing-reference-not-surveyed",
+      "canvasWidth": 1000,
+      "canvasHeight": 250,
+      "sourceDocument": "13-KIEN-TRUC-MB-MD-MC-2026.10.16.pdf",
+      "sourcePage": 2,
+      "sourceSheet": "KT 13A-01",
+      "features": [
+        {
+          "code": "shared-1",
+          "kind": "shared_area",
+          "label": "Sảnh giữa · Thang máy / thang bộ",
+          "geometry": {
+            "x": 420,
+            "y": 20,
+            "width": 80,
+            "height": 190
+          }
+        }
+      ],
+      "orientation": {
+        "front": "Nam",
+        "rear": "Bắc",
+        "lakeSide": "Tây",
+        "waterworksSide": "Đông",
+        "sourceUrl": "https://www.google.com/maps/place/Le+Grande+Centre/@9.6101864,105.9692089,17z/data=!3m1!4b1!4m6!3m5!1s0x31a04d86b7d9a867:0x58da1a5e9f7000e3!8m2!3d9.6101864!4d105.9717892!16s%2Fg%2F11nb37lyjk"
+      }
+    },
+    {
+      "floor": 2,
+      "coordinateSystem": "architectural-drawing-reference-not-surveyed",
+      "canvasWidth": 1000,
+      "canvasHeight": 250,
+      "sourceDocument": "13-KIEN-TRUC-MB-MD-MC-2026.10.16.pdf",
+      "sourcePage": 3,
+      "sourceSheet": "KT 13A-02",
+      "features": [
+        {
+          "code": "shared-1",
+          "kind": "shared_area",
+          "label": "Hành lang thoát hiểm sau nhà",
+          "geometry": {
+            "x": 0,
+            "y": 0,
+            "width": 1000,
+            "height": 20
+          }
+        },
+        {
+          "code": "shared-2",
+          "kind": "shared_area",
+          "label": "Sảnh giữa · Thang máy / thang bộ",
+          "geometry": {
+            "x": 420,
+            "y": 20,
+            "width": 80,
+            "height": 122
+          }
+        },
+        {
+          "code": "shared-3",
+          "kind": "shared_area",
+          "label": "Thông tầng",
+          "geometry": {
+            "x": 420,
+            "y": 142,
+            "width": 80,
+            "height": 68
+          }
+        }
+      ],
+      "orientation": {
+        "front": "Nam",
+        "rear": "Bắc",
+        "lakeSide": "Tây",
+        "waterworksSide": "Đông",
+        "sourceUrl": "https://www.google.com/maps/place/Le+Grande+Centre/@9.6101864,105.9692089,17z/data=!3m1!4b1!4m6!3m5!1s0x31a04d86b7d9a867:0x58da1a5e9f7000e3!8m2!3d9.6101864!4d105.9717892!16s%2Fg%2F11nb37lyjk"
+      }
+    },
+    {
+      "floor": 3,
+      "coordinateSystem": "approved-brochure-reference-not-surveyed",
+      "canvasWidth": 1000,
+      "canvasHeight": 250,
+      "sourceDocument": "le-grande-brochure.pdf",
+      "sourcePage": 7,
+      "sourceSheet": null,
+      "features": [
+        {
+          "code": "shared-1",
+          "kind": "shared_area",
+          "label": "Hành lang thoát hiểm sau nhà",
+          "geometry": {
+            "x": 0,
+            "y": 0,
+            "width": 1000,
+            "height": 20
+          }
+        },
+        {
+          "code": "shared-2",
+          "kind": "shared_area",
+          "label": "Sảnh giữa · Thang máy / thang bộ",
+          "geometry": {
+            "x": 420,
+            "y": 20,
+            "width": 80,
+            "height": 116
+          }
+        },
+        {
+          "code": "shared-3",
+          "kind": "shared_area",
+          "label": "Hành lang",
+          "geometry": {
+            "x": 0,
+            "y": 118,
+            "width": 1000,
+            "height": 18
+          }
+        },
+        {
+          "code": "shared-4",
+          "kind": "shared_area",
+          "label": "WC",
+          "geometry": {
+            "x": 0,
+            "y": 20,
+            "width": 45,
+            "height": 98
+          }
+        },
+        {
+          "code": "shared-5",
+          "kind": "shared_area",
+          "label": "WC",
+          "geometry": {
+            "x": 955,
+            "y": 20,
+            "width": 45,
+            "height": 98
+          }
+        }
+      ],
+      "orientation": {
+        "front": "Nam",
+        "rear": "Bắc",
+        "lakeSide": "Tây",
+        "waterworksSide": "Đông",
+        "sourceUrl": "https://www.google.com/maps/place/Le+Grande+Centre/@9.6101864,105.9692089,17z/data=!3m1!4b1!4m6!3m5!1s0x31a04d86b7d9a867:0x58da1a5e9f7000e3!8m2!3d9.6101864!4d105.9717892!16s%2Fg%2F11nb37lyjk"
+      }
+    },
+    {
+      "floor": 4,
+      "coordinateSystem": "approved-brochure-reference-not-surveyed",
+      "canvasWidth": 1000,
+      "canvasHeight": 250,
+      "sourceDocument": "le-grande-brochure.pdf",
+      "sourcePage": 8,
+      "sourceSheet": null,
+      "features": [
+        {
+          "code": "shared-1",
+          "kind": "shared_area",
+          "label": "Hành lang thoát hiểm sau nhà",
+          "geometry": {
+            "x": 0,
+            "y": 0,
+            "width": 1000,
+            "height": 20
+          }
+        },
+        {
+          "code": "shared-2",
+          "kind": "shared_area",
+          "label": "Sảnh giữa · Thang máy / thang bộ",
+          "geometry": {
+            "x": 420,
+            "y": 20,
+            "width": 80,
+            "height": 116
+          }
+        },
+        {
+          "code": "shared-3",
+          "kind": "shared_area",
+          "label": "Hành lang",
+          "geometry": {
+            "x": 0,
+            "y": 118,
+            "width": 1000,
+            "height": 18
+          }
+        },
+        {
+          "code": "shared-4",
+          "kind": "shared_area",
+          "label": "WC",
+          "geometry": {
+            "x": 0,
+            "y": 20,
+            "width": 45,
+            "height": 98
+          }
+        },
+        {
+          "code": "shared-5",
+          "kind": "shared_area",
+          "label": "WC",
+          "geometry": {
+            "x": 955,
+            "y": 20,
+            "width": 45,
+            "height": 98
+          }
+        }
+      ],
+      "orientation": {
+        "front": "Nam",
+        "rear": "Bắc",
+        "lakeSide": "Tây",
+        "waterworksSide": "Đông",
+        "sourceUrl": "https://www.google.com/maps/place/Le+Grande+Centre/@9.6101864,105.9692089,17z/data=!3m1!4b1!4m6!3m5!1s0x31a04d86b7d9a867:0x58da1a5e9f7000e3!8m2!3d9.6101864!4d105.9717892!16s%2Fg%2F11nb37lyjk"
+      }
+    },
+    {
+      "floor": 5,
+      "coordinateSystem": "approved-brochure-reference-not-surveyed",
+      "canvasWidth": 1000,
+      "canvasHeight": 250,
+      "sourceDocument": "le-grande-brochure.pdf",
+      "sourcePage": 9,
+      "sourceSheet": null,
+      "features": [
+        {
+          "code": "shared-1",
+          "kind": "shared_area",
+          "label": "Hành lang thoát hiểm sau nhà",
+          "geometry": {
+            "x": 0,
+            "y": 0,
+            "width": 1000,
+            "height": 20
+          }
+        },
+        {
+          "code": "shared-2",
+          "kind": "shared_area",
+          "label": "Sảnh giữa · Thang máy / thang bộ",
+          "geometry": {
+            "x": 420,
+            "y": 20,
+            "width": 80,
+            "height": 116
+          }
+        },
+        {
+          "code": "shared-3",
+          "kind": "shared_area",
+          "label": "Hành lang",
+          "geometry": {
+            "x": 0,
+            "y": 118,
+            "width": 500,
+            "height": 18
+          }
+        },
+        {
+          "code": "shared-4",
+          "kind": "shared_area",
+          "label": "WC công cộng",
+          "geometry": {
+            "x": 340,
+            "y": 20,
+            "width": 80,
+            "height": 98
+          }
+        }
+      ],
+      "orientation": {
+        "front": "Nam",
+        "rear": "Bắc",
+        "lakeSide": "Tây",
+        "waterworksSide": "Đông",
+        "sourceUrl": "https://www.google.com/maps/place/Le+Grande+Centre/@9.6101864,105.9692089,17z/data=!3m1!4b1!4m6!3m5!1s0x31a04d86b7d9a867:0x58da1a5e9f7000e3!8m2!3d9.6101864!4d105.9717892!16s%2Fg%2F11nb37lyjk"
+      }
+    },
+    {
+      "floor": 6,
+      "coordinateSystem": "approved-brochure-reference-not-surveyed",
+      "canvasWidth": 1000,
+      "canvasHeight": 250,
+      "sourceDocument": "le-grande-brochure.pdf",
+      "sourcePage": 10,
+      "sourceSheet": null,
+      "features": [
+        {
+          "code": "shared-1",
+          "kind": "shared_area",
+          "label": "Hành lang thoát hiểm sau nhà",
+          "geometry": {
+            "x": 0,
+            "y": 0,
+            "width": 1000,
+            "height": 20
+          }
+        },
+        {
+          "code": "shared-2",
+          "kind": "shared_area",
+          "label": "WC",
+          "geometry": {
+            "x": 340,
+            "y": 20,
+            "width": 78,
+            "height": 60
+          }
+        },
+        {
+          "code": "shared-3",
+          "kind": "shared_area",
+          "label": "Sảnh giữa · Thang máy / thang bộ",
+          "geometry": {
+            "x": 420,
+            "y": 20,
+            "width": 80,
+            "height": 120
+          }
+        },
+        {
+          "code": "shared-4",
+          "kind": "shared_area",
+          "label": "Thông tầng · Không gian rạp chiếu phim dự kiến",
+          "geometry": {
+            "x": 500,
+            "y": 20,
+            "width": 500,
+            "height": 160
+          }
+        }
+      ],
+      "orientation": {
+        "front": "Nam",
+        "rear": "Bắc",
+        "lakeSide": "Tây",
+        "waterworksSide": "Đông",
+        "sourceUrl": "https://www.google.com/maps/place/Le+Grande+Centre/@9.6101864,105.9692089,17z/data=!3m1!4b1!4m6!3m5!1s0x31a04d86b7d9a867:0x58da1a5e9f7000e3!8m2!3d9.6101864!4d105.9717892!16s%2Fg%2F11nb37lyjk"
+      }
+    }
+  ],
+  "slots": [
+    {
+      "floor": 1,
+      "code": "A.1",
+      "geometry": {
+        "x": 0,
+        "y": 20,
+        "width": 100,
+        "height": 190
+      }
+    },
+    {
+      "floor": 1,
+      "code": "A.2",
+      "geometry": {
+        "x": 100,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 1,
+      "code": "A.3",
+      "geometry": {
+        "x": 180,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 1,
+      "code": "A.4",
+      "geometry": {
+        "x": 260,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 1,
+      "code": "A.5",
+      "geometry": {
+        "x": 340,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 1,
+      "code": "A.6",
+      "geometry": {
+        "x": 500,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 1,
+      "code": "A.7",
+      "geometry": {
+        "x": 580,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 1,
+      "code": "A.8",
+      "geometry": {
+        "x": 660,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 1,
+      "code": "A.9",
+      "geometry": {
+        "x": 740,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 1,
+      "code": "A.10",
+      "geometry": {
+        "x": 820,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 1,
+      "code": "A.11",
+      "geometry": {
+        "x": 900,
+        "y": 20,
+        "width": 100,
+        "height": 190
+      }
+    },
+    {
+      "floor": 2,
+      "code": "B.1",
+      "geometry": {
+        "x": 0,
+        "y": 20,
+        "width": 100,
+        "height": 190
+      }
+    },
+    {
+      "floor": 2,
+      "code": "B.2",
+      "geometry": {
+        "x": 100,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 2,
+      "code": "B.3",
+      "geometry": {
+        "x": 180,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 2,
+      "code": "B.4",
+      "geometry": {
+        "x": 260,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 2,
+      "code": "B.5",
+      "geometry": {
+        "x": 340,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 2,
+      "code": "B.6",
+      "geometry": {
+        "x": 500,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 2,
+      "code": "B.7",
+      "geometry": {
+        "x": 580,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 2,
+      "code": "B.8",
+      "geometry": {
+        "x": 660,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 2,
+      "code": "B.9",
+      "geometry": {
+        "x": 740,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 2,
+      "code": "B.10",
+      "geometry": {
+        "x": 820,
+        "y": 20,
+        "width": 80,
+        "height": 190
+      }
+    },
+    {
+      "floor": 2,
+      "code": "B.11",
+      "geometry": {
+        "x": 900,
+        "y": 20,
+        "width": 100,
+        "height": 190
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.1",
+      "geometry": {
+        "x": 45,
+        "y": 20,
+        "width": 55,
+        "height": 98
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.2",
+      "geometry": {
+        "x": 100,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.3",
+      "geometry": {
+        "x": 180,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.4",
+      "geometry": {
+        "x": 260,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.5",
+      "geometry": {
+        "x": 340,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.6",
+      "geometry": {
+        "x": 500,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.7",
+      "geometry": {
+        "x": 580,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.8",
+      "geometry": {
+        "x": 660,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.9",
+      "geometry": {
+        "x": 740,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.10",
+      "geometry": {
+        "x": 820,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.11",
+      "geometry": {
+        "x": 900,
+        "y": 20,
+        "width": 55,
+        "height": 98
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.12",
+      "geometry": {
+        "x": 0,
+        "y": 136,
+        "width": 99,
+        "height": 84
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.13",
+      "geometry": {
+        "x": 99,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.14",
+      "geometry": {
+        "x": 179,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.15",
+      "geometry": {
+        "x": 259,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.16",
+      "geometry": {
+        "x": 339,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.17",
+      "geometry": {
+        "x": 419,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.18",
+      "geometry": {
+        "x": 499,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.19",
+      "geometry": {
+        "x": 579,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.20",
+      "geometry": {
+        "x": 659,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.21",
+      "geometry": {
+        "x": 739,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.22",
+      "geometry": {
+        "x": 819,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 3,
+      "code": "C.23",
+      "geometry": {
+        "x": 899,
+        "y": 136,
+        "width": 99,
+        "height": 84
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.1",
+      "geometry": {
+        "x": 45,
+        "y": 20,
+        "width": 55,
+        "height": 98
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.2",
+      "geometry": {
+        "x": 100,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.3",
+      "geometry": {
+        "x": 180,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.4",
+      "geometry": {
+        "x": 260,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.5",
+      "geometry": {
+        "x": 340,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.6",
+      "geometry": {
+        "x": 500,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.7",
+      "geometry": {
+        "x": 580,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.8",
+      "geometry": {
+        "x": 660,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.9",
+      "geometry": {
+        "x": 740,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.10",
+      "geometry": {
+        "x": 820,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.11",
+      "geometry": {
+        "x": 900,
+        "y": 20,
+        "width": 55,
+        "height": 98
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.12",
+      "geometry": {
+        "x": 0,
+        "y": 136,
+        "width": 99,
+        "height": 84
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.13",
+      "geometry": {
+        "x": 99,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.14",
+      "geometry": {
+        "x": 179,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.15",
+      "geometry": {
+        "x": 259,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.16",
+      "geometry": {
+        "x": 339,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.17",
+      "geometry": {
+        "x": 419,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.18",
+      "geometry": {
+        "x": 499,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.19",
+      "geometry": {
+        "x": 579,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.20",
+      "geometry": {
+        "x": 659,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.21",
+      "geometry": {
+        "x": 739,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.22",
+      "geometry": {
+        "x": 819,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 4,
+      "code": "D.23",
+      "geometry": {
+        "x": 899,
+        "y": 136,
+        "width": 99,
+        "height": 84
+      }
+    },
+    {
+      "floor": 5,
+      "code": "E.1",
+      "geometry": {
+        "x": 19,
+        "y": 20,
+        "width": 81,
+        "height": 98
+      }
+    },
+    {
+      "floor": 5,
+      "code": "E.2",
+      "geometry": {
+        "x": 100,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 5,
+      "code": "E.3",
+      "geometry": {
+        "x": 180,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 5,
+      "code": "E.4",
+      "geometry": {
+        "x": 260,
+        "y": 20,
+        "width": 80,
+        "height": 98
+      }
+    },
+    {
+      "floor": 5,
+      "code": "E.5",
+      "geometry": {
+        "x": 500,
+        "y": 20,
+        "width": 500,
+        "height": 200
+      }
+    },
+    {
+      "floor": 5,
+      "code": "E.6",
+      "geometry": {
+        "x": 0,
+        "y": 136,
+        "width": 99,
+        "height": 84
+      }
+    },
+    {
+      "floor": 5,
+      "code": "E.7",
+      "geometry": {
+        "x": 99,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 5,
+      "code": "E.8",
+      "geometry": {
+        "x": 179,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 5,
+      "code": "E.9",
+      "geometry": {
+        "x": 259,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 5,
+      "code": "E.10",
+      "geometry": {
+        "x": 339,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 5,
+      "code": "E.11",
+      "geometry": {
+        "x": 419,
+        "y": 136,
+        "width": 80,
+        "height": 84
+      }
+    },
+    {
+      "floor": 6,
+      "code": "F.1",
+      "geometry": {
+        "x": 340,
+        "y": 80,
+        "width": 78,
+        "height": 60
+      }
+    },
+    {
+      "floor": 6,
+      "code": "F.2",
+      "geometry": {
+        "x": 0,
+        "y": 20,
+        "width": 1000,
+        "height": 200,
+        "labelPosition": {
+          "x": 17,
+          "y": 45
+        },
+        "points": [
+          [
+            0,
+            0
+          ],
+          [
+            340,
+            0
+          ],
+          [
+            340,
+            120
+          ],
+          [
+            500,
+            120
+          ],
+          [
+            500,
+            160
+          ],
+          [
+            1000,
+            160
+          ],
+          [
+            1000,
+            200
+          ],
+          [
+            0,
+            200
+          ]
+        ]
+      }
+    }
+  ]
+}

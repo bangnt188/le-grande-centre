@@ -36,6 +36,8 @@ Command body chỉ `{command,expectedRevision}`; `Idempotency-Key` nằm ở hea
 
 Shell không đọc public/admin DB hoặc provider để render. Public projection/provider nằm trong layout nhóm public, URL public giữ nguyên. Heavy screen modules chỉ mount khi active.
 
+Màn đăng nhập và shell tải logo tùy chọn qua `GET /api/public/branding/` sau khi hydrate. Route chỉ trả `{logoUrl}` từ public projection đã lọc, đặt `Cache-Control: no-store`; client không gửi credentials và chỉ nhận URL HTTPS không kèm thông tin đăng nhập. Nếu thiếu logo hoặc route lỗi, tên thương hiệu dạng chữ vẫn hiển thị và không chặn đăng nhập hay render shell.
+
 - Floors: tầng và inventory cần tổng quan, không load leads/companies/media/staff.
 - Spaces: slots/groups theo tầng; Slot: hồ sơ liên quan đúng id.
 - Customers/Leads/Appointments: collection page/detail riêng, không chờ global workspace revision. Forms/pickers chỉ load dependencies khi mở.

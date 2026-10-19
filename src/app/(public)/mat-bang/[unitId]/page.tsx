@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const unit = units.find(item => item.id === unitId);
   if (!unit) notFound();
   const title = `Mặt bằng ${unit.id} · Tầng ${unit.floorId} | Le Grande Centre`;
-  const description = `Mặt bằng ${unit.id}, tầng ${unit.floorId}, diện tích ${unit.area.toLocaleString("vi-VN")} m² theo brochure Le Grande Centre. Xem sơ đồ vị trí, thông tin tham khảo và liên hệ tư vấn.`;
+  const description = `Mặt bằng ${unit.id}, tầng ${unit.floorId}, diện tích tham khảo ${unit.area.toLocaleString("vi-VN")} m² tại Le Grande Centre. Xem sơ đồ vị trí, thông tin tham khảo và liên hệ tư vấn.`;
   return publicPageMetadata(title, description, `mat-bang/${encodeURIComponent(unit.id)}/`);
 }
 

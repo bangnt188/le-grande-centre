@@ -12,7 +12,7 @@
 .brandMark { flex-shrink: 0; width: 40px; height: 40px; object-fit: contain; }
 .brandText strong { display: block; font-family: var(--font-charis-sil), Georgia, serif; font-size: 20px; font-weight: 400; }
 .brandText span { display: block; margin-top: 4px; font-size: 9px; letter-spacing: .24em; text-transform: uppercase; }
-.desktopNavigation { margin-left: auto; display: flex; align-items: center; gap: 26px; font-size: 10px; font-weight: 500; text-transform: uppercase; }
+.desktopNavigation { margin-left: auto; display: flex; align-items: center; gap: 26px; font-size: 12px; font-weight: 500; text-transform: uppercase; }
 .desktopNavigation a, .adminLink { position: relative; display: inline-flex; align-items: center; min-height: 44px; white-space: nowrap; }
 .desktopNavigation a::after { content: ""; position: absolute; inset: auto 0 5px; height: 1px; background: #a4853c; }
 .desktopNavigation a[aria-current="page"], .desktopNavigation a:hover, .desktopNavigation a:focus-visible, .mobileMenu nav a:not(.visitLink):is([aria-current="page"], :hover, :focus-visible) { color: #816322; }
@@ -25,7 +25,7 @@
 .mobileMenu nav a { display: flex; align-items: center; min-height: 48px; font-size: 13px; font-weight: 500; text-transform: uppercase; }
 .mobileMenu nav a[aria-current="page"] { text-decoration: underline; text-underline-offset: 8px; }
 .mobileMenu[open] summary { color: #816322; }
-.desktopNavigation .visitLink, .mobileMenu .visitLink { justify-content: space-between; gap: 18px; min-height: 48px; padding: 12px 18px; border-radius: 8px; font-size: 10px; }
+.desktopNavigation .visitLink, .mobileMenu .visitLink { justify-content: space-between; gap: 18px; min-height: 48px; padding: 12px 18px; border-radius: 8px; font-size: 12px; }
 .desktopNavigation .visitLink, .mobileMenu .visitLink { color: #fffcf5; background: #123e2e; }
 .desktopNavigation .visitLink:is(:hover, :focus-visible, [aria-current="page"]), .mobileMenu .visitLink:is(:hover, :focus-visible) { color: #fffcf5; background: #245541; }
 .desktopNavigation .visitLink::after { inset-inline: 18px; bottom: 8px; }
@@ -51,7 +51,8 @@
 .contact .phone { font-family: var(--font-playfair-display), Georgia, serif; font-size: clamp(28px, 4vw, 44px); }
 .footer { display: grid; grid-template-columns: 1fr 1fr .8fr; gap: 40px; padding: 48px 5%; background: var(--mall-ink); color: var(--mall-paper); font-size: 13px; line-height: 1.8; }
 .footer section, .footer nav { min-width: 0; }
-.footer h2 { font-size: 14px; font-weight: 500; margin: 0 0 16px; }
+.footer h2 { font-size: 18px; font-weight: 600; line-height: 1.4; margin: 0 0 20px; color: var(--mall-paper); }
+.footer h3 { font-size: 15px; font-weight: 600; line-height: 1.5; margin: 20px 0 6px; color: var(--mall-gold-light); }
 .footer p, .footer address { max-width: 38ch; margin: 8px 0; font-style: normal; color: var(--mall-muted); }
 .footer a { display: flex; align-items: center; min-height: 44px; width: fit-content; overflow-wrap: anywhere; }
 .footer a:hover { text-decoration: underline; text-underline-offset: 5px; }

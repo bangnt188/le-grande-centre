@@ -156,12 +156,38 @@ CREATE TABLE leasing.plan_versions (
   floor_id uuid NOT NULL,
   version_number integer NOT NULL CHECK (version_number > 0),
   coordinate_system text NOT NULL DEFAULT 'floor-local-metres',
+  public_state text NOT NULL DEFAULT 'internal',
+  canvas_width numeric(12,3) NOT NULL DEFAULT 1000,
+  canvas_height numeric(12,3) NOT NULL DEFAULT 250,
+  source_document text,
+  source_page integer,
+  source_sheet text,
+  orientation_facts jsonb,
   north_rotation_deg numeric(6,3) CHECK (north_rotation_deg >= 0 AND north_rotation_deg < 360),
   published_at timestamptz,
   approved_by uuid REFERENCES leasing.users,
+  CONSTRAINT plan_versions_public_state CHECK (public_state IN ('internal','reference','published')),
+  CONSTRAINT plan_versions_canvas_positive CHECK (canvas_width > 0 AND canvas_height > 0),
+  CONSTRAINT plan_versions_source_page_positive CHECK (source_page IS NULL OR source_page > 0),
+  CONSTRAINT plan_versions_orientation_object CHECK (orientation_facts IS NULL OR jsonb_typeof(orientation_facts) = 'object'),
+  CONSTRAINT plan_versions_published_public_state CHECK (public_state <> 'published' OR published_at IS NOT NULL),
   UNIQUE (floor_id, version_number), UNIQUE (id, property_id, floor_id),
   FOREIGN KEY (floor_id, property_id) REFERENCES leasing.floors(id, property_id),
   CHECK ((published_at IS NULL) = (approved_by IS NULL))
+);
+CREATE TABLE leasing.plan_features (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id uuid NOT NULL,
+  floor_id uuid NOT NULL,
+  plan_version_id uuid NOT NULL,
+  feature_code text NOT NULL CHECK (length(feature_code) BETWEEN 1 AND 80),
+  feature_kind text NOT NULL CHECK (feature_kind IN ('shared_area','corridor','lobby','void','amenity','circulation')),
+  label text NOT NULL CHECK (length(label) BETWEEN 1 AND 200),
+  geometry jsonb NOT NULL CHECK (jsonb_typeof(geometry) = 'object'),
+  display_order integer NOT NULL CHECK (display_order > 0),
+  source_note text NOT NULL DEFAULT '',
+  UNIQUE (plan_version_id, feature_code),
+  FOREIGN KEY (plan_version_id, property_id, floor_id) REFERENCES leasing.plan_versions(id, property_id, floor_id)
 );
 CREATE TABLE leasing.slots (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -183,6 +209,9 @@ CREATE TABLE leasing.slot_versions (
   plan_version_id uuid NOT NULL,
   version_number integer NOT NULL CHECK (version_number > 0),
   geometry jsonb NOT NULL CHECK (jsonb_typeof(geometry) = 'object'),
+  public_types text[] NOT NULL DEFAULT '{}',
+  orientation_description text,
+  public_note text NOT NULL DEFAULT '',
   depth_m numeric(12,3) CHECK (depth_m > 0),
   clear_height_m numeric(12,3) CHECK (clear_height_m > 0),
   technical_spec jsonb NOT NULL DEFAULT '{}' CHECK (jsonb_typeof(technical_spec) = 'object'),
@@ -631,6 +660,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+CREATE TRIGGER immutable_plan_feature BEFORE INSERT OR UPDATE OR DELETE ON leasing.plan_features FOR EACH ROW EXECUTE FUNCTION leasing.reject_frozen_child_change('plan_versions','plan_version_id','published_at');
 CREATE TRIGGER immutable_members BEFORE INSERT OR UPDATE OR DELETE ON leasing.space_members FOR EACH ROW EXECUTE FUNCTION leasing.reject_frozen_child_change('space_versions','space_version_id','published_at');
 CREATE TRIGGER immutable_measurements BEFORE INSERT OR UPDATE OR DELETE ON leasing.slot_measurements FOR EACH ROW EXECUTE FUNCTION leasing.reject_frozen_child_change('slot_versions','slot_version_id','published_at');
 CREATE TRIGGER immutable_frontages BEFORE INSERT OR UPDATE OR DELETE ON leasing.slot_frontages FOR EACH ROW EXECUTE FUNCTION leasing.reject_frozen_child_change('slot_versions','slot_version_id','published_at');

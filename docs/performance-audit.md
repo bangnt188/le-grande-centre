@@ -4,6 +4,8 @@
 **Phạm vi:** homepage v2, catalogue mặt bằng, popup xem ảnh và viewer 3D.  
 **Trạng thái:** baseline và kiểm chứng trước/sau ở dưới là lịch sử. Ngày 13/10/2026, route 3D đã gỡ khỏi website theo yêu cầu khách hàng; source/harness chuyển sang https://github.com/bangnt188/3d-model-mall. Các đường dẫn viewer/script trong báo cáo được hiểu tương đối trong repo 3D mới, không phải file còn chạy trong website. Các phần homepage/catalogue ngoài viewer chưa thay đổi.
 
+> Kiến trúc website và checkout đã tiếp tục thay đổi sau các phép đo này: hiện dùng Next standalone/OpenNext Worker. Lệnh preview static và host/cache references bên dưới là của lần đo 11/10, không phải hướng dẫn chạy hoặc bằng chứng runtime hiện tại.
+
 ## 1. Kết luận để báo cáo
 
 1. **Viewer 3D có nghẽn lúc khởi tạo.** Production ghi nhận các main-thread long task 67, 160 và 197ms. CPU profile của một lượt reload khác chỉ ra công việc render/khởi tạo shader, đặc biệt `getProgramInfoLog`, là hot path. Đây là bằng chứng trực tiếp về gián đoạn phản hồi khi vào 3D; chưa phải bằng chứng tất cả thời gian lag của toàn website đều do 3D.

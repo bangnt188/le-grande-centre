@@ -1,0 +1,31 @@
+.badge[data-status] {
+  display: inline-flex;
+  min-block-size: 24px;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.badge[data-status="available"] {
+  border-color: #a8c9af;
+  background: #e8f1e9;
+  color: #163e2f;
+}
+
+.badge[data-status="contact"] {
+  border-color: #d4b160;
+  background: #fdf5e6;
+  color: #5c4308;
+}
+
+.badge[data-status="leased"] {
+  border-color: #d7a4a0;
+  background: #fbeae8;
+  color: #8b2424;
+}

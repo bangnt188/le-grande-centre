@@ -4,6 +4,8 @@ import { SiteFooter } from "./site-footer";
 import { WebsiteHotlineLink } from "./website-settings";
 import { HomeStrategicMap } from "./home-strategic-map";
 import { readPublicLeasing } from "@/server/public-leasing";
+import { LeasingStatusBadge } from "./leasing-status-badge";
+import { GraduationCap, Landmark, MapPin, Store } from "lucide-react";
 import { HomeScrollStory, Arrow, SpacesGallery, OverviewGallery } from "./homepage-v2-interactive";
 import HomeProjectVideo from "./home-project-video";
 import { homepageHeroSources, responsiveImageProps } from "./responsive-images";
@@ -22,18 +24,22 @@ const reasons = [
 
 const locationHighlights = [
   {
+    icon: MapPin,
     title: "Vị trí trung tâm",
     description: "Bên vòng xoay Tượng đài 3 Cô Gái, kết nối trục đường thương mại Hùng Vương - Nguyễn Chí Thanh",
   },
   {
+    icon: Store,
     title: "Thương mại",
     description: "Cách Chợ Sóc Trăng 2.7km",
   },
   {
+    icon: GraduationCap,
     title: "Giáo dục",
     description: "Trường Tiểu học Sóc Trăng và Trường THPT Chuyên Nguyễn Thị Minh Khai.",
   },
   {
+    icon: Landmark,
     title: "Văn hóa và không gian xanh",
     description: "Khu văn hóa Hồ Nước Ngọt, Trung tâm Văn Hóa - Thể Thao Sóc Trăng",
   },
@@ -52,7 +58,7 @@ export default async function HomePageV2() {
         <div className={styles.heroInner} {...revealGroup({ stagger: 120, delayCap: 240 })}>
           <h1 id="home-title" {...reveal({ preset: "slide-left", duration: 3000 })}>LE GRANDE<br/>CENTRE</h1>
           <p {...reveal({ preset: "slide-left", duration: 3000 })}>Điểm đến thương mại đẳng cấp tại trung tâm đô thị Sóc Trăng, kết hợp không gian thương mại – dịch vụ – văn phòng hiện đại dành cho những thương hiệu đang tìm kiếm một địa điểm kinh doanh thực tế và giàu tiềm năng phát triển.</p>
-          <div className={styles.heroActions} {...reveal({ preset: "slide-left", duration: 3000 })}><Link href="/mat-bang/" prefetch={false} className={styles.paperButton}>Xem mặt bằng <Arrow/></Link><Link href="/lien-he/" prefetch={false} className={styles.heroOutline}>Đặt lịch tham quan <Arrow/></Link></div>
+          <div className={styles.heroActions} {...reveal({ preset: "slide-left", duration: 3000 })}><Link href="/mat-bang/" prefetch={false} className={styles.paperButton}>Xem mặt bằng <Arrow/></Link><Link href="/lien-he/" prefetch={false} className={styles.heroOutline}><span>Đặt lịch tham quan</span><Arrow/></Link></div>
           <dl className={styles.heroStats} {...revealGroup({ stagger: 100, delayCap: 200 })}><div {...reveal({ preset: "fade-up", duration: 3000 })}><dt>Tầng thương mại</dt><dd>06</dd><span>Retail, F&B, văn phòng & dịch vụ</span></div><div {...reveal({ preset: "fade-up", duration: 3000 })}><dt>Phân khu công năng</dt><dd>03</dd><span>Nhiều quy mô, nhiều mô hình</span></div><div {...reveal({ preset: "fade-up", duration: 3000 })}><dt>Mặt tiền</dt><dd>02</dd><span>Kết nối nhịp sống đô thị</span></div></dl>
         </div>
         <a href="#gioi-thieu" className={styles.scrollLink} aria-label="Cuộn tới giới thiệu dự án"><span>Khám phá</span><svg width="18" height="24" viewBox="0 0 18 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M9 2v18m-5-5 5 5 5-5"/></svg></a>
@@ -67,7 +73,7 @@ export default async function HomePageV2() {
         <h2 id="introduction-title" {...reveal({ preset: "fade-up", duration: 1500 })}><em>Nhịp Thở <span>Mới</span> – Tầm Vóc <span>Mới</span></em></h2>
         <div className={styles.introGrid} {...revealGroup({ stagger: 120 })}>
           <figure {...reveal({ preset: "zoom-in", duration: 1500 })}>
-            <img {...responsiveImageProps("/images/home-v2/introduction.webp", assetBase, "(max-width:720px) 88vw, (max-width:1340px) 47vw, 600px")} alt="Le Grande Centre và vòng xoay Tượng đài 3 Cô Gái" loading="lazy" decoding="async"/>
+            <img {...responsiveImageProps("/images/home-v2/introduction.webp", assetBase, "(max-width:720px) 95vw, (max-width:1340px) 48vw, 980px")} alt="Le Grande Centre và vòng xoay Tượng đài 3 Cô Gái" loading="lazy" decoding="async"/>
           </figure>
           <div {...reveal({ preset: "lift-in", duration: 1500 })}>
             <p>Nằm tại vòng xoay Tượng đài 3 Cô Gái, Le Grande Centre được định hướng trở thành điểm đến thương mại, dịch vụ, văn phòng đa chức năng tại khu vực Sóc Trăng. Thay vì một địa điểm riêng lẻ, doanh nghiệp có cơ hội hoạt động trong một tổ hợp quy tụ nhiều nhu cầu: mua sắm, ẩm thực, làm việc và trải nghiệm.</p>
@@ -97,13 +103,11 @@ export default async function HomePageV2() {
         </blockquote>
 
         <div className={styles.locationFeaturesGrid} {...revealGroup({ stagger: 90 })}>
-          {locationHighlights.map(item => (
+          {locationHighlights.map(({ icon: Icon, ...item }) => (
             <div key={item.title} className={styles.locationFeatureCard} {...reveal({ preset: "fade-up", duration: 1000 })}>
               <div className={styles.locationFeatureHeader}>
                 <div className={styles.locationFeatureIcon} aria-hidden="true">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2 C12 7.5 16.5 12 22 12 C16.5 12 12 16.5 12 22 C12 16.5 7.5 12 2 12 C7.5 12 12 7.5 12 2 Z" />
-                  </svg>
+                  <Icon size={18} strokeWidth={1.5} />
                 </div>
                 <h3>{item.title}</h3>
               </div>
@@ -115,11 +119,54 @@ export default async function HomePageV2() {
 
       <section id="phan-khu" className={`${styles.section} ${styles.floors}`} aria-labelledby="floors-title"><div className={styles.sectionHeading}><h2 id="floors-title">Sáu tầng.<br/><em>Nhiều cơ hội kinh doanh.</em></h2></div><FloorShowcase assetBase={assetBase} units={units}/></section>
 
-      <section id="khong-gian" className={`${styles.section} ${styles.spaces}`} aria-labelledby="spaces-title"><div className={styles.sectionHeading}><div><h2 id="spaces-title"><em>Đa dạng loại hình,<br/>linh hoạt lựa chọn.</em></h2><p>Định hướng tích hợp nhiều tiện ích trong cùng một không gian, từ văn phòng hiện đại đến chuỗi F&B, retail, dịch vụ và giải trí.</p></div></div><SpacesGallery assetBase={assetBase}/></section>
+      <section className={styles.leasing} aria-labelledby="leasing-title">
+        <div className={`${styles.section} ${styles.leasingSection}`}>
+          <header className={styles.leasingHeading}>
+            <p className={styles.leasingKicker}>Khám phá mặt bằng</p>
+            <h2 id="leasing-title">Tìm không gian phù hợp cho doanh nghiệp của bạn</h2>
+          </header>
+          <div className={styles.unitGrid}>
+            {featuredUnits.map(unit => <Link key={unit.id} href={`/mat-bang/${unit.id}/`} className={styles.unitCard} prefetch={false}>
+              <div className={styles.unitImage}>
+                <img {...responsiveImageProps(unit.floorId <= 2 ? "/images/home-v2/facade-detail.jpg" : "/images/home-v2/upper-detail.jpg", assetBase, "(max-width:720px) 48vw, 30vw")} alt={`Phối cảnh minh họa khu ${unit.floorId <= 2 ? "shophouse" : "dịch vụ và văn phòng"}`} loading="lazy" decoding="async"/>
+              </div>
+              <div className={styles.unitContent}>
+                <h3>{unit.id} <span>– Tầng {unit.floorId}</span></h3>
+                <p className={styles.unitArea}>{unit.area.toLocaleString("vi-VN")} m²</p>
+                <p className={styles.unitType}>Phù hợp: {unit.types.join(" / ") || "Tư vấn công năng"}</p>
+                <div className={styles.unitFooter}>
+                  <LeasingStatusBadge availability={unit.availability}/>
+                  <span className={styles.unitArrow} aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>
+                </div>
+              </div>
+            </Link>)}
+          </div>
+          <Link href="/mat-bang/" className={styles.leasingCta} prefetch={false}><span>Xem tất cả mặt bằng</span><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></Link>
+        </div>
+      </section>
 
-      <section className={styles.leasing} aria-labelledby="leasing-title"><div className={styles.section}><div className={styles.sectionHeading}><h2 id="leasing-title">Tìm không gian phù hợp<br/><em>cho doanh nghiệp của bạn.</em></h2><Link href="/mat-bang/" className={styles.textLink} prefetch={false}>Khám phá tất cả mặt bằng <Arrow/></Link></div><div className={styles.unitGrid}>{featuredUnits.map(unit => <Link key={unit.id} href={`/mat-bang/${unit.id}/`} className={styles.unitCard} prefetch={false}><div className={styles.unitImage}><img {...responsiveImageProps(unit.floorId <= 2 ? "/images/home-v2/facade-detail.jpg" : "/images/home-v2/upper-detail.jpg", assetBase, "(max-width:720px) 48vw, 30vw")} alt={`Phối cảnh minh họa khu ${unit.floorId <= 2 ? "shophouse" : "dịch vụ và văn phòng"}`} loading="lazy" decoding="async"/><span>Tầng {unit.floorId}</span></div><div className={styles.unitContent}><h3>{unit.id} <Arrow/></h3><p>{unit.types.join(" · ")}</p><dl><div><dt>Diện tích</dt><dd>{unit.area.toLocaleString("vi-VN")} m²</dd></div>{unit.dimensions && <div><dt>Kích thước</dt><dd>{unit.dimensions.width} × {unit.dimensions.depth} m</dd></div>}</dl><span className={styles.unitLink}>Xem chi tiết mặt bằng</span></div></Link>)}</div></div></section>
+      <section id="khong-gian" className={`${styles.section} ${styles.spaces}`} aria-labelledby="spaces-title">
+        <div className={styles.spacesLayout}>
+          <div className={styles.spacesCopy}>
+            <h2 id="spaces-title">Nhiều loại hình.<br/>Một điểm đến.</h2>
+            <p>Le Grande Centre mang đến nhiều không gian phù hợp cho các mô hình kinh doanh từ văn phòng hiện đại đến chuỗi F&amp;B, retail, dịch vụ giải trí, showroom.</p>
+            <p>Sự bổ trợ giữa các loại hình được kỳ vọng sẽ thu hút nhiều nhóm khách vào những thời điểm khác nhau trong ngày, góp phần gia tăng tính đa dạng lưu lượng khách hàng.</p>
+            <Link href="/lien-he/" className={styles.spacesAction} prefetch={false}>Trao đổi nhu cầu thuê <Arrow/></Link>
+          </div>
+          <div className={styles.spacesTypes}>
+            <h3 className={styles.spacesKicker}>Các loại hình định hướng</h3>
+            <SpacesGallery assetBase={assetBase}/>
+          </div>
+        </div>
+      </section>
 
-      <section className={`${styles.section} ${styles.overview}`} aria-labelledby="overview-title"><div className={styles.sectionHeading}><h2 id="overview-title">Tổng quan<br/><em>Le Grande Centre.</em></h2><Link href="/tong-quan/" className={styles.textLink} prefetch={false}>Tìm hiểu dự án <Arrow/></Link></div><OverviewGallery assetBase={assetBase}/><div className={styles.mosaic}><figure><img {...responsiveImageProps("/images/home-v2/facade-detail.jpg", assetBase, "(max-width:720px) 100vw, 62vw")} alt="Phối cảnh shophouse và mặt tiền thương mại" loading="lazy" decoding="async"/><figcaption>Không gian cho thương hiệu</figcaption></figure><figure><img {...responsiveImageProps("/images/home-v2/upper-detail.jpg", assetBase, "(max-width:720px) 88vw, 55vw")} alt="Phối cảnh không gian tầng trên Le Grande Centre" loading="lazy" decoding="async"/><figcaption>Những kết nối mới</figcaption></figure><figure><img {...responsiveImageProps("/images/home-v2/architecture-detail.jpg", assetBase, "(max-width:720px) 88vw, 55vw")} alt="Chi tiết phối cảnh kiến trúc Le Grande Centre" loading="lazy" decoding="async"/><figcaption>Một tầm nhìn dài hạn</figcaption></figure></div></section>
+      <section className={`${styles.section} ${styles.overview}`} aria-labelledby="overview-title">
+        <div className={styles.sectionHeading}>
+          <h2 id="overview-title">Tổng quan<br/><em>Le Grande Centre.</em></h2>
+          <Link href="/tong-quan/" className={styles.textLink} prefetch={false}>Tìm hiểu dự án <Arrow/></Link>
+        </div>
+        <OverviewGallery assetBase={assetBase}/>
+      </section>
 
       <section id="ly-do-lua-chon" className={styles.reasons} aria-labelledby="reasons-title"><img className={styles.reasonsImage} {...responsiveImageProps("/images/home-v2/reasons-background.webp", assetBase, "max(100vw, 1900px)")} alt="" loading="lazy" decoding="async"/><div className={styles.section}><h2 id="reasons-title"><em>Tại Sao Chọn <span>Le Grande Centre?</span></em></h2><p className={styles.reasonsIntro}>Một nơi để kinh doanh. Một nền tảng để cùng phát triển.</p><div className={styles.reasonGrid}>{reasons.map(reason => <article key={reason.title}><h3><em>{reason.title}</em></h3><p>{reason.description}</p></article>)}</div></div></section>
 

@@ -1,5 +1,8 @@
 # Vercel Serverless và source maps
 
+> Tài liệu tham khảo kỹ thuật chung cho ứng dụng chạy trên Vercel Functions, không phải cấu hình hoặc runbook phát hành của Le Grande Center.
+> Owner xác nhận dự án hiện không triển khai trên Vercel; release target là Cloudflare Worker stage2.
+
 ## Kết luận
 
 - Vercel Functions chạy mã server đã build; source map phục vụ đọc stack trace/debug, không phải thành phần bắt buộc để Function chạy.
@@ -8,9 +11,9 @@
 - Vercel khuyến nghị `serverSourceMaps: process.env.VERCEL_ENV !== 'production'` nếu muốn stack trace có source ở Preview nhưng không muốn maps nằm trong Production artifact. Vercel Protected Source Maps chỉ giới hạn browser `.map`; không áp dụng cho server maps trong build artifact, inline maps, hoặc maps tải lên error tracker. Điều đó không có nghĩa browser có thể tải trực tiếp server maps.
 - Không có source map không làm serverless an toàn hơn theo nghĩa xác thực/phân quyền. Không bật browser maps công khai nếu không cần; quyết định riêng việc tạo server maps theo yêu cầu debug và mức chấp nhận đưa maps vào artifact.
 
-## Áp dụng vào repo này
+## Phạm vi trong repo này
 
-`package.json` đang chạy Next.js 16.3.6; `packages/backend/VERCEL.md` nói project vẫn dùng `output: 'export'` cho GitHub Pages và chưa có deployment/session/DB production thật. Do đó hiện trạng trong repo chưa phải một deployment Vercel Serverless đã triển khai để khẳng định cấu hình bảo mật thực tế. Hướng dẫn backend hiện tại đề xuất Next.js Route Handlers trên Node.js runtime nếu chuyển sang Vercel.
+Repo dùng Next.js output standalone và OpenNext/Cloudflare Worker. Các thiết lập source map dành cho Vercel Functions dưới đây chỉ áp dụng nếu một ứng dụng khác thực sự chạy trên Vercel; chúng không mô tả cấu hình, hosting hay release hiện tại của Le Grande Center. Không dùng domain response/header làm deployment evidence. Xem deployment runbook tại deployment.md.
 
 ## Nguồn chính thức
 

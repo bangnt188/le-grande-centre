@@ -1,6 +1,6 @@
 # Slot gốc, cam kết theo thời gian và tài liệu private
 
-Trạng thái 14/10/2026: quyết định đã triển khai trong phase2 relational backend. Baseline + migrations 001–004 đã áp dụng trên stage2, regression disposable và backend production với approved project seed/owner allowlist/logo, không customer/financial fixtures; frontend production/domain/DNS chưa cutover.
+Trạng thái tại lần cập nhật 14/10/2026: quyết định đã triển khai trong phase2 relational backend. Baseline + migrations 001–004 đã áp dụng trên stage2, regression disposable và backend production với approved project seed/owner allowlist/logo, không customer/financial fixtures; source SHA/domain cutover production chưa được ghi nhận khi đó. Owner xác nhận dự án không triển khai trên Vercel; release target hiện tại là Cloudflare Worker stage2, xem [deployment runbook](../deployment.md).
 
 Dùng slot gốc ổn định, phiên bản mặt bằng tham chiếu slot và phân bổ theo thời gian để hỗ trợ phương án ghép mà không cho cam kết trùng. Luồng khách là **gửi yêu cầu → chủ đầu tư duyệt → giữ chỗ có hạn**; lịch hẹn độc lập. Public form chỉ tạo lead/intake, không booking. Public projection không công bố tenant/contact nội bộ hoặc countdown hợp đồng/hold.
 
@@ -18,4 +18,4 @@ Tài liệu hợp đồng upload/quản lý/liên kết PDF có sẵn vào R2 pr
 
 Baseline `database/schema.sql`, numbered migrations ở `database/migrations/`; operator `db:migrate` dùng direct connection, không tự apply production khi build. Chuyển tài khoản cần schema+migrations, relational IDs và object keys/catalog + verified metadata/bytes, không opaque snapshots.
 
-Native Worker→Neon S3/Functions còn 403 HTML trước provider; local Node real-cloud proof không phải all-Worker readiness. Người dùng hoãn domain/DNS; chưa deploy/cutover frontend production. Xem [readiness](../backend-readiness.md), [private documents](../private-documents-r2.md), [thiết kế B2B](../b2b-leasing-design.md).
+Native Worker→Neon S3/Functions còn 403 HTML trước provider; local Node real-cloud proof không phải all-Worker readiness. Domain/DNS bị hoãn tại thời điểm cập nhật ADR; hiện trạng source SHA/DB xem [deployment runbook](../deployment.md). Xem [readiness](../backend-readiness.md), [private documents](../private-documents-r2.md), [thiết kế B2B](../b2b-leasing-design.md).

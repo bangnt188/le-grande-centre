@@ -27,7 +27,7 @@
 .inquiry strong { color: var(--ui-color-text-primary); }
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 20px; }
 .field { min-width: 0; }
-.field .label { color: #5b6257; font-size: 10px; font-weight: 500; letter-spacing: .075em; text-transform: uppercase; line-height: 1.6; }
+.field .label { color: #5b6257; font-size: 12px; font-weight: 500; letter-spacing: .075em; text-transform: uppercase; line-height: 1.6; }
 .field .control { min-height: 48px; border-radius: 0; padding: 12px 14px; border-color: #ddd7c8; background-color: #f5f1e7; color: #193b31; font-size: 14px; line-height: 1.5; caret-color: #193b31; }
 .field .control::placeholder { color: #696f62; opacity: 1; }
 .field .control:focus-visible { outline: 2px solid #8a6b2d; outline-offset: 3px; }
@@ -38,7 +38,7 @@
 .consent label { min-height: 44px; align-items: flex-start; }
 .consent input { flex-shrink: 0; margin-top: 4px; }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 24px; }
-.actions .submit, .visit { min-height: 48px; padding: 14px 18px; font: inherit; font-size: 10px; font-weight: 600; letter-spacing: .065em; text-transform: uppercase; border-radius: 8px; }
+.actions .submit, .visit { min-height: 48px; padding: 14px 18px; font: inherit; font-size: 12px; font-weight: 600; letter-spacing: .065em; text-transform: uppercase; border-radius: 8px; }
 .actions .submit { border: 1px solid #193b31; background: #193b31; color: #fffaf0; }
 .actions .submit:hover:not(:disabled) { background: #2e5445; }
 .actions .submit:disabled { cursor: not-allowed; opacity: .6; }

@@ -10,7 +10,7 @@ import { appointmentLabels, dateLabel, remainingLabel, requestLabels, slotCodes 
 import { useAdminData, type AdminData } from "@/features/admin/use-admin-data";
 import type { SlotRecordEntry } from "@/features/admin/slot-detail";
 import type { Floor } from "@/shared/admin/space-model";
-import { BROCHURE_FLOORS, BROCHURE_UNITS } from "@/features/public/brochure-leasing";
+import { FloorPlanMap } from "@/features/shared/floor-plan-map";
 import { useRecordDetail } from "@/features/admin/use-record-detail";
 import type { CompanyNotes } from "@/features/admin/use-company-notes";
 import { CollectionFeedback, CompanyPicker, useAdminCollection, useAdminRecord, useRelatedCompanies } from "@/features/admin/admin-collections";
@@ -97,8 +97,9 @@ export default function B2BWorkspace(props: Props) {
   const slots = [...data.slots, ...requestData.slots, ...leaseData.slots, ...companyRequests.slots, ...companyLeases.slots];
   const slotCodes = (ids: string[]) => formatSlotCodes(ids, slots);
   function MiniPlan({ ids, floor }: { ids: string[]; floor: Floor }) {
-    const codes = slots.filter(item => ids.includes(item.id)).map(item => item.code);
-    return <svg className="b2b-mini-plan" viewBox="0 0 1000 250" role="img" aria-label={`Vị trí ${slotCodes(ids)} trên tầng ${floor}, theo brochure`}>{BROCHURE_FLOORS.find(item => item.id === floor)?.sharedAreas.map((shape, index) => <rect key={index} x={shape.x} y={shape.y} width={shape.width} height={shape.height} className="mini-core"/>)}{BROCHURE_UNITS.filter(item => item.floorId === floor).map(unit => <rect key={unit.id} x={unit.plan.x} y={unit.plan.y} width={unit.plan.width} height={unit.plan.height} className={codes.includes(unit.id) ? "mini-selected" : "mini-slot"}/>)}</svg>;
+    const plan = data.floorPlans.find(item => item.floor === floor);
+    if (!plan) return null;
+    return <FloorPlanMap className="b2b-mini-plan" ariaLabel={`Vị trí ${slotCodes(ids)} trên sơ đồ tham khảo tầng ${floor}`} plan={plan} slots={plan.slots} selectedIds={ids} variant="mini" showLabels={false} showArea={false} showStatus={false}/>;
   }
   const consumedEntry = useRef<SlotRecordEntry | undefined>(undefined);
   useEffect(() => {

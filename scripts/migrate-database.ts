@@ -5,10 +5,19 @@ import { BROCHURE_UNITS } from "../src/features/public/brochure-leasing";
 import { DEFAULT_FLOOR_CONTENT } from "../src/shared/admin/space-model";
 import { DEFAULT_WEBSITE_SETTINGS } from "../src/shared/admin/website-defaults";
 
+type PlanSeed = {
+ floor: number; coordinateSystem: string; canvasWidth: number; canvasHeight: number;
+ sourceDocument: string; sourcePage: number; sourceSheet: string | null;
+ orientation: { front:string;rear:string;lakeSide:string;waterworksSide:string;sourceUrl:string };
+ features: { code: string; kind: string; label: string; geometry: object }[];
+};
+type SlotPlanSeed = { floor: number; code: string; geometry: { x: number; y: number; width: number; height: number; points?: number[][]; labelPosition?: { x: number; y: number } } };
+
 export async function migrateDatabase(connectionString:string) {
  if(new URL(connectionString).hostname.includes('-pooler'))throw new Error('Migrations require a direct DATABASE_URL');
  const pool=new Pool({connectionString,max:1}),client=await pool.connect();
  try {
+  const planSeed=JSON.parse(await readFile('database/seeds/floor-plans.json','utf8')) as {floors:PlanSeed[];slots:SlotPlanSeed[]};
   await client.query("SELECT pg_advisory_lock(hashtext('le-grande:migrations'))");
   const baseline=await client.query("SELECT to_regclass('leasing.properties') AS present");
   if(!baseline.rows[0].present)await client.query(await readFile('database/schema.sql','utf8'));
@@ -32,30 +41,58 @@ export async function migrateDatabase(connectionString:string) {
   for(const content of DEFAULT_FLOOR_CONTENT) {
    await client.query('INSERT INTO leasing.floors(property_id,floor_number,name,purpose,public_title,public_description) VALUES($1,$2,$3,$4,$4,$5) ON CONFLICT(property_id,floor_number) DO NOTHING',[p,content.number,'Tầng '+content.number,content.publicTitle,content.publicDescription]);
    const floor=(await client.query('SELECT id FROM leasing.floors WHERE property_id=$1 AND floor_number=$2',[p,content.number])).rows[0];
-   await client.query("INSERT INTO leasing.plan_versions(property_id,floor_id,version_number,coordinate_system) VALUES($1,$2,1,'brochure-reference-no-survey-geometry') ON CONFLICT(floor_id,version_number) DO NOTHING",[p,floor.id]);
+   const floorPlan=planSeed.floors.find(item=>item.floor===content.number);if(!floorPlan)throw new Error('Approved floor plan seed is missing');
+   await client.query("INSERT INTO leasing.plan_versions(property_id,floor_id,version_number,coordinate_system,canvas_width,canvas_height,source_document,source_page,source_sheet,orientation_facts) VALUES($1,$2,1,$3,$4,$5,$6,$7,$8,$9::jsonb) ON CONFLICT(floor_id,version_number) DO NOTHING",[p,floor.id,floorPlan.coordinateSystem,floorPlan.canvasWidth,floorPlan.canvasHeight,floorPlan.sourceDocument,floorPlan.sourcePage,floorPlan.sourceSheet,JSON.stringify(floorPlan.orientation)]);
    const plan=(await client.query('SELECT id FROM leasing.plan_versions WHERE floor_id=$1 AND version_number=1',[floor.id])).rows[0];
    for(const unit of BROCHURE_UNITS.filter(u=>u.floorId===content.number)) {
     const existing=await client.query('SELECT id FROM leasing.slots WHERE floor_id=$1 AND code=$2',[floor.id,unit.id]);if(existing.rows.length)continue;
     const slot=(await client.query('INSERT INTO leasing.slots(property_id,floor_id,code,display_order) VALUES($1,$2,$3,$4) RETURNING id',[p,floor.id,unit.id,Number(unit.id.split('.')[1])])).rows[0];
-    const version=(await client.query('INSERT INTO leasing.slot_versions(property_id,floor_id,slot_id,plan_version_id,version_number,geometry,technical_spec) VALUES($1,$2,$3,$4,1,NULL,$5::jsonb) RETURNING id',[p,floor.id,slot.id,plan.id,JSON.stringify({brochureDiagram:unit.plan,dimensions:unit.dimensions??null,sourcePage:content.number+4,coordinateMeaning:'diagram-only-not-surveyed'})])).rows[0];
-    await client.query("INSERT INTO leasing.slot_measurements(slot_version_id,area_kind,area_m2,source_description,verification_state) VALUES($1,'commercial_reference',$2,$3,'provisional')",[version.id,unit.area,'Approved project brochure page '+(content.number+4)+'; printed commercial reference, not survey']);
-    if(unit.dimensions?.width)await client.query("INSERT INTO leasing.slot_frontages(slot_version_id,frontage_kind,width_m,source_description) VALUES($1,'external',$2,'Printed brochure width; no inferred azimuth')",[version.id,unit.dimensions.width]);
+    const planSlot=planSeed.slots.find(item=>item.floor===content.number&&item.code===unit.id);if(!planSlot)throw new Error('Approved slot geometry is missing');
+    const sourceDescription=(content.number<=2?'Architectural drawing ':'Approved project brochure page ')+floorPlan.sourceDocument+' PDF page '+floorPlan.sourcePage+(floorPlan.sourceSheet?' ('+floorPlan.sourceSheet+')':'')+'; commercial reference, not survey';
+    const technicalSpec={dimensions:unit.dimensions??null,referenceSource:{document:floorPlan.sourceDocument,pdfPage:floorPlan.sourcePage,sheet:floorPlan.sourceSheet},coordinateMeaning:'diagram-only-not-surveyed'};
+    const version=(await client.query('INSERT INTO leasing.slot_versions(property_id,floor_id,slot_id,plan_version_id,version_number,geometry,public_types,orientation_description,public_note,depth_m,technical_spec) VALUES($1,$2,$3,$4,1,$5::jsonb,$6::text[],$7,$8,$9,$10::jsonb) RETURNING id',[p,floor.id,slot.id,plan.id,JSON.stringify(planSlot.geometry),unit.types,unit.orientation,unit.note??'',content.number<=2?unit.dimensions?.depth??null:null,JSON.stringify(technicalSpec)])).rows[0];
+    await client.query("INSERT INTO leasing.slot_measurements(slot_version_id,area_kind,area_m2,source_description,verification_state) VALUES($1,'commercial_reference',$2,$3,'provisional')",[version.id,unit.area,sourceDescription]);
+    if(unit.dimensions?.width)await client.query("INSERT INTO leasing.slot_frontages(slot_version_id,frontage_kind,width_m,source_description) VALUES($1,'external',$2,$3)",[version.id,unit.dimensions.width,content.number<=2?'Architectural drawing frontage; no inferred azimuth':'Printed brochure width; no inferred azimuth']);
     const space=(await client.query('INSERT INTO leasing.spaces(property_id,floor_id,code,display_name) VALUES($1,$2,$3,$3) RETURNING id',[p,floor.id,unit.id])).rows[0];
-    const sv=(await client.query("INSERT INTO leasing.space_versions(property_id,floor_id,space_id,version_number,area_m2,area_basis,measurement_state,geometry,frontage_snapshot,inventory_basis) VALUES($1,$2,$3,1,$4,'Approved brochure commercial reference','provisional',NULL,'[]','approved_brochure') RETURNING id",[p,floor.id,space.id,unit.area])).rows[0];
+    const areaBasis=content.number<=2?'Architectural drawing commercial reference; not surveyed':'Approved brochure commercial reference';
+    const sv=(await client.query("INSERT INTO leasing.space_versions(property_id,floor_id,space_id,version_number,area_m2,area_basis,measurement_state,geometry,frontage_snapshot,inventory_basis) VALUES($1,$2,$3,1,$4,$5,'provisional',NULL,'[]','approved_brochure') RETURNING id",[p,floor.id,space.id,unit.area,areaBasis])).rows[0];
     await client.query('INSERT INTO leasing.space_members(space_version_id,property_id,floor_id,slot_id,slot_version_id) VALUES($1,$2,$3,$4,$5)',[sv.id,p,floor.id,slot.id,version.id]);
    }
    const inventory=(await client.query('SELECT id,code FROM leasing.slots WHERE floor_id=$1',[floor.id])).rows;
    const units=BROCHURE_UNITS.filter(u=>u.floorId===content.number);
    for(const a of units)for(const b of units) {
-    if(a.id===b.id||a.plan.polygon||b.plan.polygon||Math.abs(a.plan.y-b.plan.y)>.001||Math.abs(a.plan.height-b.plan.height)>.001||Math.abs(a.plan.x+a.plan.width-b.plan.x)>.001)continue;
+    const shapeA=planSeed.slots.find(item=>item.floor===content.number&&item.code===a.id)?.geometry,shapeB=planSeed.slots.find(item=>item.floor===content.number&&item.code===b.id)?.geometry;
+    if(!shapeA||!shapeB||a.id===b.id||shapeA.points||shapeB.points||Math.abs(shapeA.y-shapeB.y)>.001||Math.abs(shapeA.height-shapeB.height)>.001||Math.abs(shapeA.x+shapeA.width-shapeB.x)>.001)continue;
     const left=inventory.find(s=>s.code===a.id),right=inventory.find(s=>s.code===b.id);if(!left||!right)throw new Error('Brochure inventory missing');
     const pair=[left.id,right.id].sort();
-    await client.query("INSERT INTO leasing.slot_connections(property_id,floor_id,slot_a_id,slot_b_id,approval_state,technical_conditions,approved_by) VALUES($1,$2,$3,$4,'approved',$5,$6) ON CONFLICT(slot_a_id,slot_b_id) DO NOTHING",[p,floor.id,pair[0],pair[1],'Approved brochure page '+(content.number+4)+' shared boundary in the same diagram row. Diagram coordinates only; not surveyed geometry or structural permission to remove walls.',importer.id]);
+    await client.query("INSERT INTO leasing.slot_connections(property_id,floor_id,slot_a_id,slot_b_id,approval_state,technical_conditions,approved_by) VALUES($1,$2,$3,$4,'approved',$5,$6) ON CONFLICT(slot_a_id,slot_b_id) DO NOTHING",[p,floor.id,pair[0],pair[1],'Approved brochure shared boundary in the same diagram row. Diagram coordinates only; not surveyed geometry or structural permission to remove walls.',importer.id]);
    }
 
   }
+  for(const floorPlan of planSeed.floors) {
+   const floor=(await client.query('SELECT id FROM leasing.floors WHERE property_id=$1 AND floor_number=$2',[p,floorPlan.floor])).rows[0];
+   if(!floor)throw new Error('Approved floor is missing');
+   const currentPlan=(await client.query('SELECT id,published_at FROM leasing.plan_versions WHERE floor_id=$1 ORDER BY version_number DESC LIMIT 1',[floor.id])).rows[0];
+   if(!currentPlan)throw new Error('Approved floor plan version is missing');
+   const existingFeatures=Number((await client.query('SELECT count(*)::int AS count FROM leasing.plan_features WHERE plan_version_id=$1',[currentPlan.id])).rows[0].count);
+   const seedBaseline=!currentPlan.published_at&&existingFeatures===0;
+   if(seedBaseline)await client.query("UPDATE leasing.plan_versions SET public_state='reference',coordinate_system=$2,canvas_width=$3,canvas_height=$4,source_document=$5,source_page=$6,source_sheet=$7,orientation_facts=$8::jsonb WHERE id=$1",[currentPlan.id,floorPlan.coordinateSystem,floorPlan.canvasWidth,floorPlan.canvasHeight,floorPlan.sourceDocument,floorPlan.sourcePage,floorPlan.sourceSheet,JSON.stringify(floorPlan.orientation)]);
+   if(seedBaseline)for(let index=0;index<floorPlan.features.length;index++) {
+    const feature=floorPlan.features[index];
+    await client.query('INSERT INTO leasing.plan_features(property_id,floor_id,plan_version_id,feature_code,feature_kind,label,geometry,display_order,source_note) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9) ON CONFLICT(plan_version_id,feature_code) DO NOTHING',[p,floor.id,currentPlan.id,feature.code,feature.kind,feature.label,JSON.stringify(feature.geometry),index+1,'Imported from the cited reference drawing; diagram only, not surveyed geometry.']);
+   }
+   if(seedBaseline)for(const slotSeed of planSeed.slots.filter(item=>item.floor===floorPlan.floor)) {
+    const unit=BROCHURE_UNITS.find(item=>item.floorId===floorPlan.floor&&item.id===slotSeed.code);if(!unit)throw new Error('Approved public slot data is missing');
+    await client.query(`UPDATE leasing.slot_versions v SET geometry=$4::jsonb
+     FROM leasing.slots s WHERE s.id=v.slot_id AND s.floor_id=$1 AND s.code=$2
+      AND v.plan_version_id=$3 AND v.published_at IS NULL AND v.geometry IS NULL`,[floor.id,slotSeed.code,currentPlan.id,JSON.stringify(slotSeed.geometry)]);
+    await client.query(`UPDATE leasing.slot_versions v SET public_types=$4::text[],orientation_description=$5,public_note=$6
+     FROM leasing.slots s WHERE s.id=v.slot_id AND s.floor_id=$1 AND s.code=$2
+      AND v.plan_version_id=$3 AND v.published_at IS NULL AND v.orientation_description IS NULL`,[floor.id,slotSeed.code,currentPlan.id,unit.types,unit.orientation,unit.note??'']);
+   }
+  }
   await client.query('COMMIT');
-  console.log('Relational migrations and approved brochure content initialized; no customer transactions seeded.');
+  console.log('Relational migrations and approved project reference content initialized; no customer transactions seeded.');
  } catch(error){await client.query('ROLLBACK');throw error;}finally{await client.query("SELECT pg_advisory_unlock(hashtext('le-grande:migrations'))").catch(()=>{});client.release();await pool.end();}
 }
 export async function importApprovedLogo(connectionString:string,metadata:{publicUrl:string;bytes:number;sha256:string}) {

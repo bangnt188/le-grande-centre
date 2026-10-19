@@ -1,17 +1,7 @@
+import type { FloorPlan, PlanGeometry } from "@/shared/leasing/plan-model";
+
 // Public presentation data only. This contract grants no inventory mutation rights.
-export type PlanShape = Readonly<{
-  x: number; y: number; width: number; height: number;
-  polygon?: string;
-  labelPosition?: Readonly<{ x: number; y: number }>;
-}>;
-export type LeasingFloor = Readonly<{
-  id: number; label: string; description: string; sourcePage: number;
-  sharedAreas: readonly (PlanShape & { label: string })[];
-}>;
-export type LeasingOrientation = Readonly<{
-  front: string; rear: string; lakeSide: string; waterworksSide: string;
-  sourceUrl: string;
-}>;
+export type LeasingFloor = Readonly<{ id: number; label: string; description: string; plan: FloorPlan }>;
 export type LeasingAvailability = "available" | "contact" | "leased";
 export type LeasingUnit = Readonly<{
   id: string; floorId: number; area: number; types: readonly string[];
@@ -19,7 +9,7 @@ export type LeasingUnit = Readonly<{
   orientation: string; // Approximate exterior aspect, not a certified entrance direction.
   dimensions?: Readonly<{ width: number; depth: number }>;
   note?: string;
-  plan: PlanShape;
+  plan: PlanGeometry;
 }>;
 export type AreaFilter = "" | "small" | "medium" | "large";
 export type StatusFilter = "" | LeasingAvailability;

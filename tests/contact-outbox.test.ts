@@ -17,7 +17,7 @@ test("contact outbox commits atomically, retries durable receipts, fences overla
   const idempotencyKey = crypto.randomUUID(), ipHash = "a".repeat(64), actor = "system:notification-dispatch";
   const seen: { key: string; text: string }[] = [];
   const accepted = new Map<string, string>();
-  let mode: "hold" | "lost-ack" | "accept" | "invalid" | "unknown" | "failure" | "redirect" | "flaky" | "gmail-failure" = "failure";
+  let mode: "hold" | "lost-ack" | "accept" | "invalid" | "unknown" | "failure" | "redirect" | "flaky" | "gmail-failure" | "terminal" = "failure";
   let failureStatus = 409;
   let redirected = 0;
   let failuresLeft = 0;
@@ -51,8 +51,8 @@ test("contact outbox commits atomically, retries durable receipts, fences overla
     const remoteId = accepted.get(key) ?? crypto.randomUUID();
     accepted.set(key, remoteId);
     if (mode === "lost-ack") { response.destroy(); return; }
-    response.writeHead(202, { "Content-Type": "application/json" });
-    response.end(JSON.stringify({ id: remoteId, channel: body.channel, status: mode === "unknown" ? "unknown" : "queued", createdAt: new Date().toISOString(), sentAt: null }));
+    response.writeHead(mode === "terminal" ? 200 : 202, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ id: remoteId, channel: body.channel, status: mode === "unknown" ? "unknown" : mode === "terminal" ? "failed" : "queued", createdAt: new Date().toISOString(), sentAt: null }));
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -170,6 +170,21 @@ test("contact outbox commits atomically, retries durable receipts, fences overla
     mode = "accept";
     assert.deepEqual(await dispatchContactNotifications(), { claimed: 1, forwarded: 1 });
     assert.equal(seen.filter(row => row.key === `contact:${concurrent.id}:zalo`).length, 1, "shared batch token must not acknowledge or replay the sibling channel");
+    // A lost initial ACK may replay an event that is now permanently bounced: Render retains it, not the source dispatcher.
+    const terminal = await submitContact({ ...input, name: input.name + " terminal" }, { idempotencyKey: crypto.randomUUID(), ipHash: "d".repeat(64) });
+    mode = "terminal";
+    const beforeTerminal = seen.length;
+    assert.deepEqual(await dispatchContactNotifications(), { claimed: 2, forwarded: 2 });
+    assert.equal(seen.length - beforeTerminal, 2, "terminal receipts transfer ownership without three-attempt loops");
+    await withTransaction(actor, async client => {
+      const rows = (await client.query("SELECT channel,remote_id,forwarded_at,payload FROM leasing.contact_notification_outbox WHERE intake_id=$1", [terminal.id])).rows;
+      for (const row of rows) {
+        assert.equal(row.remote_id, accepted.get(`contact:${terminal.id}:${row.channel}`));
+        assert.ok(row.forwarded_at);
+        assert.equal(row.payload, null);
+      }
+    });
+    assert.deepEqual(await dispatchContactNotifications(), { claimed: 0, forwarded: 0 });
   } finally {
     release?.();
     globalThis.fetch = originalFetch;

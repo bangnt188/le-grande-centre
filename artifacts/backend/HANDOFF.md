@@ -1,3 +1,5 @@
+> Historical handoff for the earlier static-export frontend state; it is not the current Le Grande Center deployment record. The owner confirms this project is not deployed on Vercel; the current release target is Cloudflare Worker stage2. See [deployment runbook](../../docs/deployment.md).
+
 # Shared backend decision and Solar handoff
 
 Current 0.2.1 package layout: repository root, mounted as `packages/backend` submodule in each app. [Pinned-commit workflow](./submodules.md). Vendored-copy steps below are historical.

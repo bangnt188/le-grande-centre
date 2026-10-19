@@ -1,6 +1,7 @@
 import type { B2BCommand, B2BData } from "./b2b-model";
 import type { Floor, FloorConfiguration, Slot, SlotStatus, SpaceGroup } from "./space-model";
 import type { StorageUsage } from "./storage-policy";
+import type { FloorPlan } from "../leasing/plan-model";
 import { isWebsiteSettings, type WebsiteSettings } from "./website-settings";
 
 export const LEAD_STATUSES = ["Mới", "Đang tư vấn", "Đã xử lý"] as const;
@@ -37,7 +38,7 @@ export type AdminScreenData = {
   settings: { settings: AdminSettings };
   defaults: { defaults: Pick<AdminSettings, "defaultHoldHours" | "appointmentMinutes" | "appointmentLocation"> };
 };
-export type AdminScreenResponse<S extends AdminScreenName = AdminScreenName> = { revision: number } & AdminScreenData[S];
+export type AdminScreenResponse<S extends AdminScreenName = AdminScreenName> = { revision: number; floorPlans: FloorPlan[] } & AdminScreenData[S];
 export type AdminMediaQuery = { page?: number; pageSize?: number; query?: string; kind?: MediaItem["kind"]; source?: "all" | "uploaded" | "project"; scope?: string };
 export type AdminMediaPage = { items: MediaItem[]; page: number; pageSize: number; totalItems: number; totalPages: number; revision: number; storage: StorageUsage | null };
 export type AdminMediaDetail = { item: MediaItem; revision: number };

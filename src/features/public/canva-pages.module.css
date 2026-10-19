@@ -24,15 +24,5 @@
 .orientationFacts dt { font-size: 14px; }
 .orientationFacts dd { margin: 0; font-size: 16px; font-weight: 600; }
 .planScroll { overflow-x: auto; overscroll-behavior: contain; }
-.plan { position: relative; min-width: 680px; aspect-ratio: 1000 / 250; border: 1px solid #b7c4b7; background: #f9f8f2; }
-.sharedArea { position: absolute; display: flex; align-items: center; justify-content: center; padding: 2px 4px; background: #e7e8dd; color: #43564a; font-size: 10px; line-height: 1.5; text-align: center; }
-.planSlot { position: absolute; display: flex; align-items: center; justify-content: center; padding: 4px; border: 1px solid #83968a; background: #f9f8f2; color: var(--reference-green); font: inherit; cursor: pointer; }
-.planSlot:hover { background: #e4e9dd; }
-.planSlot[aria-pressed="true"] { background: var(--reference-green); color: var(--reference-paper); }
-.planSlot:disabled { opacity: .4; cursor: not-allowed; }
-.planSlot:focus-visible { outline-offset: -4px; }
-.slotLabel { display: flex; flex-direction: column; align-items: center; gap: 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.slotLabel strong { font-size: 14px; }
-.slotLabel span { font-size: 11px; }
 @media (max-width: 1000px) { .hero { gap: 32px; } .heroImage { height: 290px; } .suggestion { align-items: start; flex-direction: column; } }
 @media (max-width: 700px) { .hero { grid-template-columns: 1fr; padding: 42px 6%; } .hero h1 { font-size: 44px; } .hero p { font-size: 14px; } .heroImage { height: auto; aspect-ratio: 16/10; } .section, .suggestion { padding-block: 40px; } .overview { grid-template-columns: 1fr; gap: 28px; } .overview img { height: auto; } }

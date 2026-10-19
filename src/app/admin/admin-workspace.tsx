@@ -8,14 +8,15 @@ import type { Floor, Slot } from "../../shared/admin/space-model";
 import type { AdminScreenName, AdminScreenQuery } from "@/shared/admin/contracts";
 import { useAdminData } from "@/features/admin/use-admin-data";
 import { AdminSessionError, clearAdminSession, ensureSession, getSessionSnapshot, logoutSession, useAdminSession } from "@/features/admin/session";
-import { BROCHURE_FLOORS, BROCHURE_UNITS, BROCHURE_PATH } from "@/features/public/brochure-leasing";
-import { planStyle, planLabelStyle } from "@/features/public/leasing-plan-style";
+import { BROCHURE_PATH } from "@/features/public/brochure-leasing";
 import planStyles from "@/features/public/canva-pages.module.css";
+import { FloorPlanMap } from "@/features/shared/floor-plan-map";
 import { r2AssetUrl } from "@/config/site";
 import type { SlotRecordEntry } from "@/features/admin/slot-detail";
 
 import { useRecordDetail } from "@/features/admin/use-record-detail";
 import { useCompanyNotes } from "@/features/admin/use-company-notes";
+import { useAdminLogoUrl } from "@/features/admin/use-admin-logo";
 
 import { FloorOverview } from "./content-overviews";
 import { LeGrandeAdminShell } from "@/features/admin/le-grande-admin-shell";
@@ -60,9 +61,10 @@ const labels: Record<View, string> = { slot: "Hồ sơ slot", floors: "Tầng", 
 
 
 export default function AdminWorkspace() {
-  return <AdminNotificationsProvider><AdminWorkspaceContent/></AdminNotificationsProvider>;
+  const logoUrl = useAdminLogoUrl();
+  return <AdminNotificationsProvider><AdminWorkspaceContent logoUrl={logoUrl}/></AdminNotificationsProvider>;
 }
-function AdminWorkspaceContent() {
+function AdminWorkspaceContent({ logoUrl }: { logoUrl?: string }) {
   const router = useRouter();
   const [view, setActiveView] = useState<View>("floors");
   const [leavingSession, setLeavingSession] = useState(false);
@@ -152,6 +154,7 @@ function AdminWorkspaceContent() {
   const notes = useCompanyNotes(admin.execute, admin.hasUnsavedDrafts);
   const dialogContainer = useRef<HTMLDivElement>(null);
   const { slots, groups, pending, loading, error, execute, reload } = admin;
+  const currentFloorPlan = admin.floorPlans.find(item => item.floor === floor);
   const [selected, setSelected] = useState<string[]>([]);
   const [groupName, setGroupName] = useState("");
   const [spaceDirty, setSpaceDirty] = useState(false);
@@ -357,7 +360,7 @@ function AdminWorkspaceContent() {
     </div>
   </Alert> : null;
 
-  return <LeGrandeAdminShell propertyName={admin.settings?.propertyName} navigation={navigation} activeItemId={view === "slot" ? "spaces" : companyView ? "customers" : view} onLogout={() => { setLeavingSession(true); notes.navigate(() => { void logout(); }); }} location={<Breadcrumbs label="Vị trí quản trị" items={[{ label: "Quản trị", href: "#admin-workspace", linkProps: { onClick: (event: React.MouseEvent<HTMLAnchorElement>) => { event.preventDefault(); notes.navigate(() => setView("floors")); } } }, ...(view === "slot" ? [{ label: `Căn / Mặt bằng · Tầng ${floor}`, href: "#admin-workspace", linkProps: { onClick: (event: React.MouseEvent<HTMLAnchorElement>) => { event.preventDefault(); notes.navigate(() => setView("spaces")); } } }, { label: slotId || "Slot không xác định", href: `#slot=${encodeURIComponent(slotId)}`, current: true }] : companyView ? [{ label: "Doanh nghiệp", href: "#admin-workspace", linkProps: { onClick: (event: React.MouseEvent<HTMLAnchorElement>) => { event.preventDefault(); notes.navigate(() => setView("customers")); } } }, { label: view === "customers" ? "Tất cả" : labels[view], href: "#admin-workspace", current: true }] : [{ label: labels[view], href: "#admin-workspace", current: true }])]}/>}>
+  return <LeGrandeAdminShell propertyName={admin.settings?.propertyName} logoUrl={logoUrl} navigation={navigation} activeItemId={view === "slot" ? "spaces" : companyView ? "customers" : view} onLogout={() => { setLeavingSession(true); notes.navigate(() => { void logout(); }); }} location={<Breadcrumbs label="Vị trí quản trị" items={[{ label: "Quản trị", href: "#admin-workspace", linkProps: { onClick: (event: React.MouseEvent<HTMLAnchorElement>) => { event.preventDefault(); notes.navigate(() => setView("floors")); } } }, ...(view === "slot" ? [{ label: `Căn / Mặt bằng · Tầng ${floor}`, href: "#admin-workspace", linkProps: { onClick: (event: React.MouseEvent<HTMLAnchorElement>) => { event.preventDefault(); notes.navigate(() => setView("spaces")); } } }, { label: slotId || "Slot không xác định", href: `#slot=${encodeURIComponent(slotId)}`, current: true }] : companyView ? [{ label: "Doanh nghiệp", href: "#admin-workspace", linkProps: { onClick: (event: React.MouseEvent<HTMLAnchorElement>) => { event.preventDefault(); notes.navigate(() => setView("customers")); } } }, { label: view === "customers" ? "Tất cả" : labels[view], href: "#admin-workspace", current: true }] : [{ label: labels[view], href: "#admin-workspace", current: true }])]}/>}>
         <div ref={dialogContainer} className="admin-dialog-host"/>
         <ConfirmDialog open={splitOpen && !!activeGroup} title="Tách mặt bằng ghép?" description={activeGroup ? `${activeGroup.name} sẽ trở về ${selectedSlots.length} slot gốc. Media liên kết nhóm chuyển về tầng ${floor}; trạng thái được giữ nguyên.` : ""} confirmLabel="Xác nhận tách" cancelLabel="Giữ nhóm" onClose={() => { if (!pending) setSplitOpen(false); }} onConfirm={() => void split()} portalContainer={dialogContainer}/>
         <ConfirmDialog open={!!notes.pendingNavigation} title={leavingSession ? "Đăng xuất?" : "Có thay đổi chưa lưu"} description={leavingSession ? "Đăng xuất sẽ bỏ những thay đổi chưa lưu. Dữ liệu đã lưu vẫn được giữ trên hệ thống." : "Tiếp tục có thể bỏ các thay đổi đang sửa. Chọn Ở lại để lưu trước."} confirmLabel={leavingSession ? "Đăng xuất, bỏ thay đổi" : "Tiếp tục điều hướng"} cancelLabel="Ở lại" onClose={() => {
@@ -394,12 +397,18 @@ function AdminWorkspaceContent() {
             <AdminPanel className="plan-panel" labelledBy="plan-heading">
               <div className="section-toolbar"><div className="segmented"><Button variant="quiet" id="plan-heading" aria-pressed={planTab === "plan"} className={planTab === "plan" ? "is-active" : ""} onClick={() => setPlanTab("plan")}><Icon name="plan" size={16}/>Sơ đồ tương tác</Button><Button variant="quiet" aria-pressed={planTab === "reference"} className={planTab === "reference" ? "is-active" : ""} onClick={() => setPlanTab("reference")}>Bản vẽ tham chiếu</Button></div><span className="plan-scale">Không theo tỷ lệ kỹ thuật</span></div>
               {planTab === "plan" ? <>
-                <div className={`approved-plan ${planStyles.planScroll}`} tabIndex={0} role="region" aria-label={`Sơ đồ tầng ${floor} theo brochure`}><div className={planStyles.plan}>
-                  {BROCHURE_FLOORS.find(item => item.id === floor)?.sharedAreas.map((space, index) => <div key={index} className={planStyles.sharedArea} style={planStyle(space)}>{space.label}</div>)}
-                  {BROCHURE_UNITS.filter(item => item.floorId === floor).map(unit => { const slot = floorSlots.find(item => item.code === unit.id); if (!slot) return null; return <button type="button" key={unit.id} className={planStyles.planSlot} data-slot-status={slot.status} style={planStyle(unit.plan)} aria-pressed={selected.includes(slot.id)} aria-label={`${unit.id}, ${fmt(slot.area)} mét vuông, ${slot.status}`} onClick={() => choose(slot)}><span className={planStyles.slotLabel} style={planLabelStyle(unit.plan)}><strong>{unit.id}</strong><span>{fmt(slot.area)} m²</span><span>{slot.status}</span></span></button>; })}
-                </div></div>
-              </> : <div className="reference-view"><a href={r2AssetUrl(BROCHURE_PATH)} target="_blank" rel="noopener noreferrer">Mở brochure gốc · Trang {BROCHURE_FLOORS.find(item => item.id === floor)?.sourcePage}</a></div>}
-              <p className="plan-caption">Sơ đồ tham khảo theo brochure, không phải bản vẽ kỹ thuật. Còn trống là trạng thái chưa thuê; giữ chỗ được quản lý riêng và vẫn khóa các thao tác xung đột.</p>
+                {currentFloorPlan ? <FloorPlanMap
+                  ariaLabel={`Sơ đồ tham khảo tầng ${floor}`}
+                  className={`approved-plan ${planStyles.planScroll}`}
+                  variant="admin"
+                  plan={currentFloorPlan}
+                  slots={currentFloorPlan.slots}
+                  selectedIds={selected}
+                  showStatus
+                  onSelect={item => { const slot = floorSlots.find(candidate => candidate.id === item.id); if (slot) choose(slot); }}
+                /> : <Alert tone="warning">Chưa có dữ liệu sơ đồ tầng {floor} trong hệ thống.</Alert>}
+                </> : <div className="reference-view">{currentFloorPlan?.sourceDocument === "le-grande-brochure.pdf" && currentFloorPlan.sourcePage ? <a href={`${r2AssetUrl(BROCHURE_PATH)}#page=${currentFloorPlan.sourcePage}`} target="_blank" rel="noopener noreferrer">Mở brochure gốc · trang {currentFloorPlan.sourcePage}</a> : currentFloorPlan?.sourceDocument ? <span>Nguồn: {currentFloorPlan.sourceDocument}{currentFloorPlan.sourcePage ? ` · PDF trang ${currentFloorPlan.sourcePage}` : ""}{currentFloorPlan.sourceSheet ? ` (${currentFloorPlan.sourceSheet})` : ""}</span> : <span>Chưa có nguồn tham chiếu trong dữ liệu tầng.</span>}</div>}
+              <p className="plan-caption">Sơ đồ diễn giải theo tài liệu tham khảo, không phải bản vẽ khảo sát. Còn trống là trạng thái chưa thuê; giữ chỗ được quản lý riêng và vẫn khóa các thao tác xung đột.</p>
             </AdminPanel>
             <aside className="space-inspector" aria-label="Chi tiết lựa chọn">
               <div className="inspector-title"><h3>{activeGroup ? "Mặt bằng đã ghép" : selected.length > 1 ? "Ghép mặt bằng" : "Chi tiết slot"}</h3>{selected.length > 0 && <Button variant="quiet" className="icon-button" aria-label="Bỏ chọn tất cả slot" onClick={() => notes.navigate(() => { setSpaceDirty(false); setSelected([]); })}><Icon name="close" size={17}/></Button>}</div>

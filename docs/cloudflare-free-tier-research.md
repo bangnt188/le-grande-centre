@@ -2,11 +2,13 @@
 
 Đối chiếu nguồn chính thức ngày **12/10/2026**. Đây là nghiên cứu/đề xuất, **không phải deployment đã chạy**; không tạo bucket, Worker, database hay backend mới.
 
-## Kết luận cho Le Grande
+> **Tài liệu nghiên cứu lịch sử:** phần đề xuất deployment bên dưới phản ánh snapshot static-export ngày 12/10/2026. Checkout hiện tại dùng Next.js standalone/OpenNext trên Worker; không dùng các kết luận hoặc lệnh Pages bên dưới làm hướng dẫn release. Xem [deployment runbook](deployment.md) và [backend readiness](backend-readiness.md).
 
-**[INFERENCE] Phương án ít thay đổi:** giữ Next.js static export; có thể dùng **Cloudflare Pages Free cho frontend + Workers Free cho API + Neon PostgreSQL cho metadata + R2 Standard cho bytes đã phân loại**. Free tier phù hợp pilot có kiểm soát, không phải cam kết toàn hệ thống miễn phí hoặc luôn sẵn sàng. Không cần chuyển frontend sang SSR chỉ để có API. Khả năng Workers kết nối Neon được Cloudflare tài liệu hóa; quota/điều kiện Neon phải xét riêng, không nằm trong quota Cloudflare. [1][2][3]
+## Đề xuất tại snapshot 12/10 — không phải kiến trúc hiện tại
 
-Hiện repo dùng `output: "export"` trong [`next.config.ts`](../next.config.ts); [`scripts/publish-dev-pages.mjs`](../scripts/publish-dev-pages.mjs) xuất `out/` lên **GitHub Pages**, không phải Cloudflare Pages. Script hiện chỉ publish demo public và chủ động từ chối backend API. Đề xuất Cloudflare dưới đây không thay đổi script, URL hay deployment hiện hành.
+**[INFERENCE tại thời điểm nghiên cứu]** Phương án được cân nhắc khi đó là Next.js static export với Cloudflare Pages + Workers + Neon + R2. Kết luận này đã bị thay thế bởi source và deployment Worker hiện tại; các con số free-tier trong tài liệu chỉ là snapshot ngày 12/10, không phải giá/giới hạn đã kiểm tra lại hôm nay. [1][2][3]
+
+Tại snapshot 12/10/2026, repo khi đó dùng `output: "export"` và có script publish demo lên GitHub Pages. Điều đó không mô tả checkout hiện tại: runtime đã chuyển sang standalone/OpenNext và Worker. Lịch sử deployment hiện hành nằm trong [runbook](deployment.md).
 
 ## 1. Hạn mức và billing cần tính riêng
 
@@ -39,12 +41,12 @@ Giữ contract tại [`private-documents-r2.md`](private-documents-r2.md), khôn
 
 Metadata PostgreSQL giữ document/version ID, provider, bucket/key, MIME, bytes, hash, ownership/grant, scan state và audit; không nhét file bytes hay signed URL vào bảng. **[INFERENCE]** Khi phân chia R2 và Neon Object Storage, giữ một nơi có thẩm quyền cho metadata/quyền và vị trí từng version; không cộng dung lượng PostgreSQL vào dung lượng object storage. Tài liệu này xác nhận phía Cloudflare, không tự suy luận quota hay tính năng private của Neon Object Storage.
 
-## 4. Ranh giới deploy frontend và backend
+## 4. Ranh giới deploy trong đề xuất lịch sử (không áp dụng cho release hiện tại)
 
-- **Frontend hiện tại:** có thể build bằng pipeline repo `npm run build` rồi deploy **`out/`** lên Pages; không thay bằng một lệnh Next thuần làm bỏ qua prebuild/postbuild. Khi đổi host, cấu hình `NEXT_PUBLIC_SITE_URL` đúng domain/path mới để `basePath` không còn giữ đường GitHub Pages. Đây là việc deploy tương lai, chưa thực hiện. Cloudflare có hướng dẫn riêng cho Next static export. [1]
-- **API tương lai:** deploy Worker riêng; chỉ route `/api/*` qua Worker nếu dùng cùng origin, để asset tĩnh không gọi Functions/Worker vô ích. Với admin/portal private nên giữ endpoint xem tài liệu cùng origin hoặc reverse proxy cùng origin như design hiện có. Nếu API dùng subdomain khác, phải thiết kế credentialed CORS, cookie/session và CSRF rõ ràng; không coi CORS là lớp kiểm soát quyền.
-- **Điểm dễ nhầm:** `output: "export"` không chạy Next Route Handler phụ thuộc request/cookie, POST upload hay Server Actions tại request time. Static GET có thể được tạo lúc build nhưng không phải backend. Chỉ thêm `src/app/api/...` không làm API chạy trên artifact Pages; Pages Functions/Worker là runtime được deploy riêng, không phải Next server tự xuất hiện. Muốn cùng Next runtime phải chuyển deployment có chủ đích và kiểm tra tương thích, không nằm trong lần sắp xếp thư mục này. [1][15]
-- **PostgreSQL:** Workers có thể dùng Neon serverless driver; giữ connection string trong Worker secret. Hyperdrive là lựa chọn Cloudflare khuyến nghị cho pooling nhưng có quota riêng; không ghép driver serverless với Hyperdrive như hai tầng pooling mặc định. Cần kiểm tra library/Node API, transaction semantics và CPU của backend thực tế trước khi chọn runtime production; chưa khẳng định package backend hiện tại chạy nguyên trạng trên Worker. [3][8]
+- **Frontend trong proposal cũ:** pipeline dự kiến build `out/` rồi deploy lên Pages và cấu hình `NEXT_PUBLIC_SITE_URL`; không dùng hướng dẫn này cho source hiện tại. Cloudflare Pages static-export docs chỉ là tài liệu tham khảo lịch sử. [1]
+- **API trong proposal cũ:** tách Worker cho API và cùng-origin proxy là lựa chọn thiết kế khi đó. Runtime hiện tại đã dùng Next SSR/OpenNext Worker; mọi thay đổi target phải theo runbook hiện hành. CORS không phải lớp kiểm soát quyền.
+- **Giới hạn static export:** `output: "export"` không chạy request-time Next Route Handler, POST upload hay Server Actions. Đây vẫn là ranh giới kỹ thuật của phương án static, không phải kiến trúc app hiện tại. [1][15]
+- **PostgreSQL trong proposal cũ:** phần Workers/Neon/Hyperdrive ghi các lựa chọn đã cân nhắc khi thiết kế. Không dùng như quyết định kết nối DB hiện hành; xem [deployment runbook](deployment.md) và [database portability](database-portability.md). [3][8]
 
 ## 5. “Trong free tier” không đồng nghĩa “có trần chi phí chắc chắn”
 

@@ -1,4 +1,5 @@
 import { isAdminSettings, type AdminCommand, type AdminMediaPage, type AdminMediaDetail, type AdminMutationReceipt, type AdminRepository, type AdminScreenName, type AdminScreenQuery, type AdminScreenResponse, type AdminUploadReceipt } from "../../shared/admin/contracts";
+import { parseFloorPlan } from "../../shared/leasing/plan-model";
 import type { AdminCollectionDetail, AdminCollectionItems, AdminCollectionName, AdminCollectionPage } from "../../shared/admin/collection-contracts";
 import { isFloorConfigurations, isSlotStatus } from "../../shared/admin/space-model";
 import { isStorageUsage } from "../../shared/admin/storage-policy";
@@ -56,6 +57,14 @@ const SCREEN_FIELDS: Record<AdminScreenName, readonly string[]> = {
 };
 export function parseScreenResponse<S extends AdminScreenName>(screen: S, value: unknown): AdminScreenResponse<S> {
   if (!record(value) || !integer(value.revision)) invalid();
+  if (!Array.isArray(value.floorPlans) || value.floorPlans.length > 6) invalid();
+  let floorPlans: ReturnType<typeof parseFloorPlan>[] = [];
+  try {
+    floorPlans = value.floorPlans.map(plan => parseFloorPlan(plan));
+  } catch {
+    invalid();
+  }
+  if (new Set(floorPlans.map(plan => plan.floor)).size !== floorPlans.length) invalid();
   for (const key of SCREEN_FIELDS[screen]) {
     if (key === "floors") { if (!isFloorConfigurations(value.floors)) invalid(); }
     else if (!Array.isArray(value[key]) || !(value[key] as unknown[]).every(item => entity(key, item))) invalid();
@@ -63,7 +72,7 @@ export function parseScreenResponse<S extends AdminScreenName>(screen: S, value:
   if (["tenants", "requests", "leases"].includes(screen) && !pagination(value)) invalid();
   if (screen === "settings" && !isAdminSettings(value.settings)) invalid();
   if (screen === "defaults" && (!record(value.defaults) || !integer(value.defaults.defaultHoldHours) || value.defaults.defaultHoldHours < 1 || !integer(value.defaults.appointmentMinutes) || value.defaults.appointmentMinutes < 15 || typeof value.defaults.appointmentLocation !== "string")) invalid();
-  return value as unknown as AdminScreenResponse<S>;
+  return { ...value, floorPlans } as unknown as AdminScreenResponse<S>;
 }
 export function parseMutationReceipt(value: unknown): AdminMutationReceipt {
   if (!record(value) || !integer(value.revision) || typeof value.entityId !== "string" || !value.entityId) invalid();

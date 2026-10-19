@@ -1,19 +1,22 @@
 import "server-only";
 import { cache } from "react";
 import { readPublicWebsite } from "./public";
-import { BROCHURE_FLOORS, BROCHURE_UNITS } from "@/features/public/brochure-leasing";
 
 export const readPublicLeasing = cache(async () => {
   const publicData = await readPublicWebsite();
-  const units = publicData.units.map(record => {
-    const brochure = BROCHURE_UNITS.find(item => item.id === record.code && item.floorId === record.floor);
-    if (!brochure) throw new Error("Published inventory has no approved brochure geometry.");
-    return { ...brochure, area: record.area, availability: (record.status === "Đã thuê" || record.status === "Đang thuê") ? "leased" as const : record.status === "Liên hệ" ? "contact" as const : "available" as const };
-  });
+  const units = publicData.units.map(({ geometry, dimensions, note, ...record }) => ({
+    id: record.code,
+    floorId: record.floor,
+    area: record.area,
+    availability: record.status === "Đã thuê" ? "leased" as const : record.status === "Liên hệ" ? "contact" as const : "available" as const,
+    orientation: record.orientation,
+    types: record.types,
+    ...(dimensions ? { dimensions } : {}),
+    ...(note ? { note } : {}),
+    plan: geometry,
+  }));
   const floors = publicData.floors.map(record => {
-    const brochure = BROCHURE_FLOORS.find(item => item.id === record.number);
-    if (!brochure) throw new Error("Published floor has no approved brochure reference.");
-    return { ...brochure, label: record.publicTitle, description: record.publicDescription };
+    return { id: record.number, label: record.publicTitle, description: record.publicDescription, plan: record.plan };
   });
   return { units, floors };
 });

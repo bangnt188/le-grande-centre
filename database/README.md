@@ -1,28 +1,55 @@
 # Database PostgreSQL / Neon
 
-`schema.sql` remains the authoritative relational baseline; reviewed migrations
-`001-live-workspace.sql` through `012-contact-notification-outbox.sql` evolve it.
+`schema.sql` remains the authoritative relational baseline; migration files
+`001-live-workspace.sql` through `015-versioned-floor-plans.sql` are present in
+this checkout. Source presence does not mean a migration is applied to a live branch.
 There is no opaque stored workspace snapshot or browser persistence fallback.
 Runtime composition lives in `src/server/{database,workspace,public,public-data}.ts` and `media/`.
 
-## Current state — 17/10/2026
+## Current state — 19/10/2026
 
 Neon branch **`production` (`br-tiny-butterfly-b3uuw92p`)** is the production
 database and local `.env.local` target. Local writes are real production writes,
-not a sandbox. The noindex stage2 Worker uses separate branch
-**`lgc-bot-test` (`br-wispy-morning-b33h15x4`)** for form/bot tests. It was forked
-from production after the reset. Neon Auth and media remain shared with production.
+not a sandbox. `wrangler.jsonc` labels the noindex stage2 Worker with
+`NEON_BRANCH=lgc-bot-test` (`br-wispy-morning-b33h15x4`), but application code
+connects through the runtime secret `DATABASE_URL`; the label does not prove which
+branch a deployed Worker uses. Verify the deployed binding before writes. Wrangler
+does bind the shared bucket names `mall-documents` and `mall-assets`; Neon Auth
+and media-function runtime targets are separate configuration and are not proven
+by the branch label.
 
 Owner confirms this project is **not deployed on Vercel**. The current release
 target is the existing noindex Cloudflare stage2 Worker; do not infer deployment
 from domain responses or HTTP headers.
 See the [deployment runbook](../docs/deployment.md).
 
-Production and `lgc-bot-test` both have baseline+migrations **001–013**.
-Verified endpoints received reviewed011–013 SQL and checksum records without
-seed/backfill/reset. Migration013 preserves existing Zalo jobs and changes
-source identity to `(intake_id,channel)` for independent new Zalo/Gmail jobs.
-Migration confirmation is not evidence that the latest application source has been released to the Worker.
+On 19/10/2026, the local runtime and direct migration connection were verified
+against the same Neon endpoint; `current_setting('neon.branch_id')` returned the
+production branch ID above. Its migration ledger contained **001–013** with
+matching local checksums. `npm run db:migrate` then applied **014–015** and the
+approved floor-plan seed. A post-migration public projection read and contract
+parse returned 6 floors, 81 slots and 22 shared plan features. No customer or
+lease transactions were seeded. Migration confirmation is not evidence that the
+latest application source has been released to the Worker.
+
+The Cloudflare Worker still has a separately managed runtime `DATABASE_URL`.
+Its deployed branch was not inspected in this migration; the last recorded
+stage2 schema state is 001–013 and has not been rechecked. Do not infer it from
+the `NEON_BRANCH` Wrangler label.
+
+Migration **014** was applied to the verified local production branch. It appends provisional
+architectural-reference versions for the 22 floor 1/2 slots, retaining their
+history and availability/lease state. It stops if the current inventory differs
+from the expected slot catalog or includes surveyed, verified, published or
+validated-plan data. The migration guard passed on that branch. The architectural
+PDF remains an internal source and is not copied to public media.
+
+Migration **015** is applied to the verified local production branch. Current
+`src/server/admin-screens.ts` and `src/server/public-data.ts` query its
+`plan_versions` canvas/source columns and `leasing.plan_features`; the migration
+runner also seeded those fields and features. Therefore every database used by
+this source must have 015 and the reference seed. Verify the exact runtime branch
+before any separate stage2 migration; build/deploy does not migrate.
 
 `011-metadata-only-leases.sql` replaces the mandatory contract-document
 predicate with recorded lease metadata, retaining inventory/period/exclusivity
@@ -68,9 +95,10 @@ production-backed sign-in also reached the workspace, read six floors/81 slots,
 survived reload and ended in API 401 after logout. Those earlier observations do
 not verify mail delivery/recovery or the current private-media Worker path.
 
-The noindex Worker is `https://le-grande-centre-stage2.nguyenbang-skyone.workers.dev`; it uses
-isolated `lgc-bot-test`. Neon Auth and media are production services. Owner confirms
-there is no Vercel deployment. `npm run deploy` targets stage2; record its
+The noindex Worker target is `https://le-grande-centre-stage2.nguyenbang-skyone.workers.dev`.
+Wrangler labels it `lgc-bot-test`, while its deployed `DATABASE_URL` must be
+verified independently. Owner confirms there is no Vercel deployment.
+`npm run deploy` targets stage2; record its
 release/version and runtime DB in the [deployment runbook](../docs/deployment.md).
 Private cache R2 `le-grande-centre-stage2-next-cache` and D1
 `le-grande-centre-stage2-next-tags` keep the stage2 suffix. Private PDFs stay in
@@ -191,3 +219,27 @@ this documentation update ran no checks. Historical checks and Worker media limi
 remain in [readiness](../docs/backend-readiness.md).
 Current Worker release evidence and production contact-to-group acceptance remain
 separate launch gates.
+
+## Versioned floor-plan projection
+
+`leasing.plan_versions` owns the coordinate system, canvas dimensions, reference
+source, and public exposure state for a floor. Slot shapes stay versioned on
+`leasing.slot_versions.geometry`; lobby, corridor, void, and other shared shapes
+live in `leasing.plan_features` for the same plan version. The one-time import
+reference is `database/seeds/floor-plans.json`; UI readers do not import geometry
+from brochure TypeScript.
+
+Public map queries select only `reference` or `published` plan versions and return
+the map geometry, public slot code, area, status, and public labels. Internal plan
+versions, source notes, tenant/company data, and contract data are excluded. The
+shared `FloorPlanMap` validates numeric geometry against its declared canvas before
+rendering it. The runtime role can read plan versions/features but cannot alter or
+publish them; those transitions remain migration/owner operations until a reviewed
+map-publication workflow is added. Imported diagrams remain explicitly marked as
+reference drawings, not surveyed polygons. Public projections omit the architectural
+source file name/sheet for floors 1–2.
+
+Migration `015-versioned-floor-plans.sql` and the approved reference seed are
+applied on the verified local production branch. They are not evidence of a
+stage2 migration or Worker deployment; verify that runtime DB separately before
+releasing this source there.

@@ -6,6 +6,7 @@ import type { Appointment, Company, Lease, LeasingRequest, Reservation } from ".
 import type { AdminCollections } from "../../shared/admin/collection-contracts";
 import type { FloorConfiguration, Slot, SpaceGroup } from "../../shared/admin/space-model";
 import type { StorageUsage } from "../../shared/admin/storage-policy";
+import type { FloorPlan } from "../../shared/leasing/plan-model";
 import { createHttpRepository } from "./http-repository";
 import { makeCacheKey, screenCache, stableQueryKey } from "./memory-cache";
 import { ensureSession, getSessionSnapshot, useAdminSession } from "./session";
@@ -13,6 +14,7 @@ import { ensureSession, getSessionSnapshot, useAdminSession } from "./session";
 export type AdminData = {
   revision: number | null;
   floors: FloorConfiguration[]; slots: Slot[]; groups: SpaceGroup[];
+  floorPlans: FloorPlan[];
   settings: AdminSettings | null; storage: StorageUsage | null;
   companies: Company[]; requests: LeasingRequest[]; reservations: Reservation[]; leases: Lease[];
   appointments: Appointment[]; leads: Lead[]; media: MediaItem[];
@@ -147,6 +149,7 @@ export function useAdminData(activeScreen: string | null = "floors", screenQuery
     screenData: value,
     screenPagination: value && "page" in value ? { page: value.page, pageSize: value.pageSize, totalItems: value.totalItems, totalPages: value.totalPages } : null,
     floors: value && "floors" in value ? value.floors : [],
+    floorPlans: value?.floorPlans ?? [],
     slots: value && "slots" in value ? value.slots : [],
     groups: value && "groups" in value ? value.groups : [],
     settings: value && "settings" in value ? value.settings : null,

@@ -48,9 +48,10 @@ export async function dispatchContactNotifications(): Promise<{ claimed: number;
         if (response.status !== 200 && response.status !== 202) { await response.body?.cancel(); throw new Error("Notification not accepted"); }
         const receipt: unknown = await response.json();
         if (!receipt || typeof receipt !== "object" || !("id" in receipt) || typeof receipt.id !== "string" || !receipt.id || receipt.id.length > 128
-          || !("channel" in receipt) || receipt.channel !== row.channel || !("status" in receipt) || typeof receipt.status !== "string" || !["queued", "sending", "sent"].includes(receipt.status)
+          || !("channel" in receipt) || receipt.channel !== row.channel || !("status" in receipt) || typeof receipt.status !== "string" || !["queued", "sending", "sent", "failed"].includes(receipt.status)
           || !("createdAt" in receipt) || typeof receipt.createdAt !== "string" || !Number.isFinite(Date.parse(receipt.createdAt))
           || !("sentAt" in receipt) || (receipt.sentAt !== null && (typeof receipt.sentAt !== "string" || !Number.isFinite(Date.parse(receipt.sentAt))))) throw new Error("Invalid notification receipt");
+        // A terminal failed event is still durably owned by Render; preserve its ID instead of retrying a permanent bounce.
         remoteId = receipt.id;
       } catch {
         // Three bounded attempts reuse the exact payload/key; losing every ACK never drops the source row.

@@ -22,7 +22,7 @@ Không còn quota scenario/demo/local IndexedDB accounting. UI dùng shared `Adm
 3. Cộng tracked upload bytes trong Neon `media` và private R2 ở trạng thái ready/quarantine, cùng durable reserved bytes.
 4. So sánh ledger với relational metadata. Inventory lỗi, untracked/missing/mismatched private object hoặc vượt cap đặt external usage unavailable và audit lý do; khóa upload đến khi operator xử lý/đối soát.
 
-`usedBytes` trả UI = tracked used + verified public inventory bytes; `reservedBytes` trả riêng. Public project catalog là metadata chỉ đọc, **không dùng để giả đo dung lượng bucket**. Neon bytes hiện theo tracked metadata, không tuyên bố đã full-inventory Neon bucket hay mọi account/bucket bên ngoài. Writer/object không thuộc scope phải được kiểm soát và phân bổ ngân sách riêng; app cap không enforce toàn tài khoản provider. Local `.env.local` và Worker cùng dùng production DB/Auth/buckets, không có budget riêng cho local hoặc một branch khác.
+`usedBytes` trả UI = tracked used + verified public inventory bytes; `reservedBytes` trả riêng. Public project catalog là metadata chỉ đọc, **không dùng để giả đo dung lượng bucket**. Neon bytes hiện theo tracked metadata, không tuyên bố đã full-inventory Neon bucket hay mọi account/bucket bên ngoài. Writer/object không thuộc scope phải được kiểm soát và phân bổ ngân sách riêng; app cap không enforce toàn tài khoản provider. Local `.env.local` trỏ production; Wrangler bind R2 buckets `mall-assets`/`mall-documents`, nhưng Worker DB/Auth target cần xác minh từ runtime secrets. Không xem stage2 là budget hoặc provider isolation.
 
 ## Upload và cleanup thật
 
@@ -42,8 +42,8 @@ DB và object storage không có distributed atomic commit. Low-volume property 
 
 **Bằng chứng lịch sử trước reset:** local Node với Neon/R2 thật đã upload/read/delete PNG, private PDF quarantine→manual-review→Range. Không có antivirus-clean claim. Không có run quota/build/test mới trong lần chỉnh tài liệu này; [readiness](backend-readiness.md) ghi bằng chứng chính xác.
 
-Ngày 15/10/2026, owner-approved reset application DB đã giữ catalog/root/logo và provider Auth/storage, xóa business data cũ; không phải xóa mọi provider object hoặc bằng chứng bucket rỗng. Chỉ còn Neon production cho local và Worker; tên Worker/cache có `stage2` là resource lịch sử, không DB/budget thứ hai. Inventory/ledger vẫn phải đối soát fail-closed theo chính sách trên. Snapshot/private backup ở [database guide](../database/README.md).
+Ngày 15/10/2026, owner-approved reset application DB đã giữ catalog/root/logo và provider Auth/storage, xóa business data cũ; không phải xóa mọi provider object hoặc bằng chứng bucket rỗng. Sau reset đã tạo branch `lgc-bot-test`; lần schema verification gần nhất ghi nhận 001–013 ở hai branch. Wrangler hiện có nhãn `NEON_BRANCH=lgc-bot-test`, nhưng runtime `DATABASE_URL` chưa được xác minh; tên Worker/cache `stage2` tự nó không chứng minh DB/budget/provider isolation. Inventory/ledger vẫn phải đối soát fail-closed theo chính sách trên. Snapshot/private backup ở [database guide](../database/README.md).
 
-Các probe Worker → Neon S3/Functions trước đây trả 403 HTML; full Worker media readiness chưa chứng minh. Worker hiện có đã dùng production DB, custom-domain/DNS vẫn hoãn; không dùng việc đổi domain như yêu cầu để hoàn thành scope code.
+Các probe Worker → Neon S3/Functions trước đây trả 403 HTML; full Worker media readiness chưa chứng minh. Runtime DB/Auth targets chưa được kiểm tra mới; custom-domain/DNS vẫn hoãn. Không dùng việc đổi domain như yêu cầu để hoàn thành scope code.
 
 R2 Standard pricing tham chiếu 06/10/2026 có 10 GB-month storage allowance và Class A/B riêng; vượt operation allowance vẫn có thể tính tiền dù app dưới 8.5 GB. Kiểm tra giá/account thực tại [R2 pricing](https://developers.cloudflare.com/r2/pricing/) và [Neon research](neon-free-tier-research.md) trước quyết định ngân sách.

@@ -1,6 +1,7 @@
-import { FLOORS, isSlotStatus } from "../admin/space-model";
+import { FLOORS } from "../admin/space-model";
 import type { Floor } from "../admin/space-model";
 import type { PublicWebsite } from "./contracts";
+import { parseFloorPlan, parsePlanGeometry } from "../leasing/plan-model";
 
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid public website projection.");
@@ -24,6 +25,16 @@ export function parsePublicWebsite(value: unknown): PublicWebsite {
   }
   const logoUrl = data.logoUrl === null ? null : text(data.logoUrl);
   if (logoUrl !== null && new URL(logoUrl).protocol !== "https:") throw new Error("Invalid public logo URL.");
+  const floors = data.floors.map(value => {
+    const row = object(value), number = floor(row.number);
+    return {
+      number,
+      publicTitle: text(row.publicTitle),
+      publicDescription: text(row.publicDescription),
+      plan: parseFloorPlan(row.plan, number),
+    };
+  });
+  const plans = new Map(floors.map(item => [item.number, item.plan]));
   return {
     website: {
       logoMediaId: text(website.logoMediaId), email: text(website.email), hotline: text(website.hotline),
@@ -31,14 +42,21 @@ export function parsePublicWebsite(value: unknown): PublicWebsite {
       address: text(website.address), zaloUrl: text(website.zaloUrl),
     },
     logoUrl,
-    floors: data.floors.map(value => {
-      const row = object(value);
-      return { number: floor(row.number), publicTitle: text(row.publicTitle), publicDescription: text(row.publicDescription) };
-    }),
+    floors,
     units: data.units.map(value => {
       const row = object(value);
-      if (typeof row.area !== "number" || !Number.isFinite(row.area) || row.area < 0 || !isSlotStatus(row.status)) throw new Error("Invalid public unit.");
-      return { id: text(row.id), code: text(row.code), floor: floor(row.floor), area: row.area, status: row.status };
+      if (typeof row.area !== "number" || !Number.isFinite(row.area) || row.area < 0 || (row.status !== "Còn trống" && row.status !== "Liên hệ" && row.status !== "Đã thuê")) throw new Error("Invalid public unit.");
+      const floorNumber = floor(row.floor), plan = plans.get(floorNumber);
+      if (!plan) throw new Error("Public slot has no floor plan.");
+      if (!Array.isArray(row.types) || row.types.length > 20 || !row.types.every(item => typeof item === "string" && item.length <= 120)) throw new Error("Invalid public unit types.");
+      let dimensions: { width: number; depth: number } | null = null;
+      if (row.dimensions !== null) {
+        const measured = object(row.dimensions);
+        const width = measured.width, depth = measured.depth;
+        if (typeof width !== "number" || !Number.isFinite(width) || width <= 0 || typeof depth !== "number" || !Number.isFinite(depth) || depth <= 0) throw new Error("Invalid public unit dimensions.");
+        dimensions = { width, depth };
+      }
+      return { id: text(row.id), code: text(row.code), floor: floorNumber, area: row.area, status: row.status, geometry: parsePlanGeometry(row.geometry, plan.canvasWidth, plan.canvasHeight), types: row.types as string[], orientation: text(row.orientation), dimensions, note: text(row.note) };
     }),
   };
 }

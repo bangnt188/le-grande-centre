@@ -1,5 +1,7 @@
 # Architecture Decision — Demo quản trị mặt bằng Le Grande Centre
 
+> **Tài liệu prototype lịch sử (06–12/10/2026).** IndexedDB, fixtures và `/admin-preview/` mô tả demo lúc đó, không phải kiến trúc hiện tại. Đối chiếu [admin architecture](admin-architecture-decision.md), [backend readiness](backend-readiness.md) và [database status](../database/README.md).
+
 Quyết định ban đầu 06/10/2026; cập nhật 12/10/2026: admin dùng thử tại `/admin-preview/`, snapshot và tệp lưu IndexedDB trên trình duyệt, chưa có DB/API production.
 
 ## Hiểu bài toán

@@ -3,9 +3,9 @@ import { Breadcrumbs } from "@mall/ui";
 import { r2AssetBase } from "@/config/site";
 import { BROCHURE_PATH } from "./brochure-leasing";
 import { getShophousePair, type LeasingFloor, type LeasingUnit } from "./leasing-model";
-import { WebsiteEmailLink, WebsiteFloorDescription, WebsiteFloorTitle, WebsiteLeasingPhones } from "./website-settings";
+import { WebsiteFloorDescription, WebsiteFloorTitle } from "./website-settings";
 import { LeasingUnitGallery } from "./leasing-unit-gallery";
-import { LeasingUnitMap } from "./leasing-unit-map";
+import { LeasingFloorPlan } from "./leasing-unit-map";
 import styles from "./leasing-unit-detail.module.css";
 import { LeasingAvailabilityBadge } from "./leasing-availability-badge";
 import { LeasingConsultation } from "./leasing-consultation";
@@ -20,7 +20,6 @@ export function LeasingUnitDetail({ unit, floor, floorUnits, inventory }: { unit
   const unitIndex = orderedUnits.findIndex(item => item.id === unit.id);
   const previous = unitIndex > 0 ? orderedUnits[unitIndex - 1] : undefined;
   const next = unitIndex >= 0 ? orderedUnits[unitIndex + 1] : undefined;
-  const others = orderedUnits.filter(item => item.id !== unit.id);
   const pair = getShophousePair(unit, inventory);
   const counterpart = pair?.find(item => item.id !== unit.id);
   return <div className={styles.page} data-ui-theme="shopping-mall" data-ui-scheme="light">
@@ -30,7 +29,6 @@ export function LeasingUnitDetail({ unit, floor, floorUnits, inventory }: { unit
       { label: `Tầng ${floor.id}`, href: backHref },
       { label: unit.id, href: detailHref, current: true },
     ]}/></div>
-    <LeasingUnitMap key={unit.id} unitId={unit.id} floor={{ id: floor.id, sharedAreas: floor.sharedAreas }} units={floorUnits.map(({ id, area, plan }) => ({ id, area, plan }))}/>
     <nav className={styles.unitNavigation} aria-label={`Mặt bằng trước và tiếp theo trong tầng ${floor.id}`}>
       {previous ? <Link className={styles.previousUnit} href={`/mat-bang/${encodeURIComponent(previous.id)}/`} prefetch={true} aria-label={`Mặt bằng trước: ${previous.id}, tầng ${floor.id}`} rel="prev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m14 6-6 6 6 6M8 12h12"/></svg><span><small>Căn trước</small><strong>{previous.id}</strong></span></Link> : <span className={styles.previousUnit} aria-disabled="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m14 6-6 6 6 6M8 12h12"/></svg><span>Căn đầu tầng</span></span>}
       {next ? <Link className={styles.nextUnit} href={`/mat-bang/${encodeURIComponent(next.id)}/`} prefetch={true} aria-label={`Mặt bằng tiếp theo: ${next.id}, tầng ${floor.id}`} rel="next"><span><small>Căn tiếp</small><strong>{next.id}</strong></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m10 6 6 6-6 6M4 12h12"/></svg></Link> : <span className={styles.nextUnit} aria-disabled="true"><span>Căn cuối tầng</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m10 6 6 6-6 6M4 12h12"/></svg></span>}
@@ -43,8 +41,8 @@ export function LeasingUnitDetail({ unit, floor, floorUnits, inventory }: { unit
         <h1 id="unit-title" className={styles.unitTitle}>Mặt bằng <em>{unit.id}</em></h1>
         <p className={styles.unitType}>{unit.types.join(" · ") || "Liên hệ tư vấn công năng"}</p>
         <dl className={styles.facts}>
-          <div><dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6M7 7h10v10H7z"/></svg>{pair ? `Diện tích tầng ${floor.id} · ${unit.id}` : "Diện tích brochure"}</dt><dd>{number(unit.area)} m²</dd></div>
-          <div><dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m4 16 12-12 4 4L8 20zM13 7l2 2m-5 1 2 2m-5 1 2 2"/></svg>Kích thước brochure</dt><dd>{unit.dimensions ? `${number(unit.dimensions.width)} × ${number(unit.dimensions.depth)} m` : "Chưa có kích thước cạnh đầy đủ"}</dd></div>
+          <div><dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6M7 7h10v10H7z"/></svg>{pair ? `Diện tích tầng ${floor.id} · ${unit.id}` : "Diện tích tham khảo"}</dt><dd>{number(unit.area)} m²</dd></div>
+          <div><dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m4 16 12-12 4 4L8 20zM13 7l2 2m-5 1 2 2m-5 1 2 2"/></svg>Kích thước tham khảo</dt><dd>{unit.dimensions ? `${number(unit.dimensions.width)} × ${number(unit.dimensions.depth)} m` : "Chưa có kích thước cạnh đầy đủ"}</dd></div>
           <div><dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 4-4 2 2-4z"/></svg>Hướng tham khảo</dt><dd>{unit.orientation}</dd></div>
         </dl>
         <p><WebsiteFloorDescription floor={floor.id}/></p>
@@ -55,25 +53,21 @@ export function LeasingUnitDetail({ unit, floor, floorUnits, inventory }: { unit
             {pair.map(item => <div key={item.id}><dt>Tầng {item.floorId} · {item.id}{item.id === unit.id ? " · đang xem" : ""}</dt><dd>{number(item.area)} m²</dd></div>)}
             <div><dt>Tổng hai tầng</dt><dd>{number(pair[0].area + pair[1].area)} m²</dd></div>
           </dl>
-          <p className={styles.pairSource}>Diện tích từng căn theo brochure; tổng là cộng diện tích hai tầng, không phải diện tích riêng của {unit.id}.</p>
+          <p className={styles.pairSource}>Diện tích từng căn theo tài liệu tham khảo; tổng là cộng diện tích hai tầng, không phải diện tích riêng của {unit.id}.</p>
           <Link className={styles.textLink} href={`/mat-bang/${encodeURIComponent(counterpart.id)}/`}>Xem {counterpart.id} · chuyển sang tầng {counterpart.floorId}</Link>
           <div className={styles.pairPlans}>{pair.map(item => <Link key={item.id} className={styles.textLink} href={`/mat-bang/#tang-${item.floorId}`}>Sơ đồ tầng {item.floorId}</Link>)}</div>
         </section>}
         <div className={styles.unitActions}>
           <LeasingConsultation unit={unit} pair={pair} className={styles.primaryAction}/>
           <Link className={styles.secondaryAction} href={{ pathname: "/lien-he/", query: { unit: unit.id, intent: "visit" } }}>Đăng ký tham quan thực tế <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4m8-4v4M4 10h16"/></svg></Link>
-          <a className={styles.secondaryAction} href={`${assetBase}${BROCHURE_PATH}#page=${floor.sourcePage}`} target="_blank" rel="noopener noreferrer">Xem brochure · trang {floor.sourcePage} (PDF)</a>
+          {floor.id > 2 && floor.plan.sourcePage && <a className={styles.secondaryAction} href={`${assetBase}${BROCHURE_PATH}#page=${floor.plan.sourcePage}`} target="_blank" rel="noopener noreferrer">Xem brochure giới thiệu · trang {floor.plan.sourcePage} (PDF)</a>}
         </div>
         <Link className={styles.textLink} href={backHref}>Trở lại sơ đồ tầng {floor.id}</Link>
       </div>
     </section>
-    <section className={styles.consultation} aria-labelledby="unit-consultation-title">
-      <div><h2 id="unit-consultation-title">Trao đổi về<br/><em>mặt bằng {unit.id}.</em></h2>{unit.note && <p>{unit.note}</p>}<p>Thông tin mặt bằng lấy theo brochure; trạng thái hiển thị là mô phỏng, không xác nhận tình trạng thuê thực tế. Liên hệ đội ngũ cho thuê để xác nhận thông tin và nhu cầu.</p></div>
-      <div className={styles.contactActions}><WebsiteEmailLink className={styles.textLink} subject={`Tư vấn mặt bằng ${unit.id}, tầng ${floor.id} — Le Grande Centre`} body={`Tôi quan tâm mặt bằng ${unit.id}, tầng ${floor.id}, diện tích ${number(unit.area)} m² theo brochure. Vui lòng tư vấn thông tin cho thuê và phương án phù hợp.`}>Trao đổi qua email</WebsiteEmailLink><WebsiteLeasingPhones className={styles.textLink} prefix="Gọi "/></div>
-    </section>
-    <section className={styles.otherUnits} aria-labelledby="other-units-title">
-      <div className={styles.sectionHead}><h2 id="other-units-title">Các mặt bằng khác trong tầng {floor.id}.</h2><Link className={styles.textLink} href={backHref}>Khám phá toàn bộ tầng {floor.id}</Link></div>
-      {others.length ? <ul>{others.map(item => <li key={item.id}><Link href={`/mat-bang/${encodeURIComponent(item.id)}/`} prefetch={false}><strong>{item.id}</strong><span>{number(item.area)} m²</span><small>{item.types.join(" · ") || "Tư vấn công năng"}</small></Link></li>)}</ul> : <p>Không có mặt bằng khác được giới thiệu trong brochure ở tầng này.</p>}
+    <section className={styles.floorMap} aria-labelledby="floor-map-title">
+      <div className={styles.sectionHead}><h2 id="floor-map-title">Sơ đồ tầng {floor.id}.</h2><span className={styles.currentUnit}>Mặt bằng {unit.id} đang xem</span></div>
+      <LeasingFloorPlan unitId={unit.id} floor={{ id: floor.id, plan: floor.plan }} units={floorUnits.map(({ id, area, plan, dimensions }) => ({ id, area, plan, dimensions }))}/>
     </section>
   </div>;
 }

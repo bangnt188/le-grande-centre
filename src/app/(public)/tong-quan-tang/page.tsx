@@ -1,8 +1,7 @@
 import { r2AssetBase } from "@/config/site";
 import { publicPageMetadata } from "@/features/public/seo-metadata";
 import { SitePage } from "@/features/public/site-page";
-import { BusinessSpaceOverview } from "@/features/public/business-space-overview";
-import { BusinessSpaceShowcaseReel } from "@/features/public/business-space-showcase-reel";
+import { BusinessSpaceV2 } from "@/features/public/business-space-v2";
 import styles from "@/features/public/site-shell.module.css";
 
 export const metadata = publicPageMetadata(
@@ -15,7 +14,6 @@ export default function FloorsPage() {
   const assetBase = r2AssetBase;
 
   return <SitePage active="/tong-quan-tang/" contentClassName={styles.fullBleedContent}>
-    <BusinessSpaceOverview />
-    <BusinessSpaceShowcaseReel assetBase={assetBase} />
+    <BusinessSpaceV2 assetBase={assetBase} />
   </SitePage>;
 }

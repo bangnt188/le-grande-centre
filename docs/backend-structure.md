@@ -37,7 +37,7 @@ src/
       neon-function.ts     # x-secret protected known-key image storage origin
 database/
   schema.sql               # relational baseline
-  migrations/              # 001–011 reviewed evolution; 011 not applied live here
+  migrations/              # 001–015 source evolution; see DB guide for live status
 scripts/
   migrate-database.ts      # operator migrations + approved project seed
   dev-live.mjs             # canonical .env.local via loader, then Next dev
@@ -65,13 +65,13 @@ Generated project media catalog contains read-only approved public assets, not d
 
 Approved public images/video/brochure use R2 `mall-assets`. Uploaded raster images and branding use Neon `media`; logo never falls back to static/R2/browser Blob. PDF uses private R2 **`mall-documents`** for local and the existing Worker; quarantine requires **manual external review**, not antivirus-clean or online signature. Inventory public + tracked Neon/private + reservations enforces app quota; unknown/mismatch locks upload.
 
-Actual runtime database/hosting targets and reset recovery evidence live in the [database guide](../database/README.md). `.env.local` is an operator-managed real-cloud target, not a sandbox. This source change does not reset/migrate live databases, copy/delete storage, change regions, rotate secrets or deploy either host. New metadata-only lease behavior requires011 before release.
+Actual runtime database/hosting targets and reset recovery evidence live in the [database guide](../database/README.md). `.env.local` is an operator-managed real-cloud target, not a sandbox. This source change does not reset/migrate live databases, copy/delete storage, change regions, rotate secrets or deploy either host. Metadata-only lease behavior requires migration 011; current floor-plan readers require migration 015. Check each target database before release.
 
 Transfer means schema+migrations, relational records, object keys/catalog and verified size/hash metadata, then copied/verified bytes and audited locator changes. Do not transfer opaque snapshots, credentials or presigned URLs. See [portability](database-portability.md), [quota](storage-quota.md) and [private documents](private-documents-r2.md).
 
 ## Runtime limits and checks
 
-Next `output: standalone` supports Node SSR; OpenNext packages the existing Worker. Earlier native Worker → Neon S3/Functions probes returned 403 HTML while Node worked; no all-Worker media readiness claim. The Worker now uses the one production backend; custom-domain/DNS remain explicitly deferred and the Worker remains noindex. Cache invalidation/performance are tracked separately in readiness, not claimed complete.
+Next `output: standalone` supports Node SSR; OpenNext packages the existing Worker. Earlier native Worker → Neon S3/Functions probes returned 403 HTML while Node worked; no all-Worker media readiness claim. Wrangler currently labels `NEON_BRANCH=lgc-bot-test`, but runtime `DATABASE_URL` is a separate secret and its deployed value is unverified. Custom-domain/DNS remain explicitly deferred and the Worker remains noindex. Cache invalidation/performance are tracked separately in readiness, not claimed complete.
 
 Canonical operator commands are `npm run dev`, `npm start`, `npm run db:migrate`, `npm run auth:set-password` (load `.env.local`) and `npm run deploy` (build/deploy the existing Worker with separately supplied runtime secrets); no multi-profile setup or deploy aliases.
 

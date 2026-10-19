@@ -7,6 +7,7 @@ import { createAdminCrudServices } from "./admin-crud";
 import { floorsSql, slotsSql, groupsSql, requestsSql, reservationsSql, leasesSql, readSettings } from "./workspace";
 import { parseCollectionId } from "./admin-collections";
 import { requireAdministrator } from "./admin-session";
+import { parseFloorPlan } from "../shared/leasing/plan-model";
 
 export function parseScreenName(value: string): AdminScreenName {
   if (!["floors", "spaces", "slot", "tenants", "requests", "leases", "settings", "defaults"].includes(value)) throw new WorkspaceError("Unknown screen", 404);
@@ -50,6 +51,47 @@ async function relatedCompanies(client: PoolClient, identity: AdminIdentity, ids
 function projectGroups(rows: Omit<SpaceGroup, "status">[], slots: Slot[]): SpaceGroup[] {
   return rows.map(group => ({ ...group, status: slots.some(slot => group.slotIds.includes(slot.id) && ["Đã thuê", "Đang thuê"].includes(slot.status)) ? "Đã thuê" : slots.some(slot => group.slotIds.includes(slot.id) && slot.status === "Liên hệ") ? "Liên hệ" : "Còn trống" }));
 }
+async function readFloorPlans(client: PoolClient, propertyId: string) {
+  const rows = (await client.query<{floor:number;plan:unknown}>(`
+    SELECT f.floor_number AS floor, jsonb_build_object(
+      'floor', f.floor_number,
+      'versionId', pv.id,
+      'coordinateSystem', pv.coordinate_system,
+      'canvasWidth', pv.canvas_width::float8,
+      'canvasHeight', pv.canvas_height::float8,
+      'sourceDocument', pv.source_document,
+      'sourcePage', pv.source_page,
+      'sourceSheet', pv.source_sheet,
+      'orientation', pv.orientation_facts,
+      'features', coalesce((
+        SELECT jsonb_agg(jsonb_build_object('code',pf.feature_code,'kind',pf.feature_kind,'label',pf.label,'geometry',pf.geometry) ORDER BY pf.display_order,pf.feature_code)
+        FROM leasing.plan_features pf
+        WHERE pf.plan_version_id=pv.id AND pf.property_id=p.id AND pf.floor_id=f.id
+      ), '[]'::jsonb),
+      'slots', coalesce((
+        SELECT jsonb_agg(jsonb_build_object(
+          'id',s.id,
+          'code',s.code,
+          'area',m.area_m2::float8,
+          'status',CASE WHEN l.id IS NOT NULL THEN 'Đã thuê' WHEN s.operational_status='Đang thuê' THEN 'Đã thuê' WHEN s.operational_status='Trống' THEN 'Còn trống' ELSE s.operational_status END,
+          'geometry',v.geometry,
+          'dimensions',CASE WHEN jsonb_typeof(v.technical_spec->'dimensions')='object' THEN v.technical_spec->'dimensions' ELSE NULL END
+        ) ORDER BY s.display_order)
+        FROM leasing.slots s
+        JOIN LATERAL(SELECT id,geometry,technical_spec FROM leasing.slot_versions WHERE slot_id=s.id AND plan_version_id=pv.id ORDER BY version_number DESC LIMIT 1)v ON true
+        JOIN leasing.slot_measurements m ON m.slot_version_id=v.id AND m.area_kind='commercial_reference'
+        LEFT JOIN leasing.slot_allocations a ON a.slot_id=s.id AND a.property_id=p.id AND a.lease_id IS NOT NULL AND a.released_at IS NULL
+        LEFT JOIN leasing.leases l ON l.id=a.lease_id AND l.property_id=p.id AND l.status='executed'
+        WHERE s.property_id=p.id AND s.floor_id=f.id AND s.retired_at IS NULL
+      ), '[]'::jsonb)
+    ) AS plan
+    FROM leasing.properties p
+    JOIN leasing.floors f ON f.property_id=p.id
+    JOIN LATERAL(SELECT * FROM leasing.plan_versions WHERE property_id=p.id AND floor_id=f.id ORDER BY version_number DESC LIMIT 1)pv ON true
+    WHERE p.id=$1 ORDER BY f.floor_number
+  `,[propertyId])).rows;
+  return rows.map(row => parseFloorPlan(row.plan, row.floor as 1|2|3|4|5|6));
+}
 export async function readAdminScreen<S extends AdminScreenName>(identity: AdminIdentity, screen: S, query: AdminScreenQuery = {}): Promise<AdminScreenResponse<S>> {
   // Server callers follow exactly the same finite validation as the HTTP boundary.
   const validated = parseScreenQuery(screen, new URLSearchParams(Object.entries(query).filter(([, value]) => value !== undefined).map(([key, value]) => [key, String(value)])));
@@ -58,6 +100,7 @@ export async function readAdminScreen<S extends AdminScreenName>(identity: Admin
     const property = (await client.query("SELECT workspace_revision FROM leasing.properties WHERE id=$1 FOR SHARE", [identity.propertyId])).rows[0];
     if (!property) throw new WorkspaceError("Property not found", 404);
     const revision = Number(property.workspace_revision), p = identity.propertyId;
+    const floorPlans = await readFloorPlans(client,p);
     let data: AdminScreenData[AdminScreenName];
     if (screen === "settings") data = { settings: (await readSettings(client, p)).settings };
     else if (screen === "defaults") data = { defaults: (await client.query(`SELECT default_hold_hours AS "defaultHoldHours",appointment_minutes AS "appointmentMinutes",appointment_location AS "appointmentLocation" FROM leasing.properties WHERE id=$1`, [p])).rows[0] };
@@ -129,6 +172,6 @@ export async function readAdminScreen<S extends AdminScreenName>(identity: Admin
         data = { requests: rows as LeasingRequest[], reservations, companies, slots, groups, ...metadata };
       } else data = { leases: rows as Lease[], companies, slots, ...metadata };
     }
-    return { revision, ...data } as unknown as AdminScreenResponse<S>;
+    return { revision, floorPlans, ...data } as unknown as AdminScreenResponse<S>;
   });
 }

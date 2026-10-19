@@ -80,7 +80,7 @@ body:has(.legrande-admin){background:#f5f3eb}
 @media(max-width:1250px){.b2b-dossier-layout{--ui-workspace-columns:290px minmax(0,1fr)}.legrande-admin{--ui-admin-content-padding:24px}}
 @media(max-width:1000px){.b2b-dossier-layout{--ui-workspace-columns:minmax(0,1fr)}.b2b-company-list .admin-pagination{grid-column:1/-1}.b2b-company-list .admin-pagination nav{flex-basis:auto}.b2b-company-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:850px){.legrande-admin{--ui-admin-title-size:30px}.mall-admin-shell main{padding:26px 16px}.b2b-dossier-header,.b2b-dossier-body{padding:22px}.legrande-admin .register-heading{padding:20px}.admin-toast-viewport{inset-inline-end:16px;inset-block-end:16px}.legrande-admin input:not([type=checkbox]),.legrande-admin select,.legrande-admin textarea{font-size:16px;min-height:44px}.legrande-admin .admin-pagination button{min-height:44px}.legrande-admin .button{min-height:44px}.admin-pagination{padding:18px;gap:12px}}
-@media(max-width:520px){.b2b-company-list{grid-template-columns:minmax(0,1fr)}.b2b-dossier-layout{gap:22px}.b2b-company-list .admin-pagination nav{flex-basis:100%}.admin-pagination nav{flex-basis:100%;justify-content:center;gap:10px}.b2b-private-label{margin-left:0;white-space:normal}.legrande-admin table td,.legrande-admin table th{padding:14px 16px}.b2b-profile-columns{gap:24px}.legrande-admin .plan-scale{font-size:10px}.legrande-admin .slot-status{font-size:10px}}
+@media(max-width:520px){.b2b-company-list{grid-template-columns:minmax(0,1fr)}.b2b-dossier-layout{gap:22px}.b2b-company-list .admin-pagination nav{flex-basis:100%}.admin-pagination nav{flex-basis:100%;justify-content:center;gap:10px}.b2b-private-label{margin-left:0;white-space:normal}.legrande-admin table td,.legrande-admin table th{padding:14px 16px}.b2b-profile-columns{gap:24px}.legrande-admin .plan-scale{font-size:12px}.legrande-admin .slot-status{font-size:12px}}
 
 .mall-admin-shell>aside{color:var(--ui-color-text-primary);--ui-color-warning:#dcc18a}
 .mall-admin-shell [data-admin-navigation]{--ui-color-warning:#dcc18a}
@@ -140,7 +140,6 @@ body:has(.legrande-admin){background:#f5f3eb}
 .legrande-admin .admin-website-link:focus-visible,.admin-login a:focus-visible{outline:3px solid var(--ui-color-focus);outline-offset:3px}
 .admin-entry-loading{display:grid;place-items:center;min-height:100svh}
 /* Admin entry uses scoped styles in admin-entry.module.css */
-@media(max-width:600px){.mall-admin-shell header>div:first-child>div:has(img){display:none}.admin-website-link svg{display:none}}
 
 
 .legrande-admin .slot-state-badge{gap:6px;border:1px solid var(--ui-slot-available-border);background:var(--ui-slot-available-surface);color:var(--ui-slot-available-text);white-space:nowrap}

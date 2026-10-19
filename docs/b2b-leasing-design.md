@@ -4,6 +4,8 @@ Ngày: 06/10/2026. Nghiệp vụ đã chốt qua trao đổi với khách hàng.
 Trạng thái: tài liệu thiết kế và SQL baseline draft; chưa apply DB, chưa triển khai
 API/auth/Worker/R2 và chưa có chứng nhận tuân thủ hay kiểm thử runtime.
 
+> **Đây là đề xuất kiến trúc ban đầu, không phải trạng thái source hiện tại.** Các đoạn “chưa triển khai”, endpoint đề xuất, GitHub Pages và migration steps bên dưới thuộc snapshot 06/10/2026. Đối chiếu [admin architecture](admin-architecture-decision.md), [backend readiness](backend-readiness.md) và [database status](../database/README.md) trước khi dùng.
+
 ## 1. Hiểu
 
 Khách là doanh nghiệp; người liên hệ, người dùng portal và người ký hợp đồng có

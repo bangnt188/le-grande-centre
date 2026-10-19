@@ -6,6 +6,8 @@ import { useState, type FormEvent } from "react";
 import { Button, PasswordField, TextField, Toast, type ToastTone } from "@mall/ui";
 import { authClient } from "./auth-client";
 import { clearAdminSession, ensureSession } from "./session";
+import { AdminBrandImage } from "./admin-brand-image";
+import { useAdminLogoUrl } from "./use-admin-logo";
 import styles from "./admin-entry.module.css";
 
 type ToastState = {
@@ -24,6 +26,7 @@ function ArrowLeftIcon() {
 }
 
 export default function AdminEntry() {
+  const logoUrl = useAdminLogoUrl();
   const params = useSearchParams();
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
@@ -110,13 +113,11 @@ export default function AdminEntry() {
         </div>
 
         <div className={styles.brandCenter}>
-          <div className={styles.brandEmblemWrapper}>
-            <div className={styles.brandEmblem}>
-              <span className={styles.brandMonogram} aria-hidden="true">LG</span>
-            </div>
+          {logoUrl && <AdminBrandImage src={logoUrl} alt="" className={styles.brandLogoImg} width={180} height={72}/>}
+          <div className={styles.brandIdentity}>
+            <h2 className={styles.brandTitle}>Le Grande Centre</h2>
+            <span className={styles.brandBadge}>Hệ thống quản trị</span>
           </div>
-          <h2 className={styles.brandTitle}>Le Grande Centre</h2>
-          <span className={styles.brandBadge}>Hệ thống quản trị</span>
         </div>
 
         <div className={styles.brandFooter}>

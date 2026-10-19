@@ -20,18 +20,14 @@ export const PROJECT_DOCUMENTS: readonly ProjectDocumentGroup[] = [
   },
   {
     id: "floor-plan", title: "Phân Bổ Mặt Bằng", icon: "plan",
-    description: "Sơ đồ bố trí sáu tầng, mã ô và diện tích theo brochure dự án.",
-    downloads: [
-      { label: "Xem sơ đồ trong brochure", path: BROCHURE_PATH + "#page=5" },
-      { label: "Sơ đồ kỹ thuật riêng", pending: "Chờ cung cấp sơ đồ kỹ thuật riêng; brochure không thay thế hồ sơ này." },
-    ],
+    description: "Sơ đồ bố trí sáu tầng, mã ô và diện tích tham khảo theo hồ sơ dự án.",
+    downloads: [{ label: "Xem sơ đồ trong brochure", path: BROCHURE_PATH + "#page=5" }],
   },
   {
     id: "legal", title: "Hồ Sơ Pháp Lý", icon: "shield",
     description: "Tóm tắt tình trạng pháp lý, và giấy phép xây dựng, và các chứng từ liên quan",
     downloads: [
       { label: "Tải Quyết Định", path: "/client-reference/legacy/documents/quyet-dinh.pdf", filename: "quyet-dinh-le-grande-centre.pdf" },
-      { label: "Giấy phép xây dựng", pending: "Chờ bổ sung giấy phép xây dựng." },
     ],
   },
 ];

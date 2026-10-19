@@ -15,7 +15,7 @@
 .signature span { font-family: var(--font-playfair-display), Georgia, serif; font-size: clamp(16px, 1.6vw, 22px); font-weight: 600; color: #816127; line-height: 1.8; }
 @media (max-width: 700px) {
   .inner { padding: 48px 6%; }
-  .inner .label { font-size: 10px; letter-spacing: .1em; margin-bottom: 20px; }
+  .inner .label { font-size: 12px; letter-spacing: .1em; margin-bottom: 20px; }
   .inner h2 { margin-bottom: 28px; font-size: 32px; line-height: 1.45; }
   .quotes p { font-size: 16px; line-height: 1.95; }
   .signature { margin-top: 32px; }

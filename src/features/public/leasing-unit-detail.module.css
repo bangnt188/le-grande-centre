@@ -38,7 +38,7 @@
 .unitNavigation small { font-size: 11px; }
 .unitNavigation strong { font-size: 16px; font-weight: 500; }
 .nextUnit { justify-content: flex-end; text-align: right; }
-@media (min-width: 1200px) { .unitNavigation { margin: 0; } .unitNavigation > a, .unitNavigation > span { position: fixed; top: 50%; z-index: 8; flex-direction: column; justify-content: center; gap: 4px; width: 56px; min-height: 80px; padding: 8px 4px; text-align: center; } .previousUnit { left: max(8px, env(safe-area-inset-left)); } .unitNavigation > .nextUnit { right: max(8px, env(safe-area-inset-right)); flex-direction: column-reverse; } .unitNavigation small { font-size: 10px; } }
+@media (min-width: 1200px) { .unitNavigation { margin: 0; } .unitNavigation > a, .unitNavigation > span { position: fixed; top: 50%; z-index: 8; flex-direction: column; justify-content: center; gap: 4px; width: 56px; min-height: 80px; padding: 8px 4px; text-align: center; } .previousUnit { left: max(8px, env(safe-area-inset-left)); } .unitNavigation > .nextUnit { right: max(8px, env(safe-area-inset-right)); flex-direction: column-reverse; } .unitNavigation small { font-size: 12px; } }
 .linkedPair { margin-block: 24px; padding-block: 20px; border-block: 1px solid var(--ui-color-border); }
 .page[data-ui-theme] .pairTitle { font-size: 23px; }
 .linkedPair .pairAreas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 20px 0 12px; font-variant-numeric: tabular-nums; }
@@ -65,37 +65,22 @@
 .sectionHead { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 12px 28px; }
 .planSection { min-width: 0; }
 .orientation { max-width: 720px; margin-top: 28px; }
-.mapControl .planScroll { margin-block: 24px; overflow-x: clip; container-type: inline-size; }
+.mapControl .planScroll { margin-block: 24px; overflow-x: auto; container-type: inline-size; }
 .planScroll:focus-visible { outline: 2px solid var(--ui-color-focus); outline-offset: 4px; }
-.mapControl .planCanvas { min-width: 0; border-color: var(--ui-color-border); background: var(--ui-color-surface-raised); }
-.planCanvas .planShared { background: var(--ui-color-surface); color: var(--ui-color-text-secondary); }
-.planCanvas .planUnit { text-decoration: none; background: var(--ui-color-surface-raised); border-color: var(--ui-color-border); }
-.planCanvas .planUnit:hover { background: color-mix(in srgb, var(--ui-color-action) 10%, var(--ui-color-surface-raised)); }
-.planCanvas .planUnit[aria-current="page"], .planCanvas .planUnit[aria-current="page"]:hover { background: var(--ui-color-action); color: var(--ui-color-action-foreground); }
-.planUnit:focus-visible { outline-offset: -4px; }
 .page .sourceNote { font-size: 13px; margin-bottom: 0; }
 .sourceNote a { color: var(--ui-color-action); text-decoration: underline; text-underline-offset: 4px; }
-.consultation { display: grid; grid-template-columns: 1.2fr .8fr; gap: 8%; align-items: start; padding-block: 48px; }
-.contactActions { display: flex; flex-direction: column; align-items: start; gap: 8px; }
-.contactActions > a { max-width: 100%; overflow-wrap: anywhere; }
-.otherUnits { border-top: 1px solid var(--ui-color-border); padding-top: 40px; }
-.otherUnits ul { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 28px; margin: 28px 0 0; padding: 0; list-style: none; }
-.otherUnits li { min-width: 0; border-bottom: 1px solid var(--ui-color-border); }
-.otherUnits li a { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 20px 0; color: var(--ui-color-action); font-variant-numeric: tabular-nums; }
-.otherUnits li a:hover { background: var(--ui-color-surface); }
-.otherUnits strong { font-family: var(--font-charis-sil), Georgia, serif; font-size: 26px; font-weight: 400; }
-.otherUnits span { align-self: center; font-size: var(--ui-font-size-sm); }
-.otherUnits small { grid-column: 1 / -1; font-size: 12px; color: var(--ui-color-text-secondary); line-height: 1.7; }
-@media (max-width: 1000px) { .intro { gap: 24px; padding: 24px; } .facts { gap: 12px; } .facts dd { font-size: 17px; } .otherUnits ul { grid-template-columns: repeat(3, minmax(0, 1fr)); } .consultation { gap: 32px; } }
-@media (max-width: 760px) { .page { padding-block: 20px 40px; } .breadcrumb { margin-bottom: 20px; } .intro, .consultation { grid-template-columns: 1fr; gap: 28px; } .intro { padding: 16px; } .unitTitle { font-size: 44px; } .facts { margin-block: 24px; padding-block: 20px; } .facts dd { font-size: 18px; } .consultation { padding-block: 36px; } .otherUnits { padding-top: 28px; } .otherUnits ul { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; } }
-@media (max-width: 380px) { .facts { gap: 10px; } .facts dd { font-size: 16px; } .otherUnits ul { grid-template-columns: 1fr; } .orientation { grid-template-columns: 1fr; } }
+.floorMap { margin-top: 40px; padding-top: 36px; border-top: 1px solid var(--ui-color-border); }
+.floorMap .sectionHead { margin-bottom: 24px; }
+.currentUnit { color: var(--ui-color-text-secondary); font-size: var(--ui-font-size-sm); }
+.floorMap .planSection { padding: clamp(16px, 2.5vw, 28px); border: 1px solid var(--ui-color-border); border-radius: 12px; background: var(--ui-color-surface-raised); }
+.floorMap .planScroll { margin-block: 24px; container-type: inline-size; }
+@media (max-width: 1000px) { .intro { gap: 24px; padding: 24px; } .facts { gap: 12px; } .facts dd { font-size: 17px; } }
+@media (max-width: 760px) { .page { padding-block: 20px 40px; } .breadcrumb { margin-bottom: 20px; } .intro { grid-template-columns: 1fr; gap: 28px; padding: 16px; } .unitTitle { font-size: 44px; } .facts { margin-block: 24px; padding-block: 20px; } .facts dd { font-size: 18px; } .floorMap { margin-top: 28px; padding-top: 28px; } }
+@media (max-width: 380px) { .facts { gap: 10px; } .facts dd { font-size: 16px; } .orientation { grid-template-columns: 1fr; } }
 .mapControl { position: fixed; top: calc(var(--public-header-height, 88px) + 12px); left: max(16px, env(safe-area-inset-left)); z-index: 9; }
 .mapControl[data-open="true"] { z-index: 1000; }
 .mapControl > button { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; min-width: 48px; min-height: 48px; padding: 0; border: 1px solid color-mix(in srgb, var(--ui-color-action) 24%, var(--ui-color-border)); border-radius: 10px; background: color-mix(in srgb, var(--ui-color-action) 12%, var(--ui-color-surface-raised)); color: var(--ui-color-action); box-shadow: 0 4px 14px rgb(0 33 22 / .16); transition: background-color 160ms ease-out, border-color 160ms ease-out, box-shadow 160ms ease-out; }
 .mapControl > button:hover:not(:disabled) { background: color-mix(in srgb, var(--ui-color-action) 12%, var(--ui-color-surface-raised)); border-color: color-mix(in srgb, var(--ui-color-action) 24%, var(--ui-color-border)); }
 .mapControl > button { border-radius: 50%; }
 .mapControl [role="dialog"] { inline-size: min(1280px, calc(100vw - 32px)); overflow-x: hidden; }
-.mapControl .planCanvas strong { font-size: clamp(6px, 2.05cqi, 14px); }
-.mapControl .planCanvas span { font-size: clamp(5px, 1.62cqi, 11px); }
-.mapControl .planCanvas .planShared { font-size: clamp(5px, 1.47cqi, 10px); }
 @media (max-width: 760px) { .mapControl [role="dialog"] { inline-size: calc(100vw - 16px); padding: 12px; } }

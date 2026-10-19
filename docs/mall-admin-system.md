@@ -1,6 +1,6 @@
 # Architecture Decision — Mall admin dùng UI system
 
-## Trạng thái hiện tại — 14/10/2026
+## Trạng thái hiện tại — 18/10/2026
 
 Admin phase2 dùng Neon Auth verified email + active DB staff allowlist và same-origin HTTP repository, relational PostgreSQL CAS/idempotency/audit/RLS; không demo login, IndexedDB hoặc quota scenarios fallback. Next SSR standalone/OpenNext thay Pages/static. Website settings DB/public projection, live form lead/intake không booking; Neon-only branding/raster, private R2 PDF quarantine + manual external review, không antivirus-clean/eSign/fake financials.
 
@@ -10,7 +10,7 @@ Admin phase2 dùng Neon Auth verified email + active DB staff allowlist và same
 - Global `AdminPageHeader` title/description/reload đã bỏ toàn bộ screen; local panel headings còn, error-only **Thử lại** còn để phục hồi empty workspace. Shell breadcrumb/Mở website/Đăng xuất giữ nguyên.
 - Main browser1440/390/320px không page overflow, tenant table min720 scroll nội bộ. Latest `test:admin`23pass/1liveskip (category precedence/time-boundary regression), isolatedDB2/2pass + child cleanup, typecheck/backend integrity/backend tests/OpenNext build pass. Không rerun bởi doc editor.
 
-Production backend baseline+migrations001–004/approved6floors81slots/owner allowlist/verified Neon logo đã chuẩn bị; production Auth verification/OTP configured không chứng minh email delivery. Frontend production/domain/DNS **chưa cutover theo yêu cầu người dùng**; Worker→Neon S3/Functions 403 trước provider vẫn là deployment limitation. [Readiness](backend-readiness.md) là nguồn trạng thái/bằng chứng.
+Snapshot vận hành 14/10/2026 ghi nhận baseline+migrations001–004, owner allowlist/logo, chưa cutover domain và Worker→Neon S3/Functions 403. Đó là bằng chứng lịch sử, không phải release hiện tại. Source checkout nay có migrations 014/015; floor-plan readers cần 015. Schema live gần nhất được xác minh đến 013, còn Worker runtime `DATABASE_URL` cần xác nhận riêng. Owner xác nhận không deploy Vercel; xem [deployment](deployment.md), [database guide](../database/README.md) và [readiness](backend-readiness.md) để biết trạng thái mới nhất.
 
 ## Lịch sử thiết kế và bằng chứng — không phải runtime hiện tại
 

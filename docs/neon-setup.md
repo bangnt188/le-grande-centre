@@ -1,11 +1,11 @@
 # Neon setup — phase 2
 
-Cập nhật 16/10/2026. Project `wispy-sunset-10596642` có Neon branch `production` (`br-tiny-butterfly-b3uuw92p`) và branch kiểm thử `lgc-bot-test` (`br-wispy-morning-b33h15x4`). Production DB có migrations 001–010; local `.env.local` trỏ production; noindex Worker stage2 trỏ branch kiểm thử. `legrandecentre.vn` hiện do Vercel phục vụ; DB/runtime của Vercel chưa xác minh. Neon Auth và media vẫn dùng production.
+Cập nhật trạng thái 18/10/2026. Project `wispy-sunset-10596642` có Neon branch `production` (`br-tiny-butterfly-b3uuw92p`) và branch kiểm thử `lgc-bot-test` (`br-wispy-morning-b33h15x4`). Lần xác minh schema gần nhất ghi nhận cả hai có migrations 001–013; source checkout hiện có 014/015, trong đó floor-plan queries cần schema 015. Local `.env.local` trỏ production. Wrangler khai báo `NEON_BRANCH=lgc-bot-test`, nhưng Worker kết nối bằng secret `DATABASE_URL`, nên branch thật của deployment cần được xác minh riêng. Owner xác nhận dự án này không triển khai trên Vercel; release target hiện tại là Worker stage2. Auth/function secrets cũng cần xác minh theo deployment. Xem [deployment runbook](deployment.md) và [database guide](../database/README.md).
 
 ## Thành phần hiện tại
 
 - Neon PostgreSQL: dữ liệu quan hệ, staff assignment/allowlist, CAS/idempotency/audit, public projection và intake. Cả `production` và `lgc-bot-test` đã áp dụng **010-lead-reference-codes**. Branch kiểm thử được dành riêng cho form/Zalo; hiện chỉ còn bản ghi form UI giả `LGC-00002`.
-- Neon Auth: `/admin/` dùng email + mật khẩu, không Google OAuth. Administrator cấp email và vai trò Administrator/Editor; nhân viên tạo mật khẩu và xác minh email, signup không tự cấp quyền. Owner/root giữ allowlist riêng và ẩn khỏi staff. Source mới kiểm provider + issuer/subject + quyền DB khi mint/renew app cookie ký số **900 giây**; warm API verify cookie local, không auth/identity query. Chỉ user action renew khi thiếu/hết cache; revoke có độ trễ tối đa15 phút. [Contract hiện hành](admin-data-contract.md); chưa deploy/migrate011 live.
+- Neon Auth: `/admin/` dùng email + mật khẩu, không Google OAuth. Administrator cấp email và vai trò Administrator/Editor; nhân viên tạo mật khẩu và xác minh email, signup không tự cấp quyền. Owner/root giữ allowlist riêng và ẩn khỏi staff. Source mới kiểm provider + issuer/subject + quyền DB khi mint/renew app cookie ký số **900 giây**; warm API verify cookie local, không auth/identity query. Chỉ user action renew khi thiếu/hết cache; revoke có độ trễ tối đa15 phút. [Contract hiện hành](admin-data-contract.md). Tại snapshot 16/10 chưa deploy/migrate011; trạng thái migration hiện tại xem [database guide](../database/README.md), còn source deploy cần xác minh riêng.
 - `neon.ts`: bucket `media` `public_read`; function `media` source `src/server/media/neon-function.ts`. Không lưu tài liệu nội bộ vào bucket public-read.
 - Function media là **trusted server origin**: `x-secret: MEDIA_ORIGIN_SECRET` (ít nhất 64 ký tự), constant-time auth trước body/storage, chỉ known branding UUID keys và key logo approved, PUT ảnh PNG/JPEG/WebP bounded 10 MiB với signature/dimension checks. Không có anonymous write/arbitrary key endpoint. Node app phải kiểm tra session/quota/ownership và reserve trước gọi origin.
 - AWS S3 credentials chỉ ở Neon origin; ứng dụng gọi `NEON_MEDIA_FUNCTION_URL`, không chuyển AWS write keys vào Worker/browser. Public URL ảnh không phải quyền ghi.
@@ -20,7 +20,7 @@ npm run dev -- --port 3000
 npm start
 ```
 
-`scripts/load-local-env.mjs` nạp `.env.local` và ghi đè biến cùng tên còn sót trong shell cho dev/start/migration/password command. Không dùng Node `--env-file` để spawn Next dev. Local vẫn kết nối production; không dùng local form để tạo dữ liệu thử. Noindex Worker stage2 là nơi test vì `DATABASE_URL` trỏ tới `lgc-bot-test`. Không đưa credentials vào output, Git hoặc `NEXT_PUBLIC_*`.
+`scripts/load-local-env.mjs` nạp `.env.local` và ghi đè biến cùng tên còn sót trong shell cho dev/start/migration/password command. Không dùng Node `--env-file` để spawn Next dev. Local vẫn kết nối production; không dùng local form để tạo dữ liệu thử. Không coi Worker stage2 là test DB cho tới khi giá trị secret `DATABASE_URL` của deployment được đối chiếu với branch dự kiến. Không đưa credentials vào output, Git hoặc `NEXT_PUBLIC_*`.
 
 Cấu hình server tách branch theo môi trường:
 
@@ -37,7 +37,7 @@ Cookie `__Host-lgc_admin` bắt buộc Secure/HttpOnly/SameSite=Lax, nên runtim
 localhost phải có HTTPS đúng origin. Logout/đổi account xóa cookie và private
 memory cache. Thiếu secret hợp lệ trả503, không fallback cookie cũ hoặc quyền DB.
 
-Wrangler giữ một root config. Worker `https://le-grandecentre-stage2.nguyenbang-skyone.workers.dev` là noindex và dùng `DATABASE_URL` của `lgc-bot-test`; migration 010 cũng đã được áp dụng lên production DB. `legrandecentre.vn` đang do Vercel phục vụ; repository này chưa có Vercel project link/auth nên không deploy từ `npm run deploy` sang domain đó. Neon Auth/media, R2 và Cloudflare cache vẫn là shared resources; hậu tố Worker/cache `stage2` không tự chọn DB branch.
+Wrangler giữ một root config. Worker `https://le-grande-centre-stage2.nguyenbang-skyone.workers.dev` là noindex; `NEON_BRANCH=lgc-bot-test` chỉ là config label, còn `DATABASE_URL` là runtime secret. Lần xác minh gần nhất ghi nhận schema 001–013; migration 015 có trong source và cần trước khi release code dùng floor-plan projection. `npm run deploy` chỉ cập nhật Worker stage2. R2 config gắn các bucket `mall-documents`/`mall-assets`; Auth và media-function targets lấy từ runtime config/secrets và cần xác minh riêng. Hậu tố Worker/cache `stage2` không tự chọn DB branch/provider. Xem [deployment runbook](deployment.md).
 
 ## Operator commands, migration và regression
 
@@ -49,7 +49,7 @@ npm run auth:set-password -- root@legrandecentre.vn
 npm run deploy
 ```
 
-`db:migrate` nạp `.env.local`, dùng direct `DATABASE_URL_UNPOOLED`; lệnh đã áp dụng và xác minh migration 010 trên production. `npm run test:database` vẫn dùng PostgreSQL local disposable, không tạo Neon branch. Vercel CLI hiện logged out; chưa deploy bản source này lên domain production.
+`db:migrate` nạp `.env.local`, dùng direct `DATABASE_URL_UNPOOLED`; migration là operator action trên branch mà file local chỉ định. Lần xác minh live và migration pending được ghi trong [database guide](../database/README.md); không suy schema Worker từ `.env.local` hoặc `NEON_BRANCH`. `npm run test:database` dùng PostgreSQL local disposable, không tạo Neon branch. Owner xác nhận repo không có deployment trên Vercel. Build không chứng minh Worker release/runtime. Xem [deployment runbook](deployment.md).
 
 `npm run test:database` dùng **PostgreSQL local disposable do runner sở hữu**; cần `postgres`, `initdb`, `pg_ctl` trên `PATH` (macOS có thể cài Homebrew `postgresql@17`). Runner không dùng Neon CLI, không tạo/clone Neon branch và không nạp production secrets. Nó tạo cluster rỗng loopback-only, kiểm ownership, apply baseline+migrations+approved seed hai lần, chạy regression rồi dừng/xóa đúng cluster của lần chạy. Logo metadata là fixture offline, không chứng minh delivery. Kết quả đã quan sát **2/2 pass**; hướng dẫn Homebrew và giới hạn tại [database guide](../database/README.md).
 
@@ -59,6 +59,6 @@ npm run deploy
 
 Native Cloudflare Worker fetch tới Neon S3/Functions trả 403 HTML trước provider (anonymous GET cũng vậy); Node native request được, Worker tới Neon Auth được. Protected function có code nhưng **chưa chứng minh khắc phục cross-zone denial**. Không claim Worker media ready, không tự đổi domain/DNS để giải quyết.
 
-Worker stage2 hiện dùng `lgc-bot-test` và giữ noindex. `legrandecentre.vn` hiện trả nội dung từ Vercel; Vercel project chưa linked/authenticated từ môi trường này, nên chưa đổi domain sang bản code trong repo. Provider Auth verification/OTP settings không chứng minh email delivery/recovery. Snapshot trước reset `snap-misty-sea-b3tgf6is` (hết hạn 2026-10-22T23:59Z) và private dump được ghi trong [database guide](../database/README.md).
+Worker stage2 được cấu hình noindex. Nhãn `lgc-bot-test` không xác minh runtime `DATABASE_URL`; không dùng HTTP status/header để kết luận hosting hoặc cutover. Owner xác nhận dự án không triển khai trên Vercel. Provider Auth verification/OTP settings không chứng minh email delivery/recovery. Snapshot trước reset `snap-misty-sea-b3tgf6is` (hết hạn 2026-10-22T23:59Z) và private dump được ghi trong [database guide](../database/README.md).
 
 `scripts/build-cloudflare.mjs` tạm giấu standard envfiles để OpenNext không nhúng secrets, rồi khôi phục. Cấp API/DB/auth/media secrets bằng Worker runtime secrets, không artifact. `.neon`, `.env.local` và auth CLI state phải bị ignore. Không commit OAuth/API keys vào project config.

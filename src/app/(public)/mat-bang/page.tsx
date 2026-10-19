@@ -3,10 +3,7 @@ import { PublicPageLayout } from "@/features/public/public-page-layout";
 import { r2AssetBase } from "@/config/site";
 import { LeasingExplorer } from "@/features/public/leasing-explorer";
 import styles from "@/features/public/leasing-hero.module.css";
-import { BROCHURE_ORIENTATION, BROCHURE_PATH } from "@/features/public/brochure-leasing";
 import { readPublicLeasing } from "@/server/public-leasing";
-import Link from "next/link";
-import directoryStyles from "@/features/public/leasing-explorer.module.css";
 
 export const metadata = publicPageMetadata(
   "Mặt bằng cho thuê tại Le Grande Centre | Sóc Trăng",
@@ -25,15 +22,6 @@ export default async function SpacesPage() {
         <p className={styles.description}>Chọn tầng để bắt đầu, hoặc lọc theo diện tích, trạng thái công khai và loại hình bạn cần.</p>
       </div>
     </section>
-    <LeasingExplorer floors={floors} units={units} orientation={BROCHURE_ORIENTATION} sourceDocument={BROCHURE_PATH}/>
-    <details className={directoryStyles.unitDirectory}>
-      <summary>Danh sách mặt bằng theo tầng</summary>
-      {floors.map(floor => <section key={floor.id} aria-labelledby={`directory-floor-${floor.id}`}>
-        <h2 id={`directory-floor-${floor.id}`}>Mặt bằng tầng {floor.id}</h2>
-        <ul>{units.filter(unit => unit.floorId === floor.id).map(unit => <li key={unit.id}>
-          <Link href={`/mat-bang/${encodeURIComponent(unit.id)}/`} prefetch={false}>Mặt bằng {unit.id} · Tầng {unit.floorId} · {unit.area.toLocaleString("vi-VN")} m²</Link>
-        </li>)}</ul>
-      </section>)}
-    </details>
+    <LeasingExplorer floors={floors} units={units}/>
   </PublicPageLayout>;
 }

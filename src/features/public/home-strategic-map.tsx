@@ -60,8 +60,8 @@ export function HomeStrategicMap({ revealProps }: { revealProps?: Record<string,
           <img
             src="/images/home-v2/strategic-map.png"
             alt="Sơ đồ minh hoạ vị trí chiến lược Le Grande Centre kết nối vòng xoay Tượng đài 3 Cô Gái, Hồ Nước Ngọt và các trục giao thông Sóc Trăng trong bán kính 3 km"
-            width={1109}
-            height={832}
+            width={1600}
+            height={1000}
             loading="lazy"
             decoding="async"
             className={styles.locationMapImage}

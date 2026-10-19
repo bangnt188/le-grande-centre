@@ -29,7 +29,7 @@ const readCachedWebsite = unstable_cache(
    if (!snapshot) throw new Error("Public prerender data is missing. Build through npm run build:cloudflare.");
    return parsePublicWebsite(JSON.parse(snapshot));
   }
-  return readPublicWebsiteData();
+  return parsePublicWebsite(await readPublicWebsiteData());
  },
  ["public-website-v2"],
  { tags: [PUBLIC_WEBSITE_CACHE_TAG], revalidate: 60 },

@@ -1,6 +1,6 @@
 # Backend readiness — phase 2
 
-Cập nhật source 17/10/2026. Session15 phút + per-screen admin ở [admin data contract](admin-data-contract.md) là contract mới, **chưa deploy và chưa migrate011 trên DB live**. Các bằng chứng Worker bên dưới giữ nguyên phạm vi/lịch sử lần phát hành, không chứng minh source mới đã chạy production.
+Cập nhật source 18/10/2026. Owner xác nhận dự án không triển khai trên Vercel; release target hiện tại là Worker stage2. Session 15 phút + per-screen admin ở [admin data contract](admin-data-contract.md) và versioned floor-plan projection là contract của checkout này; chưa có release record chứng minh source SHA hiện tại đang chạy trên Worker. Hai branch có lần xác minh schema gần nhất đến migrations 001–013; checkout hiện có 014/015, trong đó source plan queries cần schema 015. Migration completion không chứng minh app code đã deploy. Các bằng chứng Worker bên dưới giữ phạm vi/lịch sử lần phát hành.
 
 ## Đã triển khai
 
@@ -9,7 +9,7 @@ Cập nhật source 17/10/2026. Session15 phút + per-screen admin ở [admin da
 | Runtime | Next App Router SSR (`output: standalone`), OpenNext Cloudflare; admin/API cùng origin. Không static export/Pages hoặc deploy-dev-pages. |
 | Auth | Neon email/password, verified email + allowlist/issuer/subject khi mint signed cookie `HttpOnly/Secure` tối đa900s; warm request verify cục bộ, không provider/DB permission lookup. Renew chỉ từ thao tác khi thiếu/hết cache, không sliding/timer/focus/poll. Revoke trễ tối đa15 phút. Administrator/Editor; root giữ riêng/ẩn khỏi staff. |
 | DB | Admin/write dùng một request-local Neon transaction `leasing_runtime` với actor context/RLS, expiry precommit, property lock, CAS/idempotency/business audit. Không generic access-decision write trên warm admin reads, không re-authorize DB trong cùng operation. Public miss giữ một Neon HTTP transaction gọn. |
-| Schema | Neon có hai branch: `production` (`br-tiny-butterfly-b3uuw92p`) và `lgc-bot-test` (`br-wispy-morning-b33h15x4`). Cả hai có baseline+migrations 001–010. `leasing`/`row_audit` đã reset; catalog approved 6 tầng/81 căn, không có dữ liệu nghiệp vụ thật; root allowlist/approved Neon logo được giữ/khôi phục. |
+| Schema | Lần xác minh live gần nhất trong [database guide](../database/README.md) ghi nhận hai branch `production` (`br-tiny-butterfly-b3uuw92p`) và `lgc-bot-test` (`br-wispy-morning-b33h15x4`) có baseline+migrations 001–013. Migration 014 được ghi nhận chưa áp dụng; 015 pending trong checkout và source hiện cần 015. Chưa recheck live schema cho checkout này. |
 | Public | SSR và `/api/public/website` dùng projection DB đã lọc; React request dedup + cache revalidation 60 giây. Worker dùng private R2 incremental cache, D1 tag cache và DO queue. Mutation đợi D1 expiration sau commit trước HTTP thành công; API/SSR immediate-read đã qua ba vòng có hoàn nguyên. Intake bỏ qua render cache. Không trả tenant/contact nội bộ, hold expiry hoặc hợp đồng; không fixture khi DB lỗi. |
 | Intake | `@mall/ui/forms` live → `POST /api/contact`, cap JSON 16 KiB, consent/field/origin validation, UUID idempotency, HMAC IP + DB cooldown/rate limit. Commit lead/intake trước HTTP 201; visit request không tạo/xác nhận booking. Không có Turnstile. |
 | Media | Bounded multipart, PNG/JPEG/WebP decode/re-encode trên Node; Neon-only logo/ảnh upload, R2 private PDF; DB ownership/quota/reservations, inventory và cleanup/reconcile. |
@@ -23,7 +23,7 @@ Cập nhật source 17/10/2026. Session15 phút + per-screen admin ở [admin da
 
 `mall-assets` là public R2 project catalog; private PDF dùng **`mall-documents`** cho cả local và Worker hiện có. Wrangler dev bindings `remote: true` thực sự đọc/ghi cloud. Meter bao gồm inventory public + tracked Neon/private + reservations, không chỉ uploaded list; mismatch/unavailable inventory khóa upload. Reset application DB không có nghĩa mọi object bucket đã bị xóa. Xem [quota](storage-quota.md).
 
-Private cache R2 `le-grande-centre-stage2-next-cache` và D1 `le-grande-centre-stage2-next-tags` không nằm trong public `mall-assets`. Worker `https://le-grande-centre-stage2.nguyenbang-skyone.workers.dev` giữ tên hosting/cache lịch sử `stage2` và dùng Neon branch `lgc-bot-test`; đây là database branch riêng. Repo chỉ có một Wrangler root config và `npm run deploy`, nhắm tới stage2. `legrandecentre.vn` hiện do Vercel phục vụ; runtime DB của Vercel chưa xác minh.
+Private cache R2 `le-grande-centre-stage2-next-cache` và D1 `le-grande-centre-stage2-next-tags` không nằm trong public `mall-assets`. Worker target là `https://le-grande-centre-stage2.nguyenbang-skyone.workers.dev`; `wrangler.jsonc` đặt nhãn `NEON_BRANCH=lgc-bot-test`, nhưng source kết nối bằng runtime secret `DATABASE_URL` và deployment value chưa được xác minh. R2 bindings chỉ rõ bucket names `mall-documents`/`mall-assets`; Auth/function targets cần xác minh riêng. Repo chỉ có một Wrangler root config và `npm run deploy` nhắm stage2. Owner xác nhận dự án không triển khai trên Vercel. Không dùng domain response/header để suy ra hosting hoặc source runtime.
 
 Server cache TTL dùng stale-while-revalidate, không bảo đảm dữ liệu luôn mới đúng 60 giây khi DB lỗi. `invalidatePublicWebsite()` chỉ chạy sau committed mutation, gọi `revalidateTag` và trên Worker đợi chính D1 adapter ghi expiration trước response; không chỉ phụ thuộc pending `waitUntil` của Next route handler. Regional cache luôn kiểm D1 tags, không lazy-renew timestamp của bản cũ. Browser full-prefetch chỉ cho căn trước/sau, cache client giới hạn60 giây; sơ đồ/danh sách không prefetch hàng loạt. Không tự refresh tab/layout đang mở. Form intake đọc authoritative DB; admin provider/identity chỉ authoritative lúc mint/refresh session cache.
 
@@ -57,8 +57,7 @@ expiry-precommit rollback.
 
 Smoke dùng actual Next HTTPS + PostgreSQL disposable và managed-provider fixture,
 không cloud mutation/live credentials. Cloudflare build dùng projection public thật
-của owned runtime6 tầng/81 căn. Chưa deploy/migrate011 lên DB live; không có HAR
-sau deploy nên không khẳng định latency production đã giảm xuống một con số nào.
+của owned runtime6 tầng/81 căn. Migrations 011+012 hiện đã áp dụng theo [database guide](../database/README.md); không có HAR sau deploy nên không khẳng định latency production đã giảm xuống một con số nào.
 Neon live/provider mail, upload cloud và Workerd CPU quota chưa được smoke lần này.
 Build vẫn có cảnh báo thư viện UI về `use client` và OpenNext Node middleware
 experimental; không che/suppress chúng hoặc suy build pass thành Worker runtime pass.
@@ -79,16 +78,16 @@ experimental; không che/suppress chúng hoặc suy build pass thành Worker run
 
 Đây không phải CPU ms, p95 hay benchmark production. HIT bỏ React SSR nhưng vẫn chạy routing/R2/D1; cold miss, revalidation, admin và auth vẫn dùng CPU. Cache TTL có thể giữ bản thành công cũ khi DB lỗi; không bảo đảm Error1102 biến mất hoặc refresh tab/layout đã mở. Mutation trong lúc build/deploy cũng không phải giao dịch đồng bộ với public snapshot build; availability khi ghi luôn được kiểm bằng DB.
 
-## Hợp nhất production và reset — trạng thái hiện tại 15/10/2026
+## Snapshot lịch sử reset — 15/10/2026
 
-- Local chỉ dùng `.env.local`; `scripts/load-local-env.mjs` ghi đè inherited shell values cho dev/start/migration/password command. Local và Worker hiện có cùng trỏ production; local không phải sandbox.
-- Nhánh Neon phụ/template cũ đã xóa; chỉ còn `production`. Sau reset baseline+migrations 001–009: 6 tầng/81 căn approved, không còn customer/lease/request/lead/appointment cũ. Root/approved logo được khôi phục, provider Auth/storage được giữ, chỉ root Auth user còn lại.
+- Tại thời điểm reset, Local dùng `.env.local`; `scripts/load-local-env.mjs` ghi đè inherited shell values cho dev/start/migration/password command. Worker ban đầu cùng trỏ production; sau đó được chuyển sang `lgc-bot-test`. Hiện trạng hai target xem [database guide](../database/README.md).
+- Ngay sau reset chỉ còn branch `production`; sau đó tạo `lgc-bot-test` riêng cho stage2. Baseline+migrations 001–009 tạo catalog 6 tầng/81 căn approved, không còn customer/lease/request/lead/appointment cũ. Root/approved logo được khôi phục, provider Auth/storage được giữ, chỉ root Auth user còn lại.
 - Root login trên cấu hình đã hợp nhất trả HTTP 200. Regression DB mới trên owned disposable local PostgreSQL **2/2 pass**; không tạo Neon test branch.
 - Snapshot production trước reset: `snap-misty-sea-b3tgf6is`, tên `before-single-production-reset-20261015`, hết hạn **2026-10-22T23:59Z**.
 - Private dump dữ liệu application cũ:
   `/Users/suntech/Library/Application Support/LeGrande/backups/2026-10-15-single-production/stage2-application.dump`,
   **298,708 bytes**, mode **0600**. Đây là backup operator-local, không một DB đang chạy. [Database guide](../database/README.md) ghi phạm vi/giới hạn.
-- Không có custom-domain/DNS cutover. Private media Worker và tính ổn định mọi request chưa được chứng minh; xem giới hạn CPU ở dưới.
+- Tại snapshot 15/10 chưa có custom-domain/DNS cutover evidence. Không dùng domain response/header để kết luận hosting hay source commit. Owner xác nhận dự án không dùng Vercel; release target là Worker stage2. Private media Worker và tính ổn định mọi request chưa được chứng minh; xem [deployment runbook](deployment.md) và giới hạn CPU ở dưới.
 
 ### Kiểm chứng sau cutover
 
@@ -168,7 +167,7 @@ Root password accounts trước đây được operator cấp/xác minh theo yê
 
 Các probe trước đây ghi nhận native Worker → Neon S3/Functions trả 403 HTML. Smoke Worker hiện tại không kiểm tra server-to-server private media/origin flow; request logo 200 đi thẳng từ browser tới public Neon object URL, không chứng minh đường Worker → origin. Không tuyên bố private media path đã sẵn sàng.
 
-Worker stage2 dùng `lgc-bot-test` và giữ noindex. `legrandecentre.vn` hiện vẫn do Vercel phục vụ; chưa deploy source này lên domain. Vercel CLI/dashboard hiện logged out trong môi trường này. Provider Auth verification/OTP settings không chứng minh email delivery/recovery; root login 200 không thay các bằng chứng đó.
+Worker stage2 được cấu hình noindex. `NEON_BRANCH=lgc-bot-test` trong Wrangler không xác nhận giá trị runtime `DATABASE_URL`; ghi Worker version/deployment ID, source SHA, DB branch và runtime bindings theo [deployment runbook](deployment.md). Owner xác nhận dự án này không triển khai trên Vercel; không suy hosting từ domain response/header. Provider Auth verification/OTP settings không chứng minh email delivery/recovery; root login 200 không thay các bằng chứng đó.
 
 ## Lệnh và CI
 
