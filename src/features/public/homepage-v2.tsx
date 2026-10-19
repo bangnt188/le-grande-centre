@@ -113,7 +113,7 @@ export default async function HomePageV2() {
         </div>
       </section>
 
-      <section id="phan-khu" className={`${styles.section} ${styles.floors}`} aria-labelledby="floors-title"><div className={styles.sectionHeading}><h2 id="floors-title">Sáu tầng.<br/><em>Nhiều cơ hội kinh doanh.</em></h2></div><FloorShowcase assetBase={assetBase}/></section>
+      <section id="phan-khu" className={`${styles.section} ${styles.floors}`} aria-labelledby="floors-title"><div className={styles.sectionHeading}><h2 id="floors-title">Sáu tầng.<br/><em>Nhiều cơ hội kinh doanh.</em></h2></div><FloorShowcase assetBase={assetBase} units={units}/></section>
 
       <section id="khong-gian" className={`${styles.section} ${styles.spaces}`} aria-labelledby="spaces-title"><div className={styles.sectionHeading}><div><h2 id="spaces-title"><em>Đa dạng loại hình,<br/>linh hoạt lựa chọn.</em></h2><p>Định hướng tích hợp nhiều tiện ích trong cùng một không gian, từ văn phòng hiện đại đến chuỗi F&B, retail, dịch vụ và giải trí.</p></div></div><SpacesGallery assetBase={assetBase}/></section>
 
