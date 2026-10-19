@@ -137,7 +137,7 @@ export function FloorShowcase({ assetBase, units }: { assetBase: string; units: 
         {groups.map((item, index) => <Fragment key={item.range}>
           <button
             type="button"
-            className={item.floors[0] === 5 ? `${styles.floorHotspot} ${styles.floorRoofHotspot}` : styles.floorHotspot}
+            className={`${styles.floorHotspot} ${styles.floorRangeHotspot}`}
             data-ui-layer-anchor={index}
             style={{ left: `${item.x / CANVAS.width * 100}%`, top: `${item.y / CANVAS.height * 100}%`, "--ui-layer-stack-index": index } as CSSProperties}
             disabled={!ready}
@@ -153,7 +153,7 @@ export function FloorShowcase({ assetBase, units }: { assetBase: string; units: 
             }}
             onFocus={() => { if (!suppressFocusRef.current) openGroup(index); }}
             onClick={() => openGroup(index)}
-          ><span className={styles.floorHotspotMark} data-ui-layer-stack-mark data-ui-effect="pulse-ring" data-ui-interaction="transform-colors" aria-hidden="true"/>{item.floors[0] === 5 && <span className={styles.floorHotspotRange} aria-hidden="true">{item.range.replace("Tầng ", "")}</span>}</button>
+          ><span className={styles.floorHotspotMark} data-ui-layer-stack-mark data-ui-effect="pulse-ring" data-ui-interaction="transform-colors" aria-hidden="true"/><span className={styles.floorHotspotRange} aria-hidden="true">{item.range.replace("Tầng ", "")}</span></button>
           {active === index && information}
         </Fragment>)}
       </div>
