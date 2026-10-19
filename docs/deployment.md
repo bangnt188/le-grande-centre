@@ -47,6 +47,14 @@ Cloudflare scheduled wrapper chạy mỗi phút qua OpenNext self-binding, dispa
 4. Chạy `npm run deploy` khi đã chủ định cập nhật Worker stage2. Nếu chỉ cần build, dùng `npm run build:cloudflare`.
 5. Trong Cloudflare deployment details, đối chiếu source/version và trạng thái `Ready`; sau đó kiểm tra homepage, public API và route smoke phù hợp trên Worker URL. Ghi DB branch và side effects đã kiểm tra. Không dùng HTTP `Server` header của một hostname khác làm release proof.
 
+## Release evidence — 19/10/2026
+
+- Source/config commit `1a819d02f4bbfcee0d60a957bf243c4ec2680c30` đã push lên `origin/dev`; Worker được upload từ checkout commit này và private submodule gitlinks không đổi. Wrangler deployment metadata vẫn ghi `Source: Unknown`. Worker version `166e6004-3da2-4af3-96cc-4c9cb7ab933c` nhận 100% traffic từ 08:14 UTC tại URL stage2 phía trên.
+- `npm run build:cloudflare` hoàn tất TypeScript, Next prerender và OpenNext build. Public projection lúc build có 6 tầng/81 căn, không chứa dữ liệu riêng tư. Artifact scan kiểm tra 1.759 file với 11 giá trị credential; không tìm thấy credential trong artifact. Neon S3 endpoint là public media origin được khai báo trong source, không chứa URL credentials.
+- Worker secret `DATABASE_URL` được cập nhật từ local Neon connection đã xác minh bằng `current_setting('neon.branch_id')` là `br-tiny-butterfly-b3uuw92p` (`production`). Sau khi Worker chuyển nhánh, branch test `lgc-bot-test` đã được xóa theo yêu cầu owner.
+- Worker smoke: `/`, `/mat-bang/`, `/tong-quan/`, `/tong-quan-tang/`, `/lien-he/`, `/robots.txt`, `/sitemap.xml`, `/api/public/website/` đều trả HTTP 200. API trả 6 tầng/81 căn; homepage trả đúng bốn feature icons với bốn SVG path khác nhau. 17/17 JS/CSS asset được tham chiếu trả HTTP 200; meta `noindex, nofollow` còn hiệu lực.
+- Wrangler in cảnh báo lúc deploy về Durable Object class binding; artifact OpenNext có export `DOQueueHandler`, nhưng route smoke này không kiểm tra queue/cache invalidation. Release không đổi DNS/domain, không chạy migration, và không deploy Render bot.
+
 ## Chẩn đoán
 
 | Triệu chứng | Kiểm tra |

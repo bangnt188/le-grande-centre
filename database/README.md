@@ -241,6 +241,8 @@ reference drawings, not surveyed polygons. Public projections omit the architect
 source file name/sheet for floors 1–2.
 
 Migration `015-versioned-floor-plans.sql` and the approved reference seed are
-applied on the verified local production branch. They are not evidence of a
-stage2 migration or Worker deployment; verify that runtime DB separately before
-releasing this source there.
+applied on Neon `production`. The stage2 Worker's `DATABASE_URL` was moved to
+that verified production target before release `166e6004-3da2-4af3-96cc-4c9cb7ab933c`
+on 19/10/2026; its public API then returned the expected 6 floors and 81 units.
+The separate test branch was removed after the Worker cutover. Build/deploy
+still never applies migrations or seeds the database.
