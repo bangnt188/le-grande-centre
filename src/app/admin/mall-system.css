@@ -160,3 +160,81 @@ body:has(.legrande-admin){background:#f5f3eb}
 .approved-plan button[data-slot-status="Liên hệ"]{background:var(--ui-slot-contact-surface);color:var(--ui-slot-contact-text);border-color:var(--ui-slot-contact-border)}
 .approved-plan button[data-slot-status="Đã thuê"],.approved-plan button[data-slot-status="Đang thuê"]{background:var(--ui-slot-leased-surface);color:var(--ui-slot-leased-text);border-color:var(--ui-slot-leased-border)}
 .approved-plan button[aria-pressed="true"]{background:var(--ui-slot-selected-surface);color:var(--ui-slot-selected-text);border-color:var(--ui-slot-selected-border)}
+
+/* Keep the session gate calm and make its copy and recovery actions distinct. */
+div.admin-session-alert {
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--tone) 30%, var(--ui-color-border));
+  border-inline-start-width: 1px;
+  box-shadow: none;
+}
+div.admin-session-alert > svg {
+  background: color-mix(in srgb, var(--tone) 12%, var(--ui-color-surface));
+  stroke: var(--tone);
+}
+.admin-session-alert__layout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+.admin-session-alert__message {
+  flex: 1 1 14rem;
+  min-inline-size: 0;
+  margin: 0;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.admin-session-alert__actions {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+.admin-session-alert__actions > button,
+.admin-session-alert__login {
+  min-block-size: 44px;
+}
+.admin-session-alert__login {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 8px;
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-color-action);
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+.admin-session-alert__login:focus-visible {
+  outline: 3px solid var(--ui-color-focus);
+  outline-offset: 2px;
+}
+@media (max-width: 600px) {
+  div.admin-session-alert {
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+  }
+  div.admin-session-alert > svg {
+    inline-size: 24px;
+    block-size: 24px;
+    margin-block-start: 2px;
+  }
+  .admin-session-alert__layout {
+    display: grid;
+    justify-content: initial;
+    gap: 6px;
+  }
+  .admin-session-alert__actions {
+    inline-size: 100%;
+    gap: 4px 8px;
+  }
+  .admin-session-alert__actions > button {
+    min-inline-size: 0;
+    min-block-size: 44px;
+  }
+}

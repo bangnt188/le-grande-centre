@@ -314,13 +314,18 @@ function AdminWorkspaceContent() {
     destination: { kind: "action", onSelect: () => notes.navigate(() => { void setView(item); }) }
   }));
 
-  const sessionGate = sessionResolving ? <LoadingIndicator label="Đang kiểm tra quyền truy cập…"/> : !liveSession ? <Alert tone="error">
-    {sessionError || "Phiên đăng nhập không tồn tại hoặc đã hết hạn."}
-    <Button onClick={() => {
-      setSessionResolving(true);
-      void ensureSession({ userAction: true }).then(() => setSessionError(null)).catch(issue => setSessionError(issue instanceof Error ? issue.message : "Không thể tải phiên.")).finally(() => setSessionResolving(false));
-    }}>Tiếp tục phiên</Button>
-    <a href="/admin/">Đăng nhập</a>
+  const sessionNeedsLogin = !sessionError || sessionError === "Vui lòng đăng nhập." || sessionError === "Phiên đăng nhập không tồn tại hoặc đã hết hạn.";
+  const sessionGate = sessionResolving ? <LoadingIndicator label="Đang kiểm tra quyền truy cập…"/> : !liveSession ? <Alert className="admin-session-alert" tone={sessionNeedsLogin ? "warning" : "error"}>
+    <div className="admin-session-alert__layout">
+      <p className="admin-session-alert__message">{sessionError || "Phiên đăng nhập không tồn tại hoặc đã hết hạn."}</p>
+      <div className="admin-session-alert__actions">
+        <Button onClick={() => {
+          setSessionResolving(true);
+          void ensureSession({ userAction: true }).then(() => setSessionError(null)).catch(issue => setSessionError(issue instanceof Error ? issue.message : "Không thể tải phiên.")).finally(() => setSessionResolving(false));
+        }}>Tiếp tục phiên</Button>
+        <a className="admin-session-alert__login" href="/admin/">Đăng nhập</a>
+      </div>
+    </div>
   </Alert> : null;
 
   return <LeGrandeAdminShell propertyName={admin.settings?.propertyName} navigation={navigation} activeItemId={view === "slot" ? "spaces" : companyView ? "customers" : view} onLogout={() => { setLeavingSession(true); notes.navigate(() => { void logout(); }); }} location={<Breadcrumbs label="Vị trí quản trị" items={[{ label: "Quản trị", href: "#admin-workspace", linkProps: { onClick: (event: React.MouseEvent<HTMLAnchorElement>) => { event.preventDefault(); notes.navigate(() => setView("floors")); } } }, ...(view === "slot" ? [{ label: `Căn / Mặt bằng · Tầng ${floor}`, href: "#admin-workspace", linkProps: { onClick: (event: React.MouseEvent<HTMLAnchorElement>) => { event.preventDefault(); notes.navigate(() => setView("spaces")); } } }, { label: slotId || "Slot không xác định", href: `#slot=${encodeURIComponent(slotId)}`, current: true }] : companyView ? [{ label: "Doanh nghiệp", href: "#admin-workspace", linkProps: { onClick: (event: React.MouseEvent<HTMLAnchorElement>) => { event.preventDefault(); notes.navigate(() => setView("customers")); } } }, { label: view === "customers" ? "Tất cả" : labels[view], href: "#admin-workspace", current: true }] : [{ label: labels[view], href: "#admin-workspace", current: true }])]}/>}>
