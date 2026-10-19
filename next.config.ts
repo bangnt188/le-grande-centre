@@ -41,7 +41,7 @@ const nextConfig: NextConfig = {
   basePath: basePath || undefined,
   trailingSlash: true,
   images: { unoptimized: true },
-  // Full prefetch is limited to adjacent units; do not retain their status for the default five minutes.
+  // Bound public-route and adjacent-unit prefetch freshness instead of retaining status for five minutes.
   experimental: { staleTimes: { dynamic: 0, static: 60 } },
   async headers() {
     return [

@@ -58,6 +58,17 @@ Cloudflare scheduled wrapper chạy mỗi phút qua OpenNext self-binding, dispa
 - Cảnh báo DO xuất hiện trong bước OpenNext gọi Wrangler `getPlatformProxy()` để lấy biến môi trường cục bộ, trước khi populate R2; Wrangler ghi rõ internal DO chỉ không hoạt động trong local development và sẽ hoạt động ở production. Bundle cuối cùng export `DOQueueHandler`, Wrangler upload thành công, báo Worker Startup Time 20 ms và liệt kê binding này. Không có thay đổi code/config để che cảnh báo.
 - Local TTL smoke trả HTTP 200 nhưng local D1 emulator chưa có bảng `revalidations`, nên không xác nhận được tag-cache/revalidation end-to-end. Truy vấn schema chỉ đọc trên D1 production xác nhận bảng `revalidations` tồn tại; chưa ép revalidation production để kiểm tra hàng đợi.
 
+### Client navigation performance — 19/10/2026
+
+- HAR `log-hoempage.har`: 9/9 RSC requests cache HIT, nhưng menu/CTA tắt prefetch nên click vẫn chờ RSC rồi JS/CSS. Chuỗi tải Mặt bằng dài 1.065 ms. Thử full-prefetch trên browser live trước sửa source: Mặt bằng 895→52 ms, Không gian kinh doanh 558→57 ms; không phải benchmark p95.
+- Source nền `c11eeda445fff6ed2afe9f95bba554ba4652afe8` cùng thay đổi navigation chưa commit tại `site-header.tsx`, `site-footer.tsx`, `homepage-v2.tsx` và comment `next.config.ts`. Private gitlinks giữ UI `8dd1fdf6660e3875c4492ba14efa56b993e653b4`, backend `2eccb06a3dbc01636cef509fe9d76efaae8cdd7e`. Không chỉnh các thay đổi tài liệu có sẵn của owner.
+- Header/footer và CTA chính full-prefetch bốn route public khi vào viewport; mobile menu tải các link ẩn khi mở. Không prefetch inventory hàng loạt, không thêm scheduler/client cache riêng hoặc đổi TTL. Hero heading/mô tả/CTA hiện ngay; stats/scroll motion còn nguyên.
+- `npm run build:cloudflare` và `npx tsc --noEmit` pass. Artifact scan 1.733 file, 11 credential values, 0 file chứa giá trị credential. Query chỉ đọc xác nhận local canonical DB vẫn `br-tiny-butterfly-b3uuw92p`; không đổi runtime secrets, DB/schema nghiệp vụ Neon, DNS hoặc billing.
+- Production standalone Chromium 1440×900/390×844: cả bốn route được prefetch tự động, chuyển trang 75–82 ms; không request RSC bắt buộc sau click và không tải trước unit detail. Quay về homepage 52–59 ms, heading/CTA opacity 1 ngay; menu mobile đóng đúng, reduced motion và không overflow/runtime exception. Đây là bounded smoke sau prefetch hoàn tất, không bảo đảm click sớm/cold network luôn dưới 500 ms.
+- Phát hành chính artifact đã smoke bằng `npx opennextjs-cloudflare deploy`, custom build guard không build lần nữa. Worker version `5d4ef8ea-e4e7-4383-8923-b8dde74683a1`; target/noindex/cron/bindings giữ nguyên. OpenNext populate 12 R2 cache entries và chạy bước D1 tag-cache idempotent. Cảnh báo local proxy DO giống lần trước; upload thực liệt kê `DOQueueHandler` và thành công.
+- Live Chromium trên Worker 1440×900/390×844: 8/8 chuyển trang sau automatic prefetch đạt 78–86 ms, không request RSC bắt buộc sau click; về homepage 54–55 ms với heading/CTA opacity 1 ngay. Kiểm tra menu mobile, reduced motion, không prefetch unit detail, không overflow/runtime exception đều pass. Không đo p95 hoặc bảo đảm instant khi prefetch chưa xong.
+- `/`, `/mat-bang/`, `/tong-quan-tang/`, `/tong-quan/`, `/lien-he/`, `/robots.txt`, `/sitemap.xml`, `/api/public/website/` đều HTTP 200 sau release; homepage giữ noindex, API giữ 6 tầng/81 căn. Không gửi form/intake hay tạo dữ liệu nghiệp vụ để smoke.
+
 ## Chẩn đoán
 
 | Triệu chứng | Kiểm tra |

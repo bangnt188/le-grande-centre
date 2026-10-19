@@ -55,10 +55,10 @@ export default async function HomePageV2() {
     <main id="main-content" tabIndex={-1}>
       <HomeScrollStory hero={<section className={styles.hero} aria-labelledby="home-title">
         <picture><source {...heroSources.mobile}/><img className={styles.heroImage} {...heroSources.desktop} alt="Không gian thương mại với mặt tiền xanh và lối đi bộ" fetchPriority="high"/></picture>
-        <div className={styles.heroInner} {...revealGroup({ stagger: 120, delayCap: 240 })}>
-          <h1 id="home-title" {...reveal({ preset: "slide-left", duration: 3000 })}>LE GRANDE<br/>CENTRE</h1>
-          <p {...reveal({ preset: "slide-left", duration: 3000 })}>Điểm đến thương mại đẳng cấp tại trung tâm đô thị Sóc Trăng, kết hợp không gian thương mại – dịch vụ – văn phòng hiện đại dành cho những thương hiệu đang tìm kiếm một địa điểm kinh doanh thực tế và giàu tiềm năng phát triển.</p>
-          <div className={styles.heroActions} {...reveal({ preset: "slide-left", duration: 3000 })}><Link href="/mat-bang/" prefetch={false} className={styles.paperButton}>Xem mặt bằng <Arrow/></Link><Link href="/lien-he/" prefetch={false} className={styles.heroOutline}><span>Đặt lịch tham quan</span><Arrow/></Link></div>
+        <div className={styles.heroInner}>
+          <h1 id="home-title">LE GRANDE<br/>CENTRE</h1>
+          <p>Điểm đến thương mại đẳng cấp tại trung tâm đô thị Sóc Trăng, kết hợp không gian thương mại – dịch vụ – văn phòng hiện đại dành cho những thương hiệu đang tìm kiếm một địa điểm kinh doanh thực tế và giàu tiềm năng phát triển.</p>
+          <div className={styles.heroActions}><Link href="/mat-bang/" prefetch={true} className={styles.paperButton}>Xem mặt bằng <Arrow/></Link><Link href="/lien-he/" prefetch={true} className={styles.heroOutline}><span>Đặt lịch tham quan</span><Arrow/></Link></div>
           <dl className={styles.heroStats} {...revealGroup({ stagger: 100, delayCap: 200 })}><div {...reveal({ preset: "fade-up", duration: 3000 })}><dt>Tầng thương mại</dt><dd>06</dd><span>Retail, F&B, văn phòng & dịch vụ</span></div><div {...reveal({ preset: "fade-up", duration: 3000 })}><dt>Phân khu công năng</dt><dd>03</dd><span>Nhiều quy mô, nhiều mô hình</span></div><div {...reveal({ preset: "fade-up", duration: 3000 })}><dt>Mặt tiền</dt><dd>02</dd><span>Kết nối nhịp sống đô thị</span></div></dl>
         </div>
         <a href="#gioi-thieu" className={styles.scrollLink} aria-label="Cuộn tới giới thiệu dự án"><span>Khám phá</span><svg width="18" height="24" viewBox="0 0 18 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M9 2v18m-5-5 5 5 5-5"/></svg></a>
@@ -78,7 +78,7 @@ export default async function HomePageV2() {
           <div {...reveal({ preset: "lift-in", duration: 1500 })}>
             <p>Nằm tại vòng xoay Tượng đài 3 Cô Gái, Le Grande Centre được định hướng trở thành điểm đến thương mại, dịch vụ, văn phòng đa chức năng tại khu vực Sóc Trăng. Thay vì một địa điểm riêng lẻ, doanh nghiệp có cơ hội hoạt động trong một tổ hợp quy tụ nhiều nhu cầu: mua sắm, ẩm thực, làm việc và trải nghiệm.</p>
             <p>Chúng tôi tin rằng một mặt bằng phù hợp phải giúp thương hiệu được nhận diện rõ hơn, tiếp cận thuận tiện hơn và có nền tảng để phát triển lâu dài.</p>
-            <Link href="/tong-quan/" className={styles.textLink} prefetch={false}>Tìm hiểu Le Grande Centre <Arrow/></Link>
+            <Link href="/tong-quan/" className={styles.textLink} prefetch={true}>Tìm hiểu Le Grande Centre <Arrow/></Link>
           </div>
         </div>
       </section>
@@ -141,7 +141,7 @@ export default async function HomePageV2() {
               </div>
             </Link>)}
           </div>
-          <Link href="/mat-bang/" className={styles.leasingCta} prefetch={false}><span>Xem tất cả mặt bằng</span><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></Link>
+          <Link href="/mat-bang/" className={styles.leasingCta} prefetch={true}><span>Xem tất cả mặt bằng</span><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></Link>
         </div>
       </section>
 
@@ -151,7 +151,7 @@ export default async function HomePageV2() {
             <h2 id="spaces-title">Nhiều loại hình.<br/>Một điểm đến.</h2>
             <p>Le Grande Centre mang đến nhiều không gian phù hợp cho các mô hình kinh doanh từ văn phòng hiện đại đến chuỗi F&amp;B, retail, dịch vụ giải trí, showroom.</p>
             <p>Sự bổ trợ giữa các loại hình được kỳ vọng sẽ thu hút nhiều nhóm khách vào những thời điểm khác nhau trong ngày, góp phần gia tăng tính đa dạng lưu lượng khách hàng.</p>
-            <Link href="/lien-he/" className={styles.spacesAction} prefetch={false}>Trao đổi nhu cầu thuê <Arrow/></Link>
+            <Link href="/lien-he/" className={styles.spacesAction} prefetch={true}>Trao đổi nhu cầu thuê <Arrow/></Link>
           </div>
           <div className={styles.spacesTypes}>
             <h3 className={styles.spacesKicker}>Các loại hình định hướng</h3>
@@ -163,14 +163,14 @@ export default async function HomePageV2() {
       <section className={`${styles.section} ${styles.overview}`} aria-labelledby="overview-title">
         <div className={styles.sectionHeading}>
           <h2 id="overview-title">Tổng quan<br/><em>Le Grande Centre.</em></h2>
-          <Link href="/tong-quan/" className={styles.textLink} prefetch={false}>Tìm hiểu dự án <Arrow/></Link>
+          <Link href="/tong-quan/" className={styles.textLink} prefetch={true}>Tìm hiểu dự án <Arrow/></Link>
         </div>
         <OverviewGallery assetBase={assetBase}/>
       </section>
 
       <section id="ly-do-lua-chon" className={styles.reasons} aria-labelledby="reasons-title"><img className={styles.reasonsImage} {...responsiveImageProps("/images/home-v2/reasons-background.webp", assetBase, "max(100vw, 1900px)")} alt="" loading="lazy" decoding="async"/><div className={styles.section}><h2 id="reasons-title"><em>Tại Sao Chọn <span>Le Grande Centre?</span></em></h2><p className={styles.reasonsIntro}>Một nơi để kinh doanh. Một nền tảng để cùng phát triển.</p><div className={styles.reasonGrid}>{reasons.map(reason => <article key={reason.title}><h3><em>{reason.title}</em></h3><p>{reason.description}</p></article>)}</div></div></section>
 
-      <section className={styles.contact} aria-labelledby="contact-title"><div><h2 id="contact-title"><em>Đặt lịch xem mặt bằng<br/>thực tế.</em></h2><p>Mỗi doanh nghiệp có một nhu cầu khác nhau.<br/>Cùng tìm không gian phù hợp với bạn.</p><div className={styles.contactActions}><Link href="/lien-he/" className={styles.paperButton} prefetch={false}>Liên hệ tư vấn <Arrow/></Link><WebsiteHotlineLink prefix="Hotline: "/></div></div></section>
+      <section className={styles.contact} aria-labelledby="contact-title"><div><h2 id="contact-title"><em>Đặt lịch xem mặt bằng<br/>thực tế.</em></h2><p>Mỗi doanh nghiệp có một nhu cầu khác nhau.<br/>Cùng tìm không gian phù hợp với bạn.</p><div className={styles.contactActions}><Link href="/lien-he/" className={styles.paperButton} prefetch={true}>Liên hệ tư vấn <Arrow/></Link><WebsiteHotlineLink prefix="Hotline: "/></div></div></section>
       </HomeScrollStory>
     </main>
     <SiteFooter/>

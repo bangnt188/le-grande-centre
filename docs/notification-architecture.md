@@ -106,3 +106,17 @@ The new source retains channel `gmail`, source keys and three website secrets, a
 
 No new website/Render release, live Neon migration, DNS/MX/routing changes or real email inbox proof occurred in this cutover. The available Cloudflare token returned403/error9109 for zone read. Production still needs an appropriate provider token, active Cloudflare DNS/routing and destination mailbox confirmation; do not present fixtures or previous release IDs as new production evidence.
 
+
+### Separate Zalo inbox hotfix — live on 2026-10-19
+
+An unavailable image at inbox seq17 blocked global bot processing, including the actual owner `/init` seq18 and PRIVATE chat seq19. Hotfix `5efc40ad90e9ae60f69d002b09865ba4b6bafb85` deployed live as Render `dep-dbato7u7bikc73f19a60`, applying only message-retry migration0005 (not email0004). Per-message due times/backoff now prevent one failed image/model/send from starving other messages; pending payloads remain durable.
+
+Live proof: original `/init` reached Zalo ACK/sent at09:01:01UTC and bound the intended Le Grande group (1/3); original PRIVATE AI reply reached sent/model at09:01:04UTC; a separate webhook `/quota` returned200 then sent/command at09:01:25UTC. Zalo testWebhook passed. The image remains pending independently. Customer groups stay notification-only. Regression failed before/passed after; production hotfix48 tests and email-source compatibility80 tests passed. Cloudflare email code/DNS/provider setup is still not deployed by this hotfix.
+
+
+### Bounded bot chat rejection — live 2026-10-19
+
+Bot inbox messages now become rejected after3 failed processing attempts and send `Không xử lý thông tin được, vui lòng trở lại sau.` with a separate maximum3 notice attempts across restart. Rejected stays rejected even after notice ACK; exhausted notices stop, customer groups remain silent except owner init errors, and PRIVATE visitors retain the locked reply. This cap never rejects business lead outbox or Zalo/email notification deliveries.
+
+Commit `2e7eb6e610ef10ed36a5c3b61891f35c206bc00e`, Render `dep-dbatufu1egvs73e2pkb0` live, migration0006 applied only to bot DB. Actual exhausted image seq17 became rejected; one notice ACK at09:14:02UTC; another live PRIVATE quota reply seq21 sent at09:14:21UTC and testWebhook passed.51 production tests,83 email-compatible tests and actual server/provider-HTTP smoke passed. Website/email release state is unchanged.
+

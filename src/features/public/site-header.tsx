@@ -17,7 +17,7 @@ export function SiteHeader({ active = "/", overlay = false, showAdminLink = fals
     window.scrollTo({ top: 0, behavior: "instant" });
   };
   const { logoUrl } = useWebsiteSettings();
-  const links = PUBLIC_NAVIGATION.map(item => <Link key={item.href} href={item.href} data-ui-interaction="underline" prefetch={false} onNavigate={navigateToTop} aria-current={active === item.href ? "page" : undefined} className={item.href === "/lien-he/" ? styles.visitLink : undefined}>{item.label}{item.href === "/lien-he/" && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true"><path d="M5 19 19 5M5 5h14v14"/></svg>}</Link>);
+  const links = PUBLIC_NAVIGATION.map(item => <Link key={item.href} href={item.href} data-ui-interaction="underline" prefetch={true} onNavigate={navigateToTop} aria-current={active === item.href ? "page" : undefined} className={item.href === "/lien-he/" ? styles.visitLink : undefined}>{item.label}{item.href === "/lien-he/" && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true"><path d="M5 19 19 5M5 5h14v14"/></svg>}</Link>);
   const navigation = links;
   return <header ref={header} className={`${styles.header} ${overlay ? styles.overlay : ""}`} data-ui-interaction-group="colors">
     <Link href="/" className={styles.brand} data-ui-header-brand aria-label="Le Grande Centre — Trang chủ" onNavigate={navigateToTop}>

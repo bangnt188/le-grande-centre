@@ -12,6 +12,6 @@ export function SiteFooter() {
   return <><footer className={styles.footer}>
     <section><Link className={styles.footerBrand} href="/">Le Grande Centre</Link><p>Nơi hội tụ thương mại – văn phòng – giải trí trong một không gian tinh tế và hiện đại.</p></section>
     <section><h2>Liên hệ</h2><address>{settings.address}</address><h3>Cho thuê</h3><WebsiteLeasingPhones/>{settings.managementPhone && <><h3>Ban quản lý</h3><a href={telephoneHref(settings.managementPhone)}>{settings.managementPhone}</a></>}<a href={`mailto:${settings.email}`}>{settings.email}</a></section>
-    <nav aria-label="Khám phá dự án"><h2>Khám phá</h2>{PUBLIC_NAVIGATION.filter(item => item.href !== "/").map(item => <Link key={item.href} href={item.href} prefetch={false}>{item.label}</Link>)}</nav>
+    <nav aria-label="Khám phá dự án"><h2>Khám phá</h2>{PUBLIC_NAVIGATION.filter(item => item.href !== "/").map(item => <Link key={item.href} href={item.href} prefetch={true}>{item.label}</Link>)}</nav>
   </footer><ContactDock/></>;
 }
