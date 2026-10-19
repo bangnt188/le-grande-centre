@@ -7,7 +7,7 @@ import { FLOORS, SLOT_STATUSES, hasCommitment, isSlotStatus, mergeIssue } from "
 import type { Floor, Slot } from "../../shared/admin/space-model";
 import type { AdminScreenName, AdminScreenQuery } from "@/shared/admin/contracts";
 import { useAdminData } from "@/features/admin/use-admin-data";
-import { ensureSession, logoutSession, useAdminSession } from "@/features/admin/session";
+import { AdminSessionError, clearAdminSession, ensureSession, getSessionSnapshot, logoutSession, useAdminSession } from "@/features/admin/session";
 import { BROCHURE_FLOORS, BROCHURE_UNITS, BROCHURE_PATH } from "@/features/public/brochure-leasing";
 import { planStyle, planLabelStyle } from "@/features/public/leasing-plan-style";
 import planStyles from "@/features/public/canva-pages.module.css";
@@ -70,6 +70,7 @@ function AdminWorkspaceContent() {
   const [recordEntry, setRecordEntry] = useState<SlotRecordEntry | undefined>();
   const [floor, setFloor] = useState<Floor>(2);
   const liveSession = useAdminSession();
+  const wasAuthenticated = useRef(false);
   const [sessionResolving, setSessionResolving] = useState(true);
   const [sessionError, setSessionError] = useState<string | null>(null);
 
@@ -85,11 +86,39 @@ function AdminWorkspaceContent() {
       })
       .catch(err => {
         if (!active) return;
+        if (err instanceof AdminSessionError && err.status === 401) {
+          window.location.replace("/admin/");
+          return;
+        }
         setSessionResolving(false);
         setSessionError(err instanceof Error ? err.message : "Không thể xác thực phiên đăng nhập.");
       });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!liveSession) {
+      if (wasAuthenticated.current && !leavingSession) window.location.replace("/admin/");
+      return;
+    }
+
+    wasAuthenticated.current = true;
+    const expiresAt = liveSession.expiresAt;
+    const redirectWhenExpired = () => {
+      if (Date.now() < expiresAt || getSessionSnapshot()?.expiresAt !== expiresAt) return;
+      wasAuthenticated.current = false;
+      clearAdminSession();
+      window.location.replace("/admin/");
+    };
+    const timeout = window.setTimeout(redirectWhenExpired, Math.max(0, expiresAt - Date.now()));
+    window.addEventListener("focus", redirectWhenExpired);
+    document.addEventListener("visibilitychange", redirectWhenExpired);
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener("focus", redirectWhenExpired);
+      document.removeEventListener("visibilitychange", redirectWhenExpired);
+    };
+  }, [leavingSession, liveSession]);
 
   const [reqPage, setReqPage] = useState(1);
   const [reqFilter, setReqFilter] = useState("");
