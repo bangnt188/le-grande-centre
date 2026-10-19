@@ -104,9 +104,8 @@ body:has(.legrande-admin){background:#f5f3eb}
 .legrande-admin .slot-register th:nth-child(7){width:126px}
 .legrande-admin .slot-register td{overflow-wrap:anywhere}
 
-/* One list/detail policy across admin views, using the shared WorkspaceLayout. */
+/* Split list/detail views retain the shared WorkspaceLayout; leads and requests use Sheet. */
 .legrande-admin .records-layout { --ui-workspace-columns: minmax(0,1fr) 300px; }
-.legrande-admin .b2b-request-layout { --ui-workspace-columns: minmax(0,1.2fr) minmax(300px,.8fr); }
 .legrande-admin .b2b-lease-layout { --ui-workspace-columns: minmax(0,1.35fr) minmax(330px,1fr); }
 .plan-scroll-hint,.tabs-scroll-hint,.storage-details-toggle { display:none; }
 .storage-summary { display:block;margin:10px 0 0;color:var(--ui-color-text-secondary);font-size:13px;line-height:1.6; }
@@ -115,9 +114,6 @@ body:has(.legrande-admin){background:#f5f3eb}
 .legrande-admin .slot-area small { font-size:11px; }
 @media(min-width:851px) and (max-width:1200px) {
   .legrande-admin .b2b-lease-layout { --ui-workspace-columns:minmax(0,1fr); }
-}
-@media(max-width:1000px) {
-  .legrande-admin .b2b-request-layout { --ui-workspace-columns:minmax(0,1fr); }
 }
 @media(max-width:850px) {
   .legrande-admin .records-layout,.legrande-admin .b2b-lease-layout { --ui-workspace-columns:minmax(0,1fr); }

@@ -69,6 +69,15 @@ Cloudflare scheduled wrapper chạy mỗi phút qua OpenNext self-binding, dispa
 - Live Chromium trên Worker 1440×900/390×844: 8/8 chuyển trang sau automatic prefetch đạt 78–86 ms, không request RSC bắt buộc sau click; về homepage 54–55 ms với heading/CTA opacity 1 ngay. Kiểm tra menu mobile, reduced motion, không prefetch unit detail, không overflow/runtime exception đều pass. Không đo p95 hoặc bảo đảm instant khi prefetch chưa xong.
 - `/`, `/mat-bang/`, `/tong-quan-tang/`, `/tong-quan/`, `/lien-he/`, `/robots.txt`, `/sitemap.xml`, `/api/public/website/` đều HTTP 200 sau release; homepage giữ noindex, API giữ 6 tầng/81 căn. Không gửi form/intake hay tạo dữ liệu nghiệp vụ để smoke.
 
+### Branded initial loading — 19/10/2026
+
+- Build từ working tree trên source nền `74ca9cefb09f73889851950258e488c9c6f40726`, gồm shared UI `LoadingScreen` và public `PublicStartupLoading` chưa commit. Component/motion/CSS nằm trong `packages/ui`; app chỉ truyền logo Neon hiện hành, wordmark và trạng thái readiness. Không thêm package, logo fallback, request DB hoặc thay schema/secrets/DNS/billing.
+- Màn chờ SSR chỉ mount một lần trong persistent public layout mỗi document; không replay khi chuyển menu/quay lại homepage. Đợi font và ảnh high-priority decode, có nút vào thẳng, Escape/Tab, deadline effect 5 giây, CSS fail-open 8 giây và no-JS bypass. Không dùng phần trăm giả, thời gian tối thiểu hoặc chờ video/background prefetch. Đây là feedback sau khi HTML đến, không giảm hoặc che TTFB trước đó.
+- `npm run build:cloudflare`, app TypeScript và `npm run typecheck:ui` pass. Artifact scan 1.734 file/11 credential values/0 matches. Impeccable detector cho ba file UI mới trả không có findings.
+- `npm run smoke:public -- http://127.0.0.1:3152/ --startup-only` pass trên production standalone: 1366×900 và mobile390×844 có logo tải thật, phủ đúng viewport, không overflow; readiness/skip, no route replay, reduced motion, Escape, stalled-decode deadline, normal image/font completion, no-JS và CSS escape khi chặn hydration chunks. Probe giữ promise decode chỉ để kiểm nhánh chờ/timeout; đây không phải số đo thời gian tải thực. Screenshot desktop/mobile đã kiểm bằng mắt.
+- Đã deploy artifact đã smoke, không rebuild, Worker version `49163f20-5b1c-43e2-ae28-b2c680ee54d9`. R2 populate có transient write retries ở hai entries rồi báo thành công đủ 12; D1 init idempotent và custom build guard giữ nguyên. Không che/sửa cảnh báo local proxy DO đã ghi ở release trước.
+- Live `--startup-only` trên Worker pass đầy đủ cùng ma trận desktop/mobile, ready/skip/no replay/reduced motion/Escape/deadline/normal completion/no-JS/blocked scripts. Năm route public và API đều HTTP 200; HTML có loader/noindex, catalog vẫn 6 tầng/81 căn. Không gửi form hoặc tạo dữ liệu nghiệp vụ.
+
 ## Chẩn đoán
 
 | Triệu chứng | Kiểm tra |

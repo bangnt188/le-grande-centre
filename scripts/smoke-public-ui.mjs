@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -88,6 +88,93 @@ try {
   const dialog = '[role="dialog"]';
   await send("Page.bringToFront");
   await viewport(1366);
+  if (process.argv[3] === "--startup-only") {
+    const startup = "[data-ui-loading-screen]";
+    await send("Page.enable");
+    await send("Runtime.enable");
+    // Hold a genuine readiness dependency to exercise slow-asset, skip and deadline behavior.
+    const heldDecode = await send("Page.addScriptToEvaluateOnNewDocument", { source: `
+      window.__startupDecodes = [];
+      window.__releaseStartup = () => window.__startupDecodes.splice(0).forEach(resolve => resolve());
+      const decode = HTMLImageElement.prototype.decode;
+      HTMLImageElement.prototype.decode = function () {
+        return this.fetchPriority === "high"
+          ? new Promise(resolve => window.__startupDecodes.push(resolve))
+          : decode.call(this);
+      };
+    ` });
+    for (const width of [1366, 390]) {
+      await send("Emulation.setDeviceMetricsOverride", { width, height: width === 390 ? 844 : 900, deviceScaleFactor: 1, mobile: width === 390 });
+      await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: width === 390 ? "reduce" : "no-preference" }] });
+      await send("Page.navigate", { url: base.href });
+      await waitFor(() => window.__startupDecodes?.length > 0);
+      await waitFor(selector => {
+        const image = document.querySelector(`${selector} img`);
+        return image?.complete && image.naturalWidth > 0;
+      }, startup);
+      const presentation = await evaluate(selector => {
+        const screen = document.querySelector(selector);
+        const box = screen.getBoundingClientRect();
+        const image = screen.querySelector("img");
+        return {
+          ready: screen.dataset.ready,
+          visible: getComputedStyle(screen).visibility,
+          coversViewport: box.x === 0 && box.y === 0 && box.width === innerWidth && box.height === innerHeight,
+          logo: image?.src === document.querySelector("header img")?.src,
+          reduced: [...screen.getAnimations({ subtree: true })].filter(animation => animation.effect?.target !== screen).length === 0,
+          overflow: document.documentElement.scrollWidth > innerWidth,
+        };
+      }, startup);
+      assert.equal(presentation.ready, "false");
+      assert.equal(presentation.visible, "visible");
+      assert(presentation.coversViewport && presentation.logo && !presentation.overflow, `invalid startup surface at ${width}px`);
+      if (width === 390) assert(presentation.reduced, "reduced motion still animates the orbit");
+      if (process.env.SMOKE_SCREENSHOT_DIR) {
+        await mkdir(process.env.SMOKE_SCREENSHOT_DIR, { recursive: true });
+        const shot = await send("Page.captureScreenshot", { format: "png" });
+        await writeFile(join(process.env.SMOKE_SCREENSHOT_DIR, `startup-${width}.png`), Buffer.from(shot.data, "base64"));
+      }
+      if (width === 1366) await evaluate(() => window.__releaseStartup());
+      else await click(`${startup} button`);
+      await waitFor(selector => document.querySelector(selector)?.dataset.ready === "true" && getComputedStyle(document.querySelector(selector)).visibility === "hidden", startup);
+      if (width === 390) await click("header summary");
+      await click(`header nav[aria-label="${width === 390 ? "Điều hướng chính trên điện thoại" : "Điều hướng chính"}"] a[href="/tong-quan/"]`);
+      await waitFor(() => !!document.querySelector("#letter"));
+      assert.equal(await evaluate(selector => document.querySelector(selector)?.dataset.ready, startup), "true", "startup replayed on client navigation");
+      await click('header a[aria-label="Le Grande Centre — Trang chủ"]');
+      await waitFor(() => !!document.querySelector("#home-title"));
+      assert.equal(await evaluate(selector => document.querySelector(selector)?.dataset.ready, startup), "true", "startup replayed on homepage return");
+      console.log(`PASS startup ${width}px: real logo, full viewport, readiness/skip, no route replay, reduced motion.`);
+    }
+    await send("Emulation.setEmulatedMedia", { features: [] });
+    await send("Page.navigate", { url: base.href });
+    await waitFor(() => window.__startupDecodes?.length > 0);
+    await escape();
+    await waitFor(selector => document.querySelector(selector)?.dataset.ready === "true", startup);
+    await send("Page.navigate", { url: base.href });
+    await waitFor(() => window.__startupDecodes?.length > 0);
+    await waitFor(selector => document.querySelector(selector)?.dataset.ready === "true", startup);
+    console.log("PASS startup: Escape and bounded deadline release stalled assets.");
+    await send("Page.removeScriptToEvaluateOnNewDocument", { identifier: heldDecode.identifier });
+    await send("Page.navigate", { url: base.href });
+    await waitFor(selector => document.querySelector(selector)?.dataset.ready === "true" && getComputedStyle(document.querySelector(selector)).visibility === "hidden", startup);
+    assert.equal(await evaluate(() => getComputedStyle(document.querySelector("#home-title")).opacity), "1");
+    console.log("PASS startup: genuine image/font readiness releases the normal homepage.");
+    await send("Emulation.setScriptExecutionDisabled", { value: true });
+    await send("Page.navigate", { url: base.href });
+    await waitFor(() => document.readyState === "complete" && !!document.querySelector("#home-title"));
+    assert.equal(await evaluate(selector => getComputedStyle(document.querySelector(selector)).display, startup), "none", "no-JS visitor is blocked by the loader");
+    assert(await evaluate(() => document.querySelector("#home-title").checkVisibility()), "no-JS homepage remains hidden inside the streamed shell");
+    await send("Emulation.setScriptExecutionDisabled", { value: false });
+    await send("Network.enable");
+    await send("Network.setBlockedURLs", { urls: [new URL("_next/static/chunks/*.js", base).href] });
+    await send("Page.navigate", { url: base.href });
+    await waitFor(selector => !!document.querySelector(selector), startup);
+    await waitFor(selector => getComputedStyle(document.querySelector(selector)).visibility === "hidden", startup);
+    assert(await evaluate(() => !!document.querySelector("#home-title")), "HTML content missing when scripts fail");
+    await send("Network.setBlockedURLs", { urls: [] });
+    console.log("PASS startup: no-JS bypass and CSS fail-open when hydration scripts fail.");
+  } else {
   await send("Page.navigate", { url: new URL("tong-quan/", base).href });
   await waitFor(() => document.readyState === "complete" && !!document.querySelector("#letter"));
   await sleep(300);
@@ -152,6 +239,7 @@ try {
   await waitFor(() => !document.querySelector('[role="dialog"]') && document.activeElement.matches('button[aria-label^="Mở ảnh:"]'));
   assert(await evaluate(() => document.querySelector('[aria-label^="Ảnh dự án tham khảo"] p[aria-live]').textContent.startsWith("2 / 5")), "modal/gallery selection diverged");
   console.log("PASS public UI: responsive navigation, header token, slot popup/detail, exclusive map/list, image zoom/selection/focus, static investor-letter backdrop.");
+  }
   }
 } finally {
   socket?.close();

@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import { Charis_SIL, Cormorant_Garamond, Playfair_Display } from "next/font/google";
 import { WebsiteSettingsProvider } from "@/features/public/website-settings";
 import { PublicRouteScrollReset } from "@/features/public/public-route-scroll-reset";
+import { PublicStartupLoading, PublicStartupContentReady } from "@/features/public/public-startup-loading";
 import { readPublicWebsite } from "@/server/public";
 
 const displayFont = Playfair_Display({ subsets: ["latin", "vietnamese"], style: ["normal", "italic"], variable: "--font-playfair-display", display: "swap", preload: false });
@@ -9,14 +11,24 @@ const editorialFont = Cormorant_Garamond({ subsets: ["latin", "vietnamese"], sty
 
 export const revalidate = 60;
 
-export default async function PublicLayout({ children }: { children: React.ReactNode }) {
+async function PublicContent({ children }: { children: React.ReactNode }) {
   const initial = await readPublicWebsite();
   return (
-    <div className={[displayFont.variable, publicDisplayFont.variable, editorialFont.variable].join(" ")}>
-      <PublicRouteScrollReset />
-      <WebsiteSettingsProvider initial={{ website: initial.website, logoUrl: initial.logoUrl, floors: initial.floors }}>
-        {children}
-      </WebsiteSettingsProvider>
-    </div>
+    <WebsiteSettingsProvider initial={{ website: initial.website, logoUrl: initial.logoUrl, floors: initial.floors }}>
+      <span hidden data-public-startup-content/>
+      <PublicStartupContentReady logoUrl={initial.logoUrl}/>
+      {children}
+    </WebsiteSettingsProvider>
   );
+}
+
+export default function PublicLayout({ children }: { children: React.ReactNode }) {
+  return <div className={[displayFont.variable, publicDisplayFont.variable, editorialFont.variable].join(" ")}>
+    <PublicRouteScrollReset />
+    <PublicStartupLoading>
+      <Suspense fallback={<span hidden data-public-startup-pending/>}>
+        <PublicContent>{children}</PublicContent>
+      </Suspense>
+    </PublicStartupLoading>
+  </div>;
 }

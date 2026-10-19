@@ -1,13 +1,12 @@
 "use client";
 
 import { lazy, Suspense, useRef, useState } from "react";
-import { AdminPanel, Badge, Button, EmptyState, Input, LoadingIndicator, PaginatedContent, Select, Tabs, Textarea, WorkspaceLayout, type ToastTone } from "@mall/ui";
+import { AdminPanel, Badge, Button, EmptyState, Input, LoadingIndicator, PaginatedContent, Select, Sheet, Tabs, Textarea, type ToastTone } from "@mall/ui";
 import { LEAD_STATUSES, type AdminSettings, type Lead } from "@/shared/admin/contracts";
 import { FLOORS, type Floor } from "@/shared/admin/space-model";
 import type { AdminData } from "./use-admin-data";
 import { AdminEditor } from "./admin-editor";
 import { AdminPagination } from "./admin-pagination";
-import { useRecordDetail } from "./use-record-detail";
 import styles from "./admin-records.module.css";
 import { BUSINESS_OPTIONS, AREA_OPTIONS, TIMING_OPTIONS } from "@/features/contact/contact-model";
 import { CollectionFeedback, CompanyPicker, useAdminCollection, useAdminRecord } from "./admin-collections";
@@ -31,40 +30,15 @@ export function LeadsWorkspace({ data, onFloor, onMessage }: Props & { onFloor: 
     try { await ensureSession({ userAction: true }); if (sequence === actionSequence.current) change(); }
     catch (issue) { onMessage(issue instanceof Error ? issue.message : "Không thể thực hiện thao tác.", "error"); }
   }
-  const details = useRecordDetail("leads");
+  const sheetHost = useRef<HTMLDivElement>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
   const pages = useAdminCollection(data, "leads", { query, status: filter });
   const selected = useAdminRecord(data, "leads", selectedId);
-  const lead = selectedId ? selected.item : pages.rows[0];
+  const lead = selected.item;
   const company = useAdminRecord(data, "companies", lead?.companyId);
   const original = editing && editing !== "new" ? editing : undefined;
   const contact = lead?.contactDetails;
-  return <div ref={details.scopeRef} className={styles.workspace} onChangeCapture={() => { void ensureSession({ userAction: true }).catch(issue => onMessage(issue instanceof Error ? issue.message : "Không thể tiếp tục sửa hồ sơ.", "error")); }}>
-    <div className={styles.toolbar}><p>Ghi nhận và theo dõi nhu cầu tư vấn. Thông tin được lưu trên hệ thống nội bộ, bao gồm yêu cầu gửi từ website.</p><Button disabled={data.pending || pages.revision == null} onClick={() => { const revision = pages.revision; void action(() => { setEditingRevision(revision); setEditing("new"); }); }}>Thêm khách quan tâm</Button></div>
-    <CollectionFeedback state={pages}/><CollectionFeedback state={selected}/><CollectionFeedback state={company}/>
-    <WorkspaceLayout className={`records-layout ${styles.layout}`} mobilePresentation="drilldown" detailOpen={details.open} onDetailOpenChange={open => void action(() => details.setOpen(open))} returnFocusRef={details.returnFocusRef} detailLabel="Chi tiết khách quan tâm" backLabel="Quay lại danh sách khách" primary={<AdminPanel className="records-panel">
-      <div className="register-heading"><h2>Khách quan tâm</h2><div className={styles.filters}>
-        <label><span className="sr-only">Tìm khách quan tâm</span><Input type="search" maxLength={200} value={query} onChange={event => { const next = event.target.value; void action(() => setQuery(next)); }} placeholder="Tìm tên, liên hệ, nhu cầu…"/></label>
-        <label><span className="sr-only">Lọc trạng thái tư vấn</span><Select value={filter} onChange={event => { const next = event.target.value; void action(() => setFilter(next)); }}><option value="">Tất cả trạng thái</option>{LEAD_STATUSES.map(status => <option key={status}>{status}</option>)}</Select></label>
-      </div></div>
-      <PaginatedContent layoutKey={pages.pageSize}><div className={styles.list}>{pages.rows.map(item => <Button key={item.id} variant="quiet" className={styles.row} aria-pressed={lead?.id === item.id} onClick={event => { const trigger = event.currentTarget; void action(() => { setSelectedId(item.id); details.openDetail("leads", trigger); }); }}>
-        <span className="lead-avatar">{item.initials}</span><span className={styles.rowText}><strong>{item.name}</strong><span>{item.interest}</span><small>{item.referenceCode} · {item.source} · Tầng {item.floor}</small><Badge tone={item.status === "Đã xử lý" ? "success" : item.status === "Mới" ? "warning" : "action"}>{item.status}</Badge></span>
-      </Button>)}</div>{!pages.loading && !pages.error && !pages.rows.length && <EmptyState title="Không có khách phù hợp" action={<Button variant="quiet" onClick={() => void action(() => { setQuery(""); setFilter(""); })}>Xóa bộ lọc</Button>}>Thêm khách quan tâm hoặc điều chỉnh tìm kiếm.</EmptyState>}</PaginatedContent><AdminPagination state={pages} label="khách quan tâm"/>
-    </AdminPanel>} detail={<AdminPanel className={`records-panel ${styles.detail}`}>{lead ? <>
-      <div className={styles.heading}><h2>{lead.name}</h2><Badge tone={lead.status === "Đã xử lý" ? "success" : "neutral"}>{lead.status}</Badge></div>
-      <dl className={styles.facts}><dt>Mã hồ sơ</dt><dd>{lead.referenceCode}</dd><dt>Nhu cầu</dt><dd>{lead.interest}</dd><dt>Doanh nghiệp</dt><dd>{company.item?.name ?? (lead.companyId ? company.loading ? "Đang tải doanh nghiệp…" : `Chưa tải được hồ sơ (${lead.companyId})` : "Chưa liên kết")}</dd>
-        {contact && <>
-          <dt>Loại yêu cầu website</dt><dd>{contact.intent === "visit" ? "Đề nghị tham quan · chưa xác nhận" : contact.intent === "callback" ? "Yêu cầu gọi lại" : "Yêu cầu tư vấn"}</dd>
-          <dt>Doanh nghiệp khách cung cấp</dt><dd>{contact.company || "Chưa cung cấp"}</dd>
-          <dt>Loại hình</dt><dd>{BUSINESS_OPTIONS.find(item => item.value === contact.business)?.label || contact.business || "Cần tư vấn"}</dd>
-          <dt>Diện tích quan tâm</dt><dd>{AREA_OPTIONS.find(item => item.value === contact.area)?.label || contact.area || "Chưa cung cấp"}</dd>
-          <dt>Thời gian dự kiến</dt><dd>{TIMING_OPTIONS.find(item => item.value === contact.timing)?.label || contact.timing || "Chưa cung cấp"}</dd>
-          <dt>Mặt bằng quan tâm</dt><dd>{contact.space || "Chưa chọn"}{contact.scope === "pair" && " · Kết hợp cặp shophouse"}</dd>
-          {contact.intent === "visit" && <><dt>Ngày tham quan mong muốn</dt><dd>{contact.visitDate || "Chưa cung cấp"}</dd><dt>Buổi tham quan mong muốn</dt><dd>{contact.visitTime === "morning" ? "Buổi sáng" : contact.visitTime === "afternoon" ? "Buổi chiều" : "Chưa cung cấp"}</dd></>}
-        </>}
-        <dt>Email</dt><dd>{lead.email || "Chưa cung cấp"}</dd><dt>Điện thoại</dt><dd>{lead.phone || "Chưa cung cấp"}</dd><dt>Nguồn</dt><dd>{lead.source}</dd><dt>Ghi nhận</dt><dd>{lead.time}</dd><dt>Ghi chú</dt><dd className={styles.note}>{lead.note || "Chưa có ghi chú"}</dd>
-      </dl><div className={styles.actions}><Button disabled={data.pending || selected.loading} onClick={() => { const revision = selectedId ? selected.revision : pages.revision; void action(() => { setEditingRevision(revision); setEditing(lead); }); }}>Sửa thông tin</Button><Button variant="secondary" onClick={() => void action(() => onFloor(lead.floor))}>Xem tầng {lead.floor}</Button></div>
-    </> : !selected.loading && !selected.error && <EmptyState title="Chưa có hồ sơ">Chọn hoặc thêm khách quan tâm để xem chi tiết.</EmptyState>}</AdminPanel>}/>
-    {editing && <AdminEditor data={data} title={original ? `Sửa khách ${original.name}` : "Thêm khách quan tâm"} description="Lưu hồ sơ tư vấn nội bộ; không tạo giữ chỗ hoặc hợp đồng." onClose={() => setEditing(null)} onSave={async form => {
+  const leadEditor = editing && <AdminEditor data={data} title={original ? `Sửa khách ${original.name}` : "Thêm khách quan tâm"} description="Lưu hồ sơ tư vấn nội bộ; không tạo giữ chỗ hoặc hợp đồng." onClose={() => setEditing(null)} onSave={async form => {
       const floor = FLOORS.find(value => value === Number(form.get("floor")));
       const status = LEAD_STATUSES.find(value => value === field(form, "status"));
       if (!floor || !status || editingRevision == null) return false;
@@ -81,7 +55,40 @@ export function LeadsWorkspace({ data, onFloor, onMessage }: Props & { onFloor: 
       <label>Nguồn tiếp nhận<Input name="source" required maxLength={80} defaultValue={original?.source}/></label>
       <label>Trạng thái<Select name="status" defaultValue={original?.status ?? "Mới"}>{LEAD_STATUSES.map(status => <option key={status}>{status}</option>)}</Select></label>
       <label>Ghi chú<Textarea name="note" rows={4} maxLength={2000} defaultValue={original?.note}/></label>
-    </AdminEditor>}
+  </AdminEditor>;
+  return <div className={styles.workspace} onChangeCapture={() => { void ensureSession({ userAction: true }).catch(issue => onMessage(issue instanceof Error ? issue.message : "Không thể tiếp tục sửa hồ sơ.", "error")); }}>
+    <div ref={sheetHost}/>
+    <div className={styles.toolbar}><p>Ghi nhận và theo dõi nhu cầu tư vấn. Thông tin được lưu trên hệ thống nội bộ, bao gồm yêu cầu gửi từ website.</p><Button disabled={data.pending || pages.revision == null} onClick={() => { const revision = pages.revision; void action(() => { setEditingRevision(revision); setEditing("new"); }); }}>Thêm khách quan tâm</Button></div>
+    <CollectionFeedback state={pages}/>
+    <AdminPanel className="records-panel">
+      <div className="register-heading"><h2>Khách quan tâm</h2><div className={styles.filters}>
+        <label><span className="sr-only">Tìm khách quan tâm</span><Input type="search" maxLength={200} value={query} onChange={event => { const next = event.target.value; void action(() => setQuery(next)); }} placeholder="Tìm tên, liên hệ, nhu cầu…"/></label>
+        <label><span className="sr-only">Lọc trạng thái tư vấn</span><Select value={filter} onChange={event => { const next = event.target.value; void action(() => setFilter(next)); }}><option value="">Tất cả trạng thái</option>{LEAD_STATUSES.map(status => <option key={status}>{status}</option>)}</Select></label>
+      </div></div>
+      <PaginatedContent layoutKey={pages.pageSize}><div className={styles.list}>{pages.rows.map(item => <Button key={item.id} variant="quiet" className={styles.row} aria-haspopup="dialog" aria-pressed={selectedId === item.id} onClick={event => { const trigger = event.currentTarget; void action(() => { returnFocus.current = trigger; setSelectedId(item.id); }); }}>
+        <span className="lead-avatar">{item.initials}</span><span className={styles.rowText}><strong>{item.name}</strong><span>{item.interest}</span><small>{item.referenceCode} · {item.source} · Tầng {item.floor}</small><Badge tone={item.status === "Đã xử lý" ? "success" : item.status === "Mới" ? "warning" : "action"}>{item.status}</Badge></span>
+      </Button>)}</div>{!pages.loading && !pages.error && !pages.rows.length && <EmptyState title="Không có khách phù hợp" action={<Button variant="quiet" onClick={() => void action(() => { setQuery(""); setFilter(""); })}>Xóa bộ lọc</Button>}>Thêm khách quan tâm hoặc điều chỉnh tìm kiếm.</EmptyState>}</PaginatedContent><AdminPagination state={pages} label="khách quan tâm"/>
+    </AdminPanel>
+    <Sheet open={!!selectedId} onOpenChange={open => { if (!open) setSelectedId(null); }} title="Chi tiết khách tiềm năng" description="Thông tin liên hệ và nhu cầu tư vấn đã tiếp nhận." closeLabel="Đóng chi tiết khách" portalContainer={sheetHost} returnFocusRef={returnFocus}>
+      <CollectionFeedback state={selected}/><CollectionFeedback state={company}/>
+      {lead ? <>
+      <div className={styles.heading}><h2>{lead.name}</h2><Badge tone={lead.status === "Đã xử lý" ? "success" : "neutral"}>{lead.status}</Badge></div>
+      <dl className={styles.facts}><dt>Mã hồ sơ</dt><dd>{lead.referenceCode}</dd><dt>Nhu cầu</dt><dd>{lead.interest}</dd><dt>Doanh nghiệp</dt><dd>{company.item?.name ?? (lead.companyId ? company.loading ? "Đang tải doanh nghiệp…" : `Chưa tải được hồ sơ (${lead.companyId})` : "Chưa liên kết")}</dd>
+        {contact && <>
+          <dt>Loại yêu cầu website</dt><dd>{contact.intent === "visit" ? "Đề nghị tham quan · chưa xác nhận" : contact.intent === "callback" ? "Yêu cầu gọi lại" : "Yêu cầu tư vấn"}</dd>
+          <dt>Doanh nghiệp khách cung cấp</dt><dd>{contact.company || "Chưa cung cấp"}</dd>
+          <dt>Loại hình</dt><dd>{BUSINESS_OPTIONS.find(item => item.value === contact.business)?.label || contact.business || "Cần tư vấn"}</dd>
+          <dt>Diện tích quan tâm</dt><dd>{AREA_OPTIONS.find(item => item.value === contact.area)?.label || contact.area || "Chưa cung cấp"}</dd>
+          <dt>Thời gian dự kiến</dt><dd>{TIMING_OPTIONS.find(item => item.value === contact.timing)?.label || contact.timing || "Chưa cung cấp"}</dd>
+          <dt>Mặt bằng quan tâm</dt><dd>{contact.space || "Chưa chọn"}{contact.scope === "pair" && " · Kết hợp cặp shophouse"}</dd>
+          {contact.intent === "visit" && <><dt>Ngày tham quan mong muốn</dt><dd>{contact.visitDate || "Chưa cung cấp"}</dd><dt>Buổi tham quan mong muốn</dt><dd>{contact.visitTime === "morning" ? "Buổi sáng" : contact.visitTime === "afternoon" ? "Buổi chiều" : "Chưa cung cấp"}</dd></>}
+        </>}
+        <dt>Email</dt><dd>{lead.email || "Chưa cung cấp"}</dd><dt>Điện thoại</dt><dd>{lead.phone || "Chưa cung cấp"}</dd><dt>Nguồn</dt><dd>{lead.source}</dd><dt>Ghi nhận</dt><dd>{lead.time}</dd><dt>Ghi chú</dt><dd className={styles.note}>{lead.note || "Chưa có ghi chú"}</dd>
+      </dl><div className={styles.actions}><Button disabled={data.pending || selected.loading} onClick={() => { const revision = selected.revision; void action(() => { setEditingRevision(revision); setEditing(lead); }); }}>Sửa thông tin</Button><Button variant="secondary" onClick={() => void action(() => onFloor(lead.floor))}>Xem tầng {lead.floor}</Button></div>
+    </> : !selected.loading && !selected.error && <EmptyState title="Chưa có hồ sơ">Không tìm thấy khách quan tâm này.</EmptyState>}
+      {editing !== "new" && leadEditor}
+    </Sheet>
+    {editing === "new" && leadEditor}
   </div>;
 }
 

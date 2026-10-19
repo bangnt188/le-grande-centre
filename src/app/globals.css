@@ -52,4 +52,9 @@ a:focus-visible { outline: 2px solid var(--mall-gold-light); outline-offset: 4px
   outline: none;
 }
 
+/* Start the hydration fail-open clock only after the streamed page exists. */
+body:has([data-public-startup-pending]) [data-ui-loading-screen] {
+  animation-play-state: paused;
+}
+
 @media (max-width: 720px) { :root { --public-header-height: 76px; } }

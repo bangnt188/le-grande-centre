@@ -47,6 +47,12 @@ Màn đăng nhập và shell tải logo tùy chọn qua `GET /api/public/brandin
 
 Browser cache private trong memory **60 giây**, key theo session/property/screen/filter/page/id, in-flight dedupe + abort/stale response protection. Sau save đánh dấu cache stale, chỉ mounted active view refetch; không fetch tất cả tab. Loading/error/empty phải tách biệt; dữ liệu chưa đọc không được coi là catalog rỗng đã tải.
 
+### Chi tiết dạng Sheet
+
+Khách tiềm năng và Yêu cầu & giữ chỗ hiển thị danh sách toàn chiều ngang, giữ phân trang server/bộ lọc hiện có; không tải toàn bộ bản ghi để mở rộng giao diện. Click dòng mới mở `@mall/ui Sheet` từ cạnh phải, không tự mở bản ghi đầu. Sheet dùng Base UI Dialog, giữ header/nút đóng trong viewport và cuộn riêng nội dung; Escape/backdrop/nút đóng trả focus về dòng đã chọn. Mobile dùng toàn chiều ngang màn hình. Form sửa/duyệt/ghi nhận thuê nằm trong cây Sheet để modal lồng không đóng nhầm chi tiết; xác nhận bỏ draft và revision CAS giữ nguyên.
+
+Kiểm tra UI cục bộ 19/10/2026: shared UI build/typecheck và TypeScript ứng dụng pass; Chrome 1440/390/320px kiểm danh sách full-width, đúng ID ở trang2, cuộn nội dung dài, Tab/Escape/backdrop/focus return, reduced motion, tìm kiếm/bộ lọc và form lồng. API trong browser được chặn và cấp fixture; không ghi DB/cloud, không chứng minh mutation nghiệp vụ hoặc deployment.
+
 ## Media
 
 - Pagination **server**, default24/max100; filters query/kind/source/scope được validate. Uploaded SQL COUNT + LIMIT/OFFSET, sort `uploaded_at DESC,id DESC`.
