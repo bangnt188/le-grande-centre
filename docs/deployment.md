@@ -99,3 +99,10 @@ Sau201 từ contact đã commit, Worker dispatch qua `ctx.waitUntil` và OpenNex
 | Login/upload test tạo side effect ngoài test DB | Kiểm tra riêng `DATABASE_URL`, Auth/function secrets và R2 bindings của deployment; nhãn stage2 không chứng minh provider isolation |
 | Thông báo không đến nhóm | Lần theo committed website outbox → Worker dispatch receipt → Render event/recipient receipts; build/deploy không chứng minh provider delivery |
 | Domain hiển thị nội dung khác với Worker | Xác nhận Worker URL/version trực tiếp và quyền DNS riêng; không gán nội dung domain cho repository từ response headers |
+
+### Notification idle-compute hotfix — 20/10/2026
+
+`dev` source `d1b3dbf` → Worker `d521332a-500a-4e2d-94ec-89fda9ee9414`,100%traffic. Cloudflare API xác nhận cron chỉ `*/15 * * * *`, workers.dev/previews vẫn disabled, không có domain route. Giữ nguyên Neon Auth và runtime secret bindings. Bản này không bao gồm admin/UI WIP hoặc migration mới.
+
+Vì public Worker đã404 từ trước, build dùng public projection đã validate từ canonical DB branch production sau truy vấn identity chỉ đọc; cung cấp qua `LE_GRANDE_BUILD_PUBLIC_WEBSITE`. Không bật lại ingress hoặc lấy fixture giả để vượt lỗi build origin. Build/typecheck,6owned-PG tests và actual workerd boundary smoke pass; scan1736files/11credential values không khớp secret. Deploy dùng lại artifact đã kiểm tra, cacheChunkSize1,12/12R2 entries và D1 init idempotent. Chưa gửi form live hoặc đo Neon suspension/CU-hour savings.
+
