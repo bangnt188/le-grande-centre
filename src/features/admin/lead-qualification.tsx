@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Alert, Button, CheckboxField, EmptyState, TextareaField, TextField, type ToastTone } from "@mall/ui";
+import { Alert, Button, CheckboxField, EmptyState, Sheet, TextareaField, TextField, type ToastTone } from "@mall/ui";
 import type { Lead } from "@/shared/admin/contracts";
 import type { AdminData } from "./use-admin-data";
 import { AdminEditor } from "./admin-editor";
@@ -21,9 +21,9 @@ export function LeadQualificationHost({ data, onMessage, action }: Props) {
   const selected = useAdminRecord(data, "leads", action.leadId, !source.current);
   const navigation = useAdminWorkspaceNavigation();
   if (!source.current && selected.item && selected.revision != null) source.current = { key, lead: selected.item, revision: selected.revision };
-  if (!source.current) return selected.loading || selected.error ? <CollectionFeedback state={selected}/> : <EmptyState title="Không tìm thấy khách quan tâm"/>;
+  if (!source.current) return <Sheet open title="Đang mở liên kết doanh nghiệp" description="Đang tải khách quan tâm để xác nhận doanh nghiệp." closeLabel="Đóng biểu mẫu" onOpenChange={open => { if (!open) navigation.closeAction(); }}><CollectionFeedback state={selected}/>{!selected.loading && !selected.error && <EmptyState title="Không tìm thấy khách quan tâm"/>}</Sheet>;
   const { lead, revision } = source.current;
-  if (lead.companyId) return <Alert tone="info">Khách đã liên kết doanh nghiệp. <Button variant="quiet" onClick={() => navigation.completeAction({ kind: "customers", id: lead.companyId! })}>Mở doanh nghiệp</Button></Alert>;
+  if (lead.companyId) return <Sheet open title="Khách đã liên kết doanh nghiệp" description="Hồ sơ đã được liên kết với doanh nghiệp." closeLabel="Đóng biểu mẫu" onOpenChange={open => { if (!open) navigation.closeAction(); }}><Alert tone="info">Khách đã liên kết doanh nghiệp. <Button variant="quiet" onClick={() => navigation.completeAction({ kind: "customers", id: lead.companyId! })}>Mở doanh nghiệp</Button></Alert></Sheet>;
   return <QualificationEditor key={key} data={data} onMessage={onMessage} action={action} lead={lead} revision={revision}/>;
 }
 
@@ -47,7 +47,7 @@ function QualificationEditor({ data, onMessage, action, lead: loaded, revision: 
       <TextField id="qualified-company-brand" name="brand" label="Thương hiệu (không bắt buộc)" maxLength={80} defaultValue={draft.brand}/>
       <TextField id="qualified-company-contact" name="contact" label="Người liên hệ (không bắt buộc)" maxLength={80} defaultValue={draft.contact}/>
       <TextField id="qualified-company-email" name="email" label="Email (không bắt buộc)" type="email" maxLength={254} defaultValue={draft.email}/>
-      <TextField id="qualified-company-phone" name="phone" label="Điện thoại (không bắt buộc)" type="tel" maxLength={32} defaultValue={draft.phone}/>
+      <TextField id="qualified-company-phone" name="phone" label="Điện thoại (không bắt buộc)" type="tel" maxLength={30} defaultValue={draft.phone}/>
       <TextField id="qualified-company-owner" name="owner" label="Người phụ trách (không bắt buộc)" maxLength={80} defaultValue={draft.owner}/>
       <TextField id="qualified-company-tax" name="taxId" label="Mã số thuế (không bắt buộc)" maxLength={30}/>
       <TextField id="qualified-company-address" name="address" label="Địa chỉ (không bắt buộc)" maxLength={240}/>

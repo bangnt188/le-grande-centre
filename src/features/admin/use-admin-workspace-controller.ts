@@ -7,12 +7,20 @@ import { ensureSession, useAdminSession } from "./session";
 import type { AdminNavigationGuard } from "./use-admin-navigation";
 
 type Frame = { version: 1; index: number; detailBase?: number; actionBase?: number; localEditor?: string };
-type Snapshot = { location: AdminLocation; lists: Record<string, AdminListState>; frame: Frame; scroll: number; focus?: HTMLElement | null };
+type Snapshot = { location: AdminLocation; lists: Record<string, AdminListState>; frame: Frame; scroll: number; detailScroll?: number; focus?: HTMLElement | null; focusHint?: { tag: string; id: string; label: string | null; text: string; parent: string } };
 const initialFrame: Frame = { version: 1, index: 0 };
 function frameFrom(value: unknown): Frame | null {
   if (!value || typeof value !== "object") return null;
   const frame = value as Partial<Frame>;
   return frame.version === 1 && Number.isSafeInteger(frame.index) && frame.index! >= 0 ? frame as Frame : null;
+}
+const detailBody = () => document.querySelector<HTMLElement>(".admin-record-detail-host [role=dialog]:has(.admin-detail-navigation) > div:last-child");
+function capturePosition(snapshot: Snapshot) {
+  snapshot.scroll = window.scrollY;
+  snapshot.detailScroll = detailBody()?.scrollTop ?? 0;
+  const element = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  snapshot.focus = element;
+  snapshot.focusHint = element && element !== document.body ? { tag: element.tagName, id: element.id, label: element.getAttribute("aria-label"), text: element.textContent?.trim() ?? "", parent: element.parentElement?.textContent?.trim() ?? "" } : undefined;
 }
 
 /** URL is the reload/deep-link state; private searches and DOM references stay per-document. */
@@ -28,18 +36,44 @@ export function useAdminWorkspaceController(guard: AdminNavigationGuard, busy: b
   const identity = session && JSON.stringify([session.actorId, session.propertyId]);
   const previousIdentity = useRef(identity);
   const sequence = useRef(0);
+  const cancelRestore = useRef<() => void>(() => {});
+  const restorePosition = useCallback((target: Snapshot) => {
+    cancelRestore.current();
+    let observer: MutationObserver | undefined, timer: ReturnType<typeof setTimeout> | undefined;
+    let focused = false, stopped = false;
+    const stop = () => { stopped = true; observer?.disconnect(); clearTimeout(timer); };
+    cancelRestore.current = stop;
+    const restore = () => {
+      if (stopped) return;
+      const root = target.location.detail ? document.querySelector(".admin-record-detail-host [role=dialog]") : document;
+      const hint = target.focusHint;
+      const element = target.focus?.isConnected ? target.focus : hint && [...(root?.querySelectorAll<HTMLElement>("button,a,input,select,textarea,[tabindex]") ?? [])].find(element => element.tagName === hint.tag && (hint.id ? element.id === hint.id : hint.label ? element.getAttribute("aria-label") === hint.label : element.textContent?.trim() === hint.text && element.parentElement?.textContent?.trim() === hint.parent));
+      if (!focused && element && !element.closest("[inert],[aria-hidden=true]")) { element.focus({ preventScroll: true }); focused = document.activeElement === element; }
+      const body = target.location.detail ? detailBody() : null;
+      if (body) body.scrollTop = target.detailScroll ?? 0;
+      else if (!target.location.detail && !target.location.action) window.scrollTo({ top: target.scroll, behavior: "instant" });
+      const scrollReady = !target.location.detail || !!body && Math.abs(body.scrollTop - (target.detailScroll ?? 0)) < 2;
+      if ((!hint || focused) && scrollReady) stop();
+    };
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (stopped) return;
+      observer = new MutationObserver(restore); observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["inert", "aria-hidden"] });
+      timer = setTimeout(stop, 5000); restore();
+    }));
+  }, []);
+  useEffect(() => () => cancelRestore.current(), []);
 
   const commit = useCallback((next: Snapshot, replace = false) => {
     const previous = current.current;
-    previous.scroll = window.scrollY;
-    previous.focus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    capturePosition(previous);
     snapshots.current.set(previous.frame.index, previous);
     if (!replace) for (const index of snapshots.current.keys()) if (index > previous.frame.index) snapshots.current.delete(index);
     const state = { ...window.history.state, adminWorkspace: next.frame };
     const url = adminLocationUrl(window.location.pathname, next.location, next.lists);
     if (replace) window.history.replaceState(state, "", url); else window.history.pushState(state, "", url);
     current.current = next; snapshots.current.set(next.frame.index, next); setSnapshot(next);
-  }, []);
+    if (next.location.detail?.id !== previous.location.detail?.id || next.location.detail?.kind !== previous.location.detail?.kind) restorePosition(next);
+  }, [restorePosition]);
 
   const allow = useCallback((operation: () => void) => {
     if (latest.current.busy) return;
@@ -64,16 +98,17 @@ export function useAdminWorkspaceController(guard: AdminNavigationGuard, busy: b
       const frame = targetFrame ?? { ...initialFrame, index: Math.max(0, previous.frame.index - 1) };
       const delta = frame.index - previous.frame.index;
       const apply = () => {
-        previous.scroll = window.scrollY;
+        capturePosition(previous);
         snapshots.current.set(previous.frame.index, previous);
         const remembered = snapshots.current.get(frame.index);
         const next: Snapshot = remembered ?? { location: parsedTarget.location, lists: { ...previous.lists, [listScope(parsedTarget.location.view)]: { ...previous.lists[listScope(parsedTarget.location.view)], ...parsedTarget.list } }, frame, scroll: 0 };
+        if (next.frame.localEditor && !editors.current.has(next.frame.localEditor)) {
+          next.frame = { ...next.frame, localEditor: undefined };
+          window.history.replaceState({ ...window.history.state, adminWorkspace: next.frame }, "", window.location.href);
+        }
         current.current = next; setSnapshot(next);
         if (previous.frame.localEditor && previous.frame.localEditor !== frame.localEditor) editors.current.get(previous.frame.localEditor)?.();
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          if (next.focus?.isConnected) next.focus.focus({ preventScroll: true });
-          if (!next.location.detail && !next.location.action) window.scrollTo({ top: next.scroll, behavior: "instant" });
-        }));
+        restorePosition(next);
       };
       if (approvedPop.current) { approvedPop.current = false; apply(); return; }
       if (latest.current.busy) { if (delta) { ignorePop.current = true; window.history.go(-delta); } return; }

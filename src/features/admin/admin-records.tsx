@@ -1,7 +1,7 @@
 "use client";
 
 import { lazy, Suspense, useRef, useState } from "react";
-import { AdminPanel, Badge, Button, EmptyState, Input, LoadingIndicator, PaginatedContent, Select, SelectField, Tabs, TextareaField, TextField, type ToastTone } from "@mall/ui";
+import { AdminPanel, Badge, Button, EmptyState, Input, LoadingIndicator, PaginatedContent, Select, SelectField, Sheet, Tabs, TextareaField, TextField, type ToastTone } from "@mall/ui";
 import { LEAD_STATUSES, type AdminSettings, type Lead } from "@/shared/admin/contracts";
 import { FLOORS } from "@/shared/admin/space-model";
 import type { AdminData } from "./use-admin-data";
@@ -80,6 +80,7 @@ export function LeadsWorkspace({ data, onMessage, mode = "list", record }: Props
 }
 
 export function LeadActionHost({ data, onMessage, action }: Props & { action: Extract<AdminBusinessAction, { kind: "lead" }> }) {
+  const navigation = useAdminWorkspaceNavigation();
   // Keep the source revision and form mounted through mutation invalidation and 409 reloads.
   const source = useRef<{ key: string; lead?: Lead; revision: number } | null>(null);
   const key = action.id ?? "new";
@@ -89,7 +90,7 @@ export function LeadActionHost({ data, onMessage, action }: Props & { action: Ex
   const revision = action.id ? selected.revision : pages.revision;
   const state = action.id ? selected : pages;
   if (!source.current && revision != null && (!action.id || selected.item)) source.current = { key, lead: selected.item, revision };
-  if (!source.current) return <CollectionFeedback state={state}/>;
+  if (!source.current) return <Sheet open title="Đang mở biểu mẫu khách quan tâm" description="Đang tải hồ sơ để mở biểu mẫu." closeLabel="Đóng biểu mẫu" onOpenChange={open => { if (!open) navigation.closeAction(); }}><CollectionFeedback state={state}/>{!state.loading && !state.error && <EmptyState title="Không tìm thấy hồ sơ khách quan tâm"/>}</Sheet>;
   return <LeadEditor key={key} data={data} onMessage={onMessage} original={source.current.lead} revision={source.current.revision}/>;
 }
 
