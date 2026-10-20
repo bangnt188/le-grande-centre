@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { once } from "node:events";
+import { registerHooks } from "node:module";
 import { verifyOwnedLocalDatabase } from "../scripts/local-database-guard.mjs";
 import { getDatabase, withTransaction } from "../src/server/database";
 import { submitContact } from "../src/server/public";
@@ -195,4 +196,92 @@ test("contact outbox commits atomically, retries durable receipts, fences overla
     server.closeAllConnections();
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
+});
+
+test("committed contacts dispatch without waiting for cron; interrupted wakes recover without resending the accepted channel", { skip: process.env.RUN_LOCAL_DATABASE_TESTS !== "1", timeout: 10000 }, async t => {
+  await verifyOwnedLocalDatabase();
+  const previous = { ...process.env }, nativeFetch = globalThis.fetch;
+  const actor = "system:notification-dispatch", secret = "event-dispatch-secret-".repeat(3);
+  const calls: { key: string; channel: string }[] = [];
+  const payloads = new Map<string, string>();
+  let hold: (() => void) | undefined, first: (() => void) | undefined, failEmail = false;
+  const arrived = new Promise<void>(resolve => { first = resolve; });
+  const held = new Promise<void>(resolve => { hold = resolve; });
+  const provider = createServer(async (request, response) => {
+    let text = ""; for await (const chunk of request) text += chunk;
+    const body = JSON.parse(text), key = String(request.headers["idempotency-key"]);
+    calls.push({ key, channel: body.channel }); payloads.set(key, text); first?.();
+    await held;
+    response.writeHead(failEmail && body.channel === "gmail" ? 503 : 202, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ id: key, channel: body.channel, status: "queued", createdAt: new Date().toISOString(), sentAt: null }));
+  });
+  provider.listen(0, "127.0.0.1"); await once(provider, "listening");
+  const address = provider.address(); assert.ok(address && typeof address !== "string");
+  process.env.NOTIFICATIONS_URL = "https://event-provider.invalid/v1/notifications";
+  process.env.NOTIFICATIONS_API_KEY = "event-provider-key";
+  process.env.NOTIFICATION_DISPATCH_SECRET = secret;
+  process.env.CONTACT_RATE_LIMIT_SECRET = "event-contact-rate-".repeat(3);
+  globalThis.fetch = (url, init) => new URL(String(url)).hostname === "event-provider.invalid"
+    ? nativeFetch(`http://127.0.0.1:${address.port}/v1/notifications`, init) : nativeFetch(url, init);
+  t.after(async () => {
+    hold?.(); globalThis.fetch = nativeFetch;
+    for (const key of ["NOTIFICATIONS_URL", "NOTIFICATIONS_API_KEY", "NOTIFICATION_DISPATCH_SECRET", "CONTACT_RATE_LIMIT_SECRET"]) {
+      if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key];
+    }
+    provider.closeAllConnections(); await new Promise<void>(resolve => provider.close(() => resolve()));
+  });
+  // Replace only the generated OpenNext transport. Real route handlers, PostgreSQL
+  // transactions and HTTP provider run; no fixture can invent a committed receipt.
+  const adapter = `
+    import { POST as contact } from ${JSON.stringify(new URL("../src/app/api/contact/route.ts", import.meta.url).href)};
+    import { POST as dispatch } from ${JSON.stringify(new URL("../src/app/api/internal/notifications/dispatch/route.ts", import.meta.url).href)};
+    export default { async fetch(request) {
+      const path = new URL(request.url).pathname;
+      if (/^\\/api\\/contact\\/?$/.test(path)) return contact(request);
+      if (path === "/api/internal/notifications/dispatch/") return dispatch(request);
+      return new Response(null, {status: 404});
+    } };`;
+  const hook = registerHooks({ resolve(specifier, context, next) {
+    if (specifier === "./.open-next/worker.js" && context.parentURL?.endsWith("/cloudflare-worker.mjs")) {
+      return { url: "data:text/javascript," + encodeURIComponent(adapter), shortCircuit: true };
+    }
+    return next(specifier, context);
+  } });
+  // Module-loading boundary under test: install the transport hook before importing the Worker.
+  let worker;
+  try { worker = (await import(new URL("../cloudflare-worker.mjs", import.meta.url).href)).default; }
+  finally { hook.deregister(); }
+  const pending: Promise<unknown>[] = [];
+  const ctx = { waitUntil(promise: Promise<unknown>) { pending.push(promise); } };
+  const env = { NOTIFICATION_DISPATCH_SECRET: secret, WORKER_SELF_REFERENCE: { fetch: (request: Request) => worker.fetch(request, env, ctx) } };
+  const input = { intent: "callback", name: "Event wake", company: "", phone: "0973879563", email: "", business: "", area: "", timing: "", space: "", note: "", consent: true };
+  const key = crypto.randomUUID();
+  const request = (body: unknown, id = key) => new Request("https://event.test/api/contact/", { method: "POST",
+    headers: { Origin: "https://event.test", "Content-Type": "application/json", "Idempotency-Key": id }, body: JSON.stringify(body) });
+  await withTransaction(actor, client => client.query("UPDATE leasing.contact_notification_outbox SET available_at=now()+interval '1 day' WHERE forwarded_at IS NULL"));
+  const result = await worker.fetch(request(input), env, ctx);
+  assert.equal(result.status, 201, "Form success must not wait for the held provider");
+  await arrived;
+  const intake = await withTransaction("test:event-receipt", async client => (await client.query("SELECT id FROM leasing.contact_intake WHERE idempotency_key=$1", [key])).rows[0]);
+  const rows = () => withTransaction(actor, async client => (await client.query("SELECT * FROM leasing.contact_notification_outbox WHERE intake_id=$1 ORDER BY channel", [intake.id])).rows);
+  assert.deepEqual((await rows()).map(row => row.channel), ["gmail", "zalo"]);
+  assert.ok((await rows()).every(row => row.forwarded_at === null && row.payload));
+  failEmail = true; hold?.(); await Promise.all(pending.splice(0));
+  let state = await rows();
+  assert.equal(state[0].forwarded_at, null); assert.ok(state[0].payload);
+  assert.ok(state[1].forwarded_at); assert.equal(state[1].payload, null);
+  const zaloCalls = calls.filter(call => call.channel === "zalo").length;
+  await worker.fetch(request(input), env, ctx); await Promise.all(pending.splice(0));
+  assert.equal(calls.filter(call => call.channel === "zalo").length, zaloCalls);
+  const beforeInvalid = calls.length;
+  assert.equal((await worker.fetch(request({}), env, ctx)).status, 400);
+  await Promise.all(pending.splice(0)); assert.equal(calls.length, beforeInvalid);
+  await withTransaction(actor, client => client.query("UPDATE leasing.contact_notification_outbox SET available_at=now(),lease_token=$2,lease_until=now()-interval '1 second' WHERE intake_id=$1 AND channel='gmail'", [intake.id, crypto.randomUUID()]));
+  failEmail = false;
+  await worker.scheduled({}, env, ctx); await Promise.all(pending.splice(0));
+  state = await rows();
+  assert.ok(state.every(row => row.forwarded_at && row.payload === null));
+  assert.equal(calls.filter(call => call.channel === "zalo").length, zaloCalls, "Sparse recovery must not resend the successful channel");
+  assert.ok(calls.every(call => call.key === `contact:${intake.id}:${call.channel}`));
+  assert.equal(payloads.size, 2);
 });

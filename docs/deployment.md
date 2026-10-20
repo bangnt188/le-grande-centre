@@ -37,7 +37,7 @@ Secrets DB/Auth/media/API được cấp ở đúng runtime secret store, không
 
 ## Notification boundary
 
-Cloudflare scheduled wrapper chạy mỗi phút qua OpenNext self-binding, dispatch source outbox theo batch tới Render bot với stable idempotency key. Chỉ receipt hợp lệ mới chuyển quyền xử lý; lỗi giữ source payload để retry. Render lưu queue/recipient state trong DB riêng và có thể giao nhận at-least-once. Không cấu hình Vercel cron hay external production dispatch URL. Xem [notification architecture](notification-architecture.md) và `AGENT.md` cho contract/limits hiện hành.
+Sau201 từ contact đã commit, Worker dispatch qua `ctx.waitUntil` và OpenNext self-binding; form không chờ network. Cron `*/15 * * * *` phục hồi outbox mất wake/lease hết hạn, không polling mỗi phút. Giữ stable idempotency key, fencing theo channel và payload khi lỗi. Giữ public workers.dev/previews disabled và không thêm domain route; cron vẫn hoạt động. Không đổi Neon Auth/DNS hoặc thêm external/Vercel cron. Xem [notification architecture](notification-architecture.md).
 
 ## Trình tự phát hành và bằng chứng
 

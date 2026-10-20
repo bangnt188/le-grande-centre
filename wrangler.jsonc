@@ -8,9 +8,9 @@
     "global_fetch_strictly_public"
   ],
   "triggers": {
-    "crons": ["* * * * *"]
+    "crons": ["*/15 * * * *"]
   },
-  "workers_dev": true,
+  "workers_dev": false,
   "placement": {
     "region": "aws:ap-southeast-1"
   },

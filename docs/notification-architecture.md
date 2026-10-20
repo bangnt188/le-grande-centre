@@ -2,7 +2,7 @@
 
 ## Hosting and scope
 
-Owner explicitly confirms this project is **not deployed on Vercel**. Do not request Vercel login/deploy or infer repository deployment from HTTP headers. This rollout targets the existing Cloudflare Worker `https://le-grande-centre-stage2.nguyenbang-skyone.workers.dev` plus the Render notification service. Deploy does not change DNS/custom-domain routing.
+Owner confirms this project is **not deployed on Vercel**. Target remains the existing `le-grande-centre-stage2` Worker plus Render. On2026-10-20 Cloudflare API confirmed workers.dev/previews disabled, no attached domain/zone route, but cron still active. Preserve that disabled public state; do not reopen the website or change DNS for this hotfix.
 
 Canonical local `.env.local` and stage2 Worker runtime `DATABASE_URL` use Neon `production` (`br-tiny-butterfly-b3uuw92p`). The former test branch `lgc-bot-test` was removed on 19/10/2026 after moving the Worker to production. Production has migrations 001–015 and the approved plan seed. Auth/media remain separate runtime targets. Build/deploy never runs migrations or seeds DB; no historical notification backfill was performed.
 
@@ -18,13 +18,13 @@ Notification copies only reference, name, phone and intent. Gmail additionally h
 
 ## Retry and durable ownership transfer
 
-1. Real Cloudflare cron every minute calls the protected dispatch route via `WORKER_SELF_REFERENCE` in normal OpenNext env/context; wrapper preserves adapter exports. Local Next has no cron.
+1. After OpenNext returns201 for `POST /api/contact[/]`, the Worker starts authenticated self-binding dispatch in `ctx.waitUntil`, without awaiting it before the form response. DB commit/outbox remains authoritative. Fallback cron `*/15 * * * *` recovers missed/interrupted wakes instead of polling every minute. Workers may stop post-response work before a long network retry finishes; the lease expires and a later cron retries the same event. Recovery may wait up to15minutes after a job becomes due; existing backoff also applies. Preserve adapter exports and request-local env/context. Local Next alone has neither event wake nor cron.
 2. Dispatcher claims up to5 due channel jobs with `SKIP LOCKED`,180second leases and random fencing token; closes every transaction/connection before network. Channel is included in claim joins and completion conditions, so one job cannot acknowledge/erase its sibling.
 3. Jobs run concurrently. Each batch makes **up to3 attempts**, each bounded40seconds, with250/500ms pauses. The same channel-specific idempotency key and exact payload are reused. Valid receipt stops immediately; do not keep retrying after successful ACK.
 4. Only HTTP200/202 valid JSON with expected channel, ID, queued/sending/sent/failed state and timestamps transfers durable responsibility. A replay may already be terminal failed: preserve its remote ID because Render retains the failed payload for review, not because delivery succeeded. Mark only that channel forwarded and clear its source payload. `redirect:manual` rejects redirects without forwarding credentials; Cloudflare does not support `redirect:error`.
 5. All3 fail (network/timeout,401/409/5xx, disabled provider, malformed/lost ACK): retain payload, release lease, persist exponential30second–1hour delay. Later cron starts another batch; **three failures never delete/drop a lead or notification**. DB/crash lease expiry recovers safely.
 6. Render authenticates finite website key and snapshots event, sender/provider and recipient before202. Zalo targets all registered groups. Email uses website registry `email_from`, `email_reply_to` and retained `gmail_to`; callers cannot select from/to/provider. Unlinked/unverified admission does not consume the event key. Lost ACK returns the same event/snapshot; changed payload with same key returns409.
-7. Render retries individual recipients using60second fenced leases and5–300second backoff. Startup, HTTP/health, interval and retry deadlines recover pending rows. Atomic UTC-day provider-attempt budgets apply per site (default100) and service (default1000); exhaustion defers to the next UTC day, never deletes a job. Successful recipients stay sent; payload clears after all ACKs. Permanent bounce becomes failed with retained payload and safe error code, without blind retry.
+7. Render retries individual recipients using60second fenced leases and5–300second backoff. Startup, event wake,15-minute fallback and retry deadlines recover pending rows; `/health` is process-only, without SQL/recovery. Atomic UTC-day provider-attempt budgets apply per site (default100) and service (default1000); exhaustion defers to the next UTC day, never deletes a job. Successful recipients stay sent; payload clears after all ACKs. Permanent bounce becomes failed with retained payload and safe error code, without blind retry.
 
 **Channels are independent:** missing Cloudflare token, failed verification or email outage keeps only the email source job pending, without blocking/resending successful Zalo. Zalo without registered groups stays pending while configured email can deliver. `gmail` is retained as the API/channel name, not the sending provider; no channel/idempotency-key migration or historical backfill.
 
@@ -86,7 +86,7 @@ Actual release requires provider token with email/verification permissions, acti
 
 ## Render sleep decision
 
-Owner explicitly selected **Free + scheduled keep-warm**. Cloudflare `zalo-render-wakeup` cron calls fixed Render `/health` every5minutes; pending processors recover on health. Zalo webhook stays on Render and its real verification probe passed after restoration.
+Owner selected **Free + scheduled keep-warm**. `zalo-render-wakeup` calls fixed Render process-only `/health` every5minutes, without SQL or queue recovery. Compute hotfix `901f32a` is live; a real scheduled tick was observed successfully. Zalo webhook remains on Render and its verification probe passed.
 
 An attempted durable workers.dev ingress passed local restart smoke but real Zalo probe was blocked403 before runtime; it was removed. Do not describe that ingress as protecting current traffic. Keep-warm reduces idle spin-down, but deploy/restart/outage can still delay/drop webhooks before Render inbox commit. This ceiling was accepted instead of paid always-on/custom-domain changes. Website leads remain protected by their source outbox regardless.
 
@@ -119,4 +119,11 @@ Live proof: original `/init` reached Zalo ACK/sent at09:01:01UTC and bound the i
 Bot inbox messages now become rejected after3 failed processing attempts and send `Không xử lý thông tin được, vui lòng trở lại sau.` with a separate maximum3 notice attempts across restart. Rejected stays rejected even after notice ACK; exhausted notices stop, customer groups remain silent except owner init errors, and PRIVATE visitors retain the locked reply. This cap never rejects business lead outbox or Zalo/email notification deliveries.
 
 Commit `2e7eb6e610ef10ed36a5c3b61891f35c206bc00e`, Render `dep-dbatufu1egvs73e2pkb0` live, migration0006 applied only to bot DB. Actual exhausted image seq17 became rejected; one notice ACK at09:14:02UTC; another live PRIVATE quota reply seq21 sent at09:14:21UTC and testWebhook passed.51 production tests,83 email-compatible tests and actual server/provider-HTTP smoke passed. Website/email release state is unchanged.
+
+
+### Notification compute hotfix — 2026-10-20
+
+Isolated from published `dev`, excluding unrelated admin/UI work and preserving pinned package revisions. No Neon Auth, DB schema, provider-secret, CU sizing or DNS change. Public Worker access was already disabled while cron still ran every minute. Canonical DB identity was checked read-only as `br-tiny-butterfly-b3uuw92p`; only its validated public6-floor/81-unit projection was used for an offline build.
+
+OpenNext build and `tsc --noEmit` passed. Owned PostgreSQL6tests passed, including contact route + Worker event wrapper + HTTP provider:201 returned while provider was held, both source jobs committed, immediate dispatch, email-only failure retained, duplicate form did not resend Zalo, invalid form did not dispatch, and scheduled recovery reclaimed an expired lease. Only generated OpenNext transport was replaced in that fixture. Actual workerd/OpenNext smoke without live credentials returned400 invalid contact,403 cross-origin and401 unauthorized dispatch. Artifact scan:1736files,11credential values,0matches. No live synthetic lead/notification was created.
 
