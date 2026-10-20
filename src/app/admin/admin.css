@@ -91,3 +91,8 @@
   .legrande-admin .slot-dossier-form input { min-height: 44px; font-size: 16px; }
 }
 .legrande-admin .slot-dossier-status { white-space: normal; overflow-wrap: anywhere; max-width: 100%; line-height: 1.5; }
+.legrande-admin .admin-record-detail-host [role=dialog][data-side=right]:has(.admin-detail-navigation) { inline-size: min(68vw, 64rem); min-inline-size: min(640px, 100vw); }
+.legrande-admin .admin-detail-navigation { display: flex; flex-wrap: wrap; gap: 8px; padding-block-end: 20px; margin-block-end: 20px; border-bottom: 1px solid var(--line); }
+@media (max-width: 720px) {
+  .legrande-admin .admin-record-detail-host [role=dialog][data-side=right]:has(.admin-detail-navigation) { inline-size: 100vw; }
+}

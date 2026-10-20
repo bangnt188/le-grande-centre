@@ -64,6 +64,9 @@ Admin tải theo màn, browser memory cache private60 giây và in-flight dedupe
 
 Admin dùng shared `@mall/ui Sheet` cho form thêm/sửa, upload và duyệt. Riêng **xác nhận bỏ thay đổi chưa lưu** khi đóng form, rời màn hình hoặc đăng xuất dùng popup `ConfirmDialog` giữa màn hình; các xác nhận nghiệp vụ khác vẫn dùng `ConfirmSheet`. `AdminEditor` giữ nút Lưu/Hủy, khóa đóng khi đang lưu và giữ trường khi lỗi. Các form mặt bằng/ghép slot, ghi chú doanh nghiệp, cấp/sửa quyền nhân viên và upload logo không còn sửa trực tiếp trong panel. Khách tiềm năng và Yêu cầu & giữ chỗ vẫn dùng danh sách full-width; click dòng mở Sheet chi tiết cạnh phải, mobile toàn chiều ngang. Phân trang/bộ lọc, quyền server và revision CAS giữ nguyên; giao diện public không đổi.
 
+Tất cả nơi upload/chọn media trong admin dùng `AdminMediaField`: media tầng, nội dung tầng, logo doanh nghiệp, logo website và trang Media. Bộ chọn ảnh là modal lớn có thumbnail, xem ảnh lớn riêng, tìm kiếm/lọc và phân trang24ảnh; giữ lựa chọn qua trang, tối đa4ảnh hoặc1logo. Hủy không áp dụng lựa chọn; Dùng ảnh chỉ đưa vào bản nháp, Lưu mới ghi dữ liệu. PDF chỉ ở luồng tải tệp mới, không trộn vào thư viện ảnh. Chưa chọn gì thì khóa lưu; lỗi/tải lại giữ editor, tệp và revision bản nháp. Ảnh tầng khác hoặc tệp được bảo vệ không bị âm thầm đổi scope.
+
+
 Ảnh public có preview/thumbnail WebP responsive, còn lightbox dùng bản gốc. `npm run media:responsive` tạo manifest/checksum và 116 derivative từ 13 ảnh nguồn approved; không ghi đè nguồn. Publish đúng keys trong `scripts/responsive-images.manifest.json` lên public R2 trước deploy, kiểm bytes/SHA-256. Keys chứa content hash nên được cache `public, max-age=31536000, immutable`; không đăng ký derivative thành media nghiệp vụ. Hero mobile giữ cover crop cũ; typography không đổi, chỉ bỏ preload Playfair không critical.
 
 

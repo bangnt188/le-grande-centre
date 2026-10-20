@@ -25,7 +25,6 @@ type Props = {
 export function MediaLibraryPicker({ data, label, max = 1, value, onChange, targetScope, disabledIds = [] }: Props) {
   const trigger = useRef<HTMLButtonElement>(null);
   const host = useRef<HTMLElement | null>(null);
-  const previewHost = useRef<HTMLDivElement>(null);
   const previewReturn = useRef<HTMLElement | null>(null);
   const identity = useRef(data.sessionKey);
   identity.current = data.sessionKey;
@@ -67,7 +66,7 @@ export function MediaLibraryPicker({ data, label, max = 1, value, onChange, targ
   return <div className={styles.library} data-admin-draft-ignore="">
     <div className={styles.chooserRow}>
       <Button ref={trigger} variant="secondary" aria-haspopup="dialog" disabled={blocked} onClick={() => { void act(() => {
-        host.current = trigger.current?.closest<HTMLElement>(".admin-editor-host") ?? null;
+        host.current = trigger.current?.closest<HTMLElement>("[data-ui-root]") ?? null;
         setDraft([...value]); setQuery(""); setScope(""); setPage(1); setPreview(null); setOpenedFor(data.sessionKey);
       }); }}>{label}</Button>
       <span className={styles.note}>{value.length}/{max} ảnh từ thư viện</span>
@@ -81,7 +80,7 @@ export function MediaLibraryPicker({ data, label, max = 1, value, onChange, targ
     </ul>}
     {!open && error && <Alert tone="error">{error}</Alert>}
     <Modal open={open} size="large" title="Chọn ảnh từ thư viện" description={`Chọn tối đa ${max} ảnh đã tải lên. Lựa chọn chỉ áp dụng khi bấm Dùng ảnh; xem ảnh không thay đổi lựa chọn.`} closeLabel="Đóng thư viện ảnh" onOpenChange={next => { if (!next) { setOpenedFor(null); setPreview(null); } }} portalContainer={host} returnFocusRef={trigger}>
-      <div className={styles.modalBody} data-admin-draft-ignore="" ref={previewHost}>
+      <div className={styles.modalBody} data-admin-draft-ignore="">
         <div className={styles.filters}>
           <label>Tìm trong thư viện<Input type="search" maxLength={200} value={query} placeholder="Tìm tên ảnh…" onChange={event => { const next = event.target.value; void act(() => { setQuery(next); setPage(1); }); }}/></label>
           <label>Lọc liên kết ảnh<Select value={scope} onChange={event => { const next = event.target.value; void act(() => { setScope(next); setPage(1); }); }}>
@@ -118,7 +117,7 @@ export function MediaLibraryPicker({ data, label, max = 1, value, onChange, targ
           <div><strong aria-live="polite">Đã chọn {draft.length}/{max} ảnh</strong>{!!draft.length && <span className={styles.draftNames}>{draft.map(item => item.name).join(", ")}</span>}{draftInvalid && <small className={styles.reason}>Bỏ ảnh không khả dụng trước khi xác nhận.</small>}</div>
           <div className={styles.actions}><Button variant="secondary" onClick={() => { setOpenedFor(null); setPreview(null); }}>Hủy</Button><Button disabled={blocked || draftInvalid || draft.length > max} onClick={() => { onChange([...draft]); setOpenedFor(null); setPreview(null); }}>Dùng {draft.length} ảnh</Button></div>
         </div>
-        {preview?.url && <ImagePreview mode="modal" open images={[{ src: preview.url, alt: preview.name }]} title={preview.name} description={preview.scope} onOpenChange={next => { if (!next) setPreview(null); }} portalContainer={previewHost} returnFocusRef={previewReturn}/>}
+        {preview?.url && <ImagePreview mode="modal" open images={[{ src: preview.url, alt: preview.name }]} title={preview.name} description={preview.scope} onOpenChange={next => { if (!next) setPreview(null); }} portalContainer={host} returnFocusRef={previewReturn}/>}
       </div>
     </Modal>
   </div>;

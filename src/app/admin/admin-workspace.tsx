@@ -290,6 +290,7 @@ function AdminWorkspaceContent({ logoUrl }: { logoUrl?: string }) {
         <div ref={pageScope}>
         {sessionGate}
         {liveSession && <>
+        {!record && workspace.canGoBack && <Button variant="quiet" disabled={pending} onClick={workspace.back}>Quay lại hồ sơ nguồn</Button>}
 
 
         {view === "floors" && !loading && slots.length > 0 && <FloorOverview data={admin} onSpace={openSpace} onMessage={setMessage}/>}
@@ -328,7 +329,7 @@ function AdminWorkspaceContent({ logoUrl }: { logoUrl?: string }) {
                 <div className="inspector-slot-links">{selectedSlots.map(slot => <Button key={slot.id} variant="quiet" onClick={() => openSlot(slot.id)}>Hồ sơ {slot.code}<Icon name="arrow" size={14}/></Button>)}</div>
                 <div className="selected-area"><span>Tổng diện tích</span><strong>{fmt(area)} <small>m²</small></strong></div>
                 <div className="selection-facts"><span>Tầng <strong>{floor}</strong></span><span>Slot gốc <strong>{selectedSlots.length}</strong></span></div>
-                <Button variant="primary" disabled={pending || loading || protectedSelection || !selectedSlots.length || selectedSlots.some(slot => slot.status === "Đã thuê" || slot.status === "Đang thuê")} onClick={() => workspace.openAction({ kind: "request", floor, slotIds: selected })}>Lập yêu cầu thuê cho lựa chọn này</Button>
+                <Button variant="primary" disabled={pending || loading || protectedSelection || !selectedSlots.length || selectedSlots.some(slot => slot.status === "Đã thuê")} onClick={() => workspace.openAction({ kind: "request", floor, slotIds: selected })}>Lập yêu cầu thuê cho lựa chọn này</Button>
                 {activeGroup || selected.length === 1 ? <>
                   {protectedSelection && <Alert tone="warning">{problem}</Alert>}
                   <dl className="slot-dossier-facts">
@@ -366,7 +367,7 @@ function AdminWorkspaceContent({ logoUrl }: { logoUrl?: string }) {
           {view === "media" && <MediaWorkspace data={admin} onMessage={setMessage} mode="list"/>}
           {view === "settings" && canManageAccounts && !loading && <AdminSettingsWorkspace data={admin} onMessage={setMessage} canManageAccounts={canManageAccounts}/>}
         </Suspense>
-        <div ref={detailHost} className="admin-dialog-host"/>
+        <div ref={detailHost} className="admin-dialog-host admin-record-detail-host"/>
         <Sheet open={!!record} onOpenChange={open => { if (!open) workspace.closeDetail(); }} title={record ? detailLabels[record.kind] : "Chi tiết hồ sơ"} description="Hồ sơ liên quan trong ngữ cảnh đang làm việc." closeLabel="Đóng hồ sơ về danh sách" portalContainer={detailHost}>
           {record && <>
             <div className="admin-detail-navigation">{workspace.canGoBack && <Button variant="quiet" disabled={pending} onClick={workspace.back}>Quay lại hồ sơ trước</Button>}<Button variant="quiet" disabled={pending} onClick={workspace.closeDetail}>Về {labels[view].toLowerCase()}</Button></div>
