@@ -21,7 +21,7 @@ import { FloorOverview } from "./content-overviews";
 import { LeGrandeAdminShell } from "@/features/admin/le-grande-admin-shell";
 import { AdminPanel, PaginatedContent, ConfirmDialog, ConfirmSheet, Sheet, Button, Input, Select, Checkbox, Badge, Table, Breadcrumbs, LoadingIndicator, Alert, type ToastTone, type AdminNavigationItem } from "@mall/ui";
 import { AdminNotificationsProvider, useAdminNotifications } from "@/features/admin/admin-notifications";
-import { AdminPagination, useAdminPagination } from "@/features/admin/admin-pagination";
+import { AdminPagination } from "@/features/admin/admin-pagination";
 import { AdminEditor } from "@/features/admin/admin-editor";
 
 const MediaWorkspace = lazy(() => import("@/features/admin/media-workspace").then(m => ({ default: m.MediaWorkspace })));
@@ -239,7 +239,13 @@ function AdminWorkspaceContent({ logoUrl }: { logoUrl?: string }) {
     const group = floorGroups.find((item) => item.slotIds.includes(slot.id));
     return `${slot.code} ${group?.name ?? ""} ${slot.tenant}`.toLowerCase().includes(slotQuery.toLowerCase()) && (!slotFilter || (group?.status ?? slot.status) === slotFilter);
   });
-  const slotPages = useAdminPagination(visibleSlots, `${floor}:${slotQuery}:${slotFilter}`);
+  const slotPageSize = Number(spaceList.pageSize ?? 20);
+  const slotPageCount = Math.ceil(visibleSlots.length / slotPageSize);
+  const slotPage = Math.min(Number(spaceList.page ?? 1), Math.max(slotPageCount, 1));
+  const slotStart = (slotPage - 1) * slotPageSize;
+  const slotPages = { rows: visibleSlots.slice(slotStart, slotStart + slotPageSize), page: slotPage, pageSize: slotPageSize, pageCount: slotPageCount, total: visibleSlots.length, start: slotStart,
+    setPage: (page: number) => workspace.setListState("spaces", previous => ({ ...previous, page })),
+    setPageSize: (pageSize: number) => workspace.setListState("spaces", previous => ({ ...previous, pageSize, page: 1 })) };
 
   const primaryViews: AdminView[] = ["floors", "spaces", "customers", "leads", "requests", "appointments", "media", ...(canManageAccounts ? ["settings" as const] : [])];
   function openSpace(nextFloor: Floor, slotId?: string) {
@@ -322,7 +328,7 @@ function AdminWorkspaceContent({ logoUrl }: { logoUrl?: string }) {
                 <div className="inspector-slot-links">{selectedSlots.map(slot => <Button key={slot.id} variant="quiet" onClick={() => openSlot(slot.id)}>Hồ sơ {slot.code}<Icon name="arrow" size={14}/></Button>)}</div>
                 <div className="selected-area"><span>Tổng diện tích</span><strong>{fmt(area)} <small>m²</small></strong></div>
                 <div className="selection-facts"><span>Tầng <strong>{floor}</strong></span><span>Slot gốc <strong>{selectedSlots.length}</strong></span></div>
-                <Button variant="primary" disabled={pending || !!problem} onClick={() => workspace.openAction({ kind: "request", floor, slotIds: selected })}>Lập yêu cầu thuê cho lựa chọn này</Button>
+                <Button variant="primary" disabled={pending || loading || protectedSelection || !selectedSlots.length || selectedSlots.some(slot => slot.status === "Đã thuê" || slot.status === "Đang thuê")} onClick={() => workspace.openAction({ kind: "request", floor, slotIds: selected })}>Lập yêu cầu thuê cho lựa chọn này</Button>
                 {activeGroup || selected.length === 1 ? <>
                   {protectedSelection && <Alert tone="warning">{problem}</Alert>}
                   <dl className="slot-dossier-facts">

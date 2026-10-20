@@ -35,7 +35,7 @@ export function parseAdminLocation(url: URL): { location: AdminLocation; list: A
   } else if (legacySlot) location.detail = { kind: "slot", id: legacySlot };
   const actionKind = params.get("action");
   const editId = identifier(params.get("editId"));
-  const companyId = identifier(params.get("companyId"));
+  const companyId = identifier(params.get("formCompany"));
   if (actionKind === "company" || actionKind === "lead") location.action = { kind: actionKind, ...(editId ? { id: editId } : {}) };
   if (actionKind === "appointment") location.action = { kind: actionKind, ...(editId ? { id: editId } : {}), ...(companyId ? { companyId } : {}) };
   if (actionKind === "request") location.action = { kind: "request", ...(editId ? { id: editId } : {}), ...(companyId ? { companyId } : {}), ...(params.has("actionFloor") ? { floor: floorNumber(params.get("actionFloor")) } : {}), ...(params.has("actionSlots") ? { slotIds: ids(params.get("actionSlots")) } : {}) };
@@ -48,7 +48,8 @@ export function parseAdminLocation(url: URL): { location: AdminLocation; list: A
   const list: AdminListState = { page: positive(params.get("page")), pageSize: positive(params.get("size"), view === "media" ? 24 : 20, 100) };
   const status = params.get("status");
   if (status && statuses.has(status)) list.status = status;
-  if (view === "leases" && companyId) list.companyId = companyId;
+  const companyFilter = identifier(params.get("companyId"));
+  if (view === "leases" && companyFilter) list.companyId = companyFilter;
   if (view === "media") {
     const mediaKind = params.get("kind");
     if (mediaKind && ["Ảnh", "Tài liệu", "Video", "Model 3D", "Tài nguyên"].includes(mediaKind)) list.kind = mediaKind;
@@ -85,7 +86,7 @@ export function adminLocationUrl(pathname: string, location: AdminLocation, list
   if (action) {
     params.set("action", action.kind);
     if ("id" in action && action.id) params.set("editId", action.id);
-    if ("companyId" in action && action.companyId) params.set("companyId", action.companyId);
+    if ("companyId" in action && action.companyId) params.set("formCompany", action.companyId);
     if ("floor" in action && action.floor) params.set("actionFloor", String(action.floor));
     if ("slotIds" in action && action.slotIds?.length) params.set("actionSlots", action.slotIds.join(","));
     if ("requestId" in action) params.set("requestId", action.requestId);

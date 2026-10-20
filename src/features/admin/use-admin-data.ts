@@ -93,7 +93,7 @@ export function useAdminData(activeScreen: string | null = "floors", screenQuery
     return () => { controller.abort(); };
   }, [fetchScreen]);
 
-  const mutate = React.useCallback(async (operation: (revision: number, key: string) => Promise<AdminMutationReceipt | AdminUploadReceipt>, expectedRevision?: number, revisionSource?: string, onReceipt?: (receipt: AdminMutationReceipt | AdminUploadReceipt) => void, fingerprint = revisionSource ?? "mutation"): Promise<boolean> => {
+  const mutate = React.useCallback(async (operation: (revision: number, key: string) => Promise<AdminMutationReceipt | AdminUploadReceipt>, expectedRevision?: number, revisionSource?: string, onReceipt?: (receipt: AdminMutationReceipt | AdminUploadReceipt) => void, fingerprint?: string): Promise<boolean> => {
     if (lock.current || !beginAdminOperation(identityKey)) return false;
     lock.current = true; setActionError("");
     const startedSession = getSessionSnapshot();
@@ -106,7 +106,7 @@ export function useAdminData(activeScreen: string | null = "floors", screenQuery
       const renewed = await ensureSession({ userAction: true });
       if (!identity || identity !== JSON.stringify([renewed.actorId, renewed.propertyId])) throw new Error("Tài khoản đã thay đổi. Tải lại dữ liệu trước khi lưu.");
       if (revision === null || !Number.isSafeInteger(revision) || revision < 0) throw new Error("Chưa tải phiên bản dữ liệu của màn hình. Tải lại trước khi lưu.");
-      const requestFingerprint = JSON.stringify([fingerprint, revision]);
+      const requestFingerprint = JSON.stringify([fingerprint ?? crypto.randomUUID(), revision]);
       if (retryReceipt.current?.fingerprint !== requestFingerprint) retryReceipt.current = { fingerprint: requestFingerprint, key: crypto.randomUUID() };
       const receipt = await operation(revision, retryReceipt.current.key);
       retryReceipt.current = null;

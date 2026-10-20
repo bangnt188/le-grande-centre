@@ -99,9 +99,9 @@ export function useAdminWorkspaceController(guard: AdminNavigationGuard, busy: b
     previousIdentity.current = identity;
   }, [identity, commit]);
 
-  const push = useCallback((location: AdminLocation, frame: Partial<Frame> = {}) => {
+  const push = useCallback((location: AdminLocation, frame: Partial<Frame> = {}, lists = current.current.lists) => {
     const previous = current.current;
-    commit({ location, lists: previous.lists, frame: { version: 1, index: previous.frame.index + 1, ...frame }, scroll: window.scrollY });
+    commit({ location, lists, frame: { version: 1, index: previous.frame.index + 1, ...frame }, scroll: window.scrollY });
   }, [commit]);
   const goBack = useCallback(() => {
     const value = current.current;
@@ -113,8 +113,9 @@ export function useAdminWorkspaceController(guard: AdminNavigationGuard, busy: b
     const next: AdminLocation = { view, floor: options?.floor ?? old.location.floor, selectedIds: options?.selectedIds ?? (view === "spaces" && old.location.view === "spaces" ? old.location.selectedIds : []), ...(options?.scope ? { scope: options.scope } : {}) };
     if (view === "settings" && session?.role !== "administrator") return;
     if (view === old.location.view && !old.location.detail && !old.location.action && JSON.stringify(next) === JSON.stringify(old.location)) return;
-    if (options?.scope && view === "media") old.lists = { ...old.lists, media: { ...old.lists.media, scope: options.scope, page: 1 } };
-    push(next);
+    const lists = options?.scope && view === "media" ? { ...old.lists, media: { ...old.lists.media, scope: options.scope, page: 1 } }
+      : view === "spaces" && next.floor !== old.location.floor ? { ...old.lists, spaces: { ...old.lists.spaces, page: 1, selectedIds: next.selectedIds.join(",") } } : old.lists;
+    push(next, {}, lists);
   }), [allow, push, session?.role]);
   const openRecord = useCallback((record: AdminRecordTarget) => allow(() => {
     const old = current.current;
@@ -152,7 +153,7 @@ export function useAdminWorkspaceController(guard: AdminNavigationGuard, busy: b
     const previous = old.lists[scope] ?? {};
     const value = typeof next === "function" ? next(previous) : next;
     if (JSON.stringify(value) === JSON.stringify(previous)) return;
-    const location = scope === "spaces" && typeof value.selectedIds === "string" ? { ...old.location, selectedIds: value.selectedIds.split(",").filter(Boolean) } : old.location;
+    const location = scope === "spaces" && typeof value.selectedIds === "string" && value.selectedIds !== previous.selectedIds ? { ...old.location, selectedIds: value.selectedIds.split(",").filter(Boolean) } : old.location;
     commit({ ...old, location, lists: { ...old.lists, [scope]: value } }, true);
   }, [commit]);
   const registerLocalEditor = useCallback((id: string, onClose: () => void) => {

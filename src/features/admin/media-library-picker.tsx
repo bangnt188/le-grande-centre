@@ -98,7 +98,7 @@ export function MediaLibraryPicker({ data, label, max = 1, value, onChange, targ
                 const selected = draft.some(choice => choice.id === item.id);
                 const reason = mediaSelectionReason(item, targetScope, disabledIds);
                 const atLimit = !selected && max > 1 && draft.length >= max;
-                return <article className={styles.tile} key={item.id} data-selected={selected || undefined}>
+                return <article className={styles.tile} key={item.id} data-media-id={item.id} data-selected={selected || undefined}>
                   <button type="button" className={styles.imageButton} aria-label={`Xem ảnh ${item.name}`} disabled={!item.url} onClick={event => { previewReturn.current = event.currentTarget; setPreview(item); }}>
                     {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" loading="lazy" decoding="async" width={240} height={160}/> : <span className={styles.placeholder}>Chưa có ảnh thu nhỏ</span>}
                     <span className={styles.previewLabel}>Xem ảnh</span>
