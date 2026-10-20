@@ -18,6 +18,7 @@ import { createAdminCrudServices } from "../src/server/admin-crud";
 import { BackendError } from "@shared/backend";
 import type { AdminCommand } from "../src/shared/admin/contracts";
 import { verifyOwnedLocalDatabase } from "../scripts/local-database-guard.mjs";
+import { vietnamToday } from "../src/shared/admin/validation";
 import { parseCollectionName, parseCollectionQuery, readAdminCollection, readAdminCollectionItem } from "../src/server/admin-collections";
 
 // Test-only aggregation lets existing cross-screen invariant assertions share a fixture.
@@ -256,7 +257,7 @@ test("Local PostgreSQL relational commands: CAS, uncertain-response replay, scop
  await run({type:'merge',floor:1,slotIds:[a.id,b.id],name:'Regression adjacent group'});const group=data.groups.find(g=>g.name==='Regression adjacent group')!;
  await run({type:'update-group',groupId:group.id,name:'Renamed adjacent group',status:'Đã thuê'});assert.equal(data.slots.find(s=>s.id===a.id)?.status,'Đã thuê');
  await run({type:'update-group',groupId:group.id,name:'Renamed adjacent group',status:'Còn trống'});await run({type:'split',groupId:group.id});
- const start=new Date(Date.now()+86400000).toISOString().slice(0,10),end=new Date(Date.now()+30*86400000).toISOString().slice(0,10);
+ const start=vietnamToday(),[year,month,day]=start.split("-").map(Number),end=new Date(Date.UTC(year,month-1,day+30)).toISOString().slice(0,10);
  await run({type:'save-request',values:{companyId:company.id,floor:1,slotIds:[a.id],start,end,note:''}});let request=data.requests.find(q=>q.companyId===company.id&&q.slotIds.includes(a.id)&&q.status==='submitted')!;
  await run({type:'review-request',requestId:request.id});await assert.rejects(run({type:'review-request',requestId:request.id}));
  await run({type:'approve-request',requestId:request.id,holdHours:48,note:'Approved test'});const hold=data.reservations.find(h=>h.requestId===request.id)!;
@@ -268,7 +269,7 @@ test("Local PostgreSQL relational commands: CAS, uncertain-response replay, scop
  await run({type:'record-lease',reservationId:hold.id,rentNote:"Bản gốc lưu ngoài hệ thống",referenceNumber:"REGRESSION-METADATA"});
  const lease=data.leases.find(l=>l.reservationId===hold.id)!;
  assert.ok(lease);assert.equal(lease.referenceNumber,"REGRESSION-METADATA");assert.equal(lease.rentNote,"Bản gốc lưu ngoài hệ thống");assert.ok(lease.recordedAt);assert.equal(lease.recordedBy,identity.id);
- assert.equal(data.reservations.find(h=>h.id===hold.id)?.status,'converted');assert.equal(data.slots.find(s=>s.id===a.id)?.status,'Đã thuê');assert.equal(lease.signedOn,undefined);assert.equal(lease.documentMediaId,null);
+ assert.equal(data.reservations.find(h=>h.id===hold.id)?.status,'converted');assert.equal(data.slots.find(s=>s.id===a.id)?.status,'Đã ký');assert.equal(lease.signedOn,undefined);assert.equal(lease.documentMediaId,null);
  assert.deepEqual(await readDecision("SELECT count(*)::text AS count FROM leasing.document_versions WHERE property_id=$1",[identity.propertyId]),documentsBefore);
  assert.equal((await readAdminScreen(identity,"leases",{id:lease.id})).leases[0]?.id,lease.id);
  assert.equal((await readAdminScreen(identity,"leases",{reservationId:hold.id,pageSize:1})).leases[0]?.id,lease.id);

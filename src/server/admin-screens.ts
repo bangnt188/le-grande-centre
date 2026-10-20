@@ -73,7 +73,7 @@ async function readFloorPlans(client: PoolClient, propertyId: string, includeInt
           'id',s.id,
           'code',s.code,
           'area',m.area_m2::float8,
-          'status',${includeInternalStatus ? "s.business_status" : "CASE WHEN s.business_status='Còn trống' THEN 'Còn trống' WHEN s.business_status='Đã thuê' OR (s.business_status='Đã ký' AND l.id IS NOT NULL) THEN 'Đã thuê' ELSE 'Liên hệ' END"},
+          'status',CASE WHEN s.business_status='Còn trống' THEN 'Còn trống' WHEN s.business_status='Đã thuê' OR (s.business_status='Đã ký' AND l.id IS NOT NULL) THEN 'Đã thuê' ELSE 'Liên hệ' END,
           'geometry',v.geometry,
           'dimensions',CASE WHEN jsonb_typeof(v.technical_spec->'dimensions')='object' THEN v.technical_spec->'dimensions' ELSE NULL END
         ) ORDER BY s.display_order)
@@ -167,7 +167,7 @@ export async function readAdminScreen<S extends AdminScreenName>(identity: Admin
       const metadata = { page, pageSize, totalItems, totalPages: Math.max(1, Math.ceil(totalItems / pageSize)) };
       const companies = await relatedCompanies(client, identity, rows.map(row => row.companyId));
       const slotIds = [...new Set(rows.flatMap(row => row.slotIds as string[]))];
-      const slots = (await client.query<Slot>(`SELECT * FROM (${slotsSql}) scoped WHERE id=ANY($2::uuid[]) ORDER BY floor,"order",id`, [p, slotIds])).rows;
+      const slots = (await client.query<Slot>(`SELECT * FROM (${slotsSql(includeInternalStatus)}) scoped WHERE id=ANY($2::uuid[]) ORDER BY floor,"order",id`, [p, slotIds])).rows;
       if (screen === "requests") {
         const reservations = (await client.query<Reservation>(`SELECT * FROM (${reservationsSql}) scoped WHERE "requestId"=ANY($2::uuid[]) ORDER BY "expiresAt" DESC,id DESC`, [p, rows.map(row => row.id)])).rows;
         const groups = projectGroups((await client.query<Omit<SpaceGroup, "status">>(`SELECT * FROM (${groupsSql}) scoped WHERE "slotIds" && $2::uuid[] ORDER BY id`, [p, slotIds])).rows, slots);
