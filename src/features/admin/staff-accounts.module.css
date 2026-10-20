@@ -5,6 +5,14 @@
   min-width: 0;
 }
 
+.heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
 .heading h2 {
   margin: 0;
   font-size: 18px;
@@ -19,34 +27,6 @@
   line-height: 1.6;
 }
 
-.form {
-  display: grid;
-  grid-template-columns: minmax(240px, 1.5fr) minmax(180px, 1fr) auto;
-  align-items: end;
-  gap: 16px;
-  padding: 20px;
-  background: var(--ui-color-surface-raised, #f8f9fa);
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-control, 8px);
-}
-
-.form label {
-  display: grid;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ui-color-text);
-}
-
-.formAction {
-  display: flex;
-  align-items: flex-end;
-}
-
-.formAction button {
-  min-height: 40px;
-  white-space: nowrap;
-}
 
 .listSection {
   display: grid;
@@ -152,15 +132,6 @@
     gap: 20px;
   }
 
-  .form {
-    grid-template-columns: 1fr;
-    padding: 16px;
-    gap: 14px;
-  }
-
-  .formAction button {
-    width: 100%;
-  }
 
   .item {
     flex-direction: column;

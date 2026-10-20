@@ -67,6 +67,15 @@
     "R2_PRIVATE_BUCKET": "mall-documents",
     "R2_ACCOUNT_ID": "4e577220abb44fa926f2a11b8cf10b55"
   },
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false
+    }
+  },
   "build": {
     "command": "set -eu\nif [ \"${OPEN_NEXT_DEPLOY:-}\" = \"true\" ]; then exit 0; fi\nif [ ! -f packages/ui/package.json ] || [ ! -f packages/backend/package.json ]; then\n  if [ -z \"${SUBMODULE_READ_TOKEN:-}\" ]; then echo \"Set SUBMODULE_READ_TOKEN as a build secret for private submodules\"; exit 1; fi\n  git -c \"url.https://x-access-token:$SUBMODULE_READ_TOKEN@github.com/.insteadOf=https://github.com/\" submodule update --init --recursive --depth=1 -- packages/ui packages/backend\nfi\nnpm ci\nnpm run build:cloudflare"
   },

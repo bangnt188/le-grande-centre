@@ -5,6 +5,7 @@ export type PublicUnitStatus = "Còn trống" | "Liên hệ" | "Đã thuê";
 export type PublicWebsite = {
   website: WebsiteSettings;
   logoUrl: string | null;
+  tenants: { id: string; name: string; logoUrl: string }[];
   floors: (Pick<FloorConfiguration, "number" | "publicTitle" | "publicDescription"> & { plan: FloorPlan })[];
   units: { id: string; code: string; floor: number; area: number; status: PublicUnitStatus; geometry: PlanGeometry; types: string[]; orientation: string; dimensions: { width: number; depth: number } | null; note: string }[];
 };

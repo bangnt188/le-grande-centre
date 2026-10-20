@@ -1,4 +1,4 @@
-import type { B2BCommand, B2BData } from "./b2b-model";
+import type { B2BCommand, B2BData, CompanyInput } from "./b2b-model";
 import type { Floor, FloorConfiguration, Slot, SlotStatus, SpaceGroup } from "./space-model";
 import type { StorageUsage } from "./storage-policy";
 import type { FloorPlan } from "../leasing/plan-model";
@@ -27,7 +27,7 @@ export type AdminSession = { actorId: string; propertyId: string; role: "adminis
 export type AdminMutationReceipt = { revision: number; entityId: string };
 export type AdminUploadReceipt = { revision: number; mediaIds: string[] };
 export type AdminScreenName = "floors" | "spaces" | "slot" | "tenants" | "requests" | "leases" | "settings" | "defaults";
-export type AdminScreenQuery = { floor?: Floor; id?: string; page?: number; pageSize?: number; query?: string; companyId?: string; status?: string };
+export type AdminScreenQuery = { floor?: Floor; id?: string; reservationId?: string; page?: number; pageSize?: number; query?: string; companyId?: string; status?: string };
 export type AdminScreenData = {
   floors: { floors: FloorConfiguration[]; slots: Slot[] };
   spaces: { floors: FloorConfiguration[]; slots: Slot[]; groups: SpaceGroup[] };
@@ -58,6 +58,8 @@ export type AdminCommand = B2BCommand
   | { type: "update-group"; groupId: string; name: string; status: SlotStatus }
   | { type: "save-lead"; leadId?: string; values: LeadInput }
   | { type: "delete-lead"; leadId: string }
+  | { type: "link-lead-company"; leadId: string; companyId: string }
+  | { type: "create-company-from-lead"; leadId: string; values: CompanyInput }
   | { type: "link-media"; mediaId: string; scope: string }
   | { type: "rename-media"; mediaId: string; name: string }
   | { type: "delete-media"; mediaId: string };

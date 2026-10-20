@@ -505,13 +505,30 @@
 .reasonGrid article { padding: 30px 28px 34px; border-radius: 12px; background: linear-gradient(180deg, rgb(0 33 15 / 98%) 0%, rgb(0 40 27 / 84%) 36%, rgb(0 43 29 / 64%) 66%, rgb(0 43 29 / 38%) 100%); }
 .reasonGrid h3 { color: #ead49b; font-size: clamp(23px, 1.9vw, 28px); line-height: 1.5; }
 .reasonGrid p { margin-top: 18px; font-size: clamp(16px, 1.45vw, 21px); line-height: 1.95; color: rgb(255 252 245 / 92%); }
-.contact { background: #1b4b3b; color: var(--home-paper); padding: 76px 4%; }
-.contact > div { width: 100%; margin: auto; background: var(--home-deep); padding: 44px 48px; }
-.contact h2 { color: var(--home-heading-green-on-dark); font-size: clamp(30px, 3.2vw, 42px); }
-.contact p { margin-top: 20px; font-size: 13px; color: #d6ded0; }
-.contactActions { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; margin-top: 28px; }
-.contactActions > a:last-child { display: flex; align-items: center; min-height: 44px; font-size: 12px; }
-.contactActions > a:last-child:hover { text-decoration: underline; text-underline-offset: 5px; }
+.tenants { overflow: hidden; padding: 28px 5% 32px; background: radial-gradient(ellipse at 50% 0%, #12412f, #06291d 76%); color: #fffdf6; text-align: center; }
+.tenantsEyebrow { color: #d2bc7d; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+.tenants h2 { margin-top: 8px; color: #fffdf6; font-family: var(--font-playfair-display), Georgia, serif; font-size: clamp(28px, 3.2vw, 46px); font-weight: 500; line-height: 1.2; }
+.tenantLogoRail { display: flex; max-width: 1500px; gap: 12px; overflow-x: auto; margin: 30px auto 0; padding: 2px 2px 12px; scrollbar-color: rgb(210 188 125 / 55%) transparent; scrollbar-width: thin; }
+.tenantLogoCard { display: grid; flex: 0 0 clamp(150px, 10vw, 200px); height: 100px; place-items: center; overflow: hidden; padding: 14px; border: 1px solid rgb(218 208 179 / 35%); border-radius: 4px; background: #fffefa; }
+.tenantLogoCard img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.tenantDetails { width: fit-content; margin: 14px auto 0; color: #dec987; }
+.tenantDetails summary { display: flex; min-height: 44px; align-items: center; justify-content: center; gap: 18px; padding: 8px 18px; border: 1px solid rgb(210 188 125 / 70%); border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 700; letter-spacing: .06em; list-style: none; text-transform: uppercase; }
+.tenantDetails summary::-webkit-details-marker { display: none; }
+.tenantDetails[open] summary { margin-bottom: 20px; }
+.tenantLogoGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; max-width: 1500px; }
+.contact { position: relative; isolation: isolate; display: grid; min-height: 380px; place-items: center; overflow: hidden; padding: 56px 4%; color: #fffdf6; text-align: center; }
+.contact::before { position: absolute; z-index: -1; inset: 0; background: linear-gradient(90deg, rgb(12 20 14 / 62%), rgb(12 20 14 / 48%) 50%, rgb(12 20 14 / 62%)); content: ""; }
+.contactImage { position: absolute; z-index: -2; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 54%; }
+.contactContent { width: min(100%, 920px); }
+.contact h2 { color: #fffdf6; font-family: var(--font-playfair-display), Georgia, serif; font-size: clamp(30px, 4vw, 48px); font-weight: 500; line-height: 1.2; }
+.contact p { margin-top: 18px; font-size: clamp(15px, 1.5vw, 19px); line-height: 1.6; color: rgb(255 253 246 / 90%); }
+.contactActions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 16px; margin-top: 28px; }
+.bookingButton, .zaloButton { display: inline-flex; min-height: 56px; align-items: center; justify-content: center; gap: 16px; padding: 12px 24px; border: 1px solid rgb(255 250 231 / 75%); border-radius: 4px; color: inherit; font-size: 14px; font-weight: 700; letter-spacing: .035em; text-decoration: none; text-transform: uppercase; transition: background-color 180ms ease, color 180ms ease; }
+.bookingButton { border-color: #e8d59e; background: linear-gradient(115deg, #f7e8b6, #d5b86f 52%, #f5e4aa); color: #24362b; }
+.bookingButton:hover { background: #fff1bd; }
+.zaloButton { background: rgb(15 22 17 / 28%); }
+.zaloButton:hover { background: rgb(255 253 246 / 16%); }
+.zaloIcon { display: grid; width: 20px; height: 20px; place-items: center; border: 2px solid currentColor; border-radius: 50%; font-size: 12px; font-weight: 800; line-height: 1; }
 @media (max-width: 1200px) {
   .unitGrid { gap: 18px; }
 }
@@ -662,9 +679,14 @@
   .reasonGrid p { font-size: 16px; margin-top: 14px; line-height: 1.85; }
   .reasonsIntro { font-size: 15px; margin-bottom: 32px !important; }
   .reasonsImage { position: sticky; top: var(--public-header-height); height: calc(100svh - var(--public-header-height)); margin-bottom: calc(var(--public-header-height) - 100svh); }
-  .contact { padding: 36px 4%; }
-  .contact > div { padding: 28px; }
+  .contact { min-height: 340px; padding: 44px 6%; }
   .contactActions { gap: 16px; }
+}
+@media (max-width: 600px) {
+  .contact { min-height: 360px; }
+  .contactBreak { display: none; }
+  .contactActions { width: min(100%, 340px); flex-direction: column; margin-inline: auto; }
+  .bookingButton, .zaloButton { width: 100%; }
 }
 @media (max-width: 400px) {
   .hero { min-height: 740px; }

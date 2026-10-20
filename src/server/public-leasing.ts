@@ -18,5 +18,5 @@ export const readPublicLeasing = cache(async () => {
   const floors = publicData.floors.map(record => {
     return { id: record.number, label: record.publicTitle, description: record.publicDescription, plan: record.plan };
   });
-  return { units, floors };
+  return { units, floors, tenants: publicData.tenants };
 });

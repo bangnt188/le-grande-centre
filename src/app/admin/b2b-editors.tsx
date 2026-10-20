@@ -1,18 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { Alert, Button, Checkbox, LoadingIndicator, Select, Textarea, TextField } from "@mall/ui";
+import { Alert, Avatar, Button, Checkbox, CheckboxField, LoadingIndicator, Select, SelectField, Textarea, TextareaField, TextField } from "@mall/ui";
 import { AdminEditor } from "@/features/admin/admin-editor";
 import { useAdminData, type AdminData } from "@/features/admin/use-admin-data";
 import type { Appointment, B2BCommand, Company, LeasingRequest, Reservation } from "@/shared/admin/b2b-model";
 import { FLOORS, type Floor } from "@/shared/admin/space-model";
-import type { MediaItem } from "@/shared/admin/contracts";
+import type { AdminMutationReceipt, AdminUploadReceipt, MediaItem } from "@/shared/admin/contracts";
 import { CompanyPicker } from "@/features/admin/admin-collections";
 import { ensureSession } from "@/features/admin/session";
+import { AdminMediaField } from "@/features/admin/admin-media-field";
 
 export type BusinessEditor = (
   | { kind: "company"; record?: Company }
-  | { kind: "request"; record?: LeasingRequest; companyId?: string }
+  | { kind: "request"; record?: LeasingRequest; companyId?: string; floor?: Floor; slotIds?: string[] }
   | { kind: "appointment"; record?: Appointment; companyId?: string }
   | { kind: "lease"; reservation: Reservation }
   | { kind: "approve" | "reject"; request: LeasingRequest }
@@ -25,10 +26,17 @@ function vietnamDateTime(value = new Date().toISOString()) {
   return new Date(Date.parse(value) + 7 * 3600000).toISOString().slice(0, 16);
 }
 
-export function BusinessRecordEditor({ editor, data, onClose, onSaved }: { editor: BusinessEditor; data: AdminData; onClose: () => void; onSaved: (message: string) => void }) {
-  const [floor, setFloor] = useState<Floor>(editor.kind === "request" ? editor.record?.floor ?? FLOORS[0] : FLOORS[0]);
-  const [selectedSlots, setSelectedSlots] = useState(editor.kind === "request" ? editor.record?.slotIds ?? [] : []);
+export type BusinessSaveResult = AdminMutationReceipt & { kind: BusinessEditor["kind"] };
+
+export function BusinessRecordEditor({ editor, data, onClose, onSaved }: { editor: BusinessEditor; data: AdminData; onClose: () => void; onSaved: (message: string, result: BusinessSaveResult) => void }) {
+  const [floor, setFloor] = useState<Floor>(editor.kind === "request" ? editor.record?.floor ?? editor.floor ?? FLOORS[0] : FLOORS[0]);
+  const [selectedSlots, setSelectedSlots] = useState(editor.kind === "request" ? editor.record?.slotIds ?? editor.slotIds ?? [] : []);
   const [now] = useState(() => vietnamDateTime());
+  const [saveRevision, setSaveRevision] = useState(editor.expectedRevision);
+  const [logoFiles, setLogoFiles] = useState<File[]>([]);
+  const [logoLibrarySelection, setLogoLibrarySelection] = useState<MediaItem[]>([]);
+  const [logoMediaId, setLogoMediaId] = useState(editor.kind === "company" ? editor.record?.logoMediaId ?? "" : "");
+  const [removeLogo, setRemoveLogo] = useState(false);
 
   const defaultsData = useAdminData(editor.kind === "approve" || (editor.kind === "appointment" && !editor.record) ? "defaults" : null);
   const defaults = defaultsData.defaults;
@@ -50,7 +58,23 @@ export function BusinessRecordEditor({ editor, data, onClose, onSaved }: { edito
   };
 
   async function save(values: FormData) {
-    if (!ready || editor.expectedRevision == null) return false;
+    if (!ready || saveRevision == null) return false;
+    let expectedRevision = saveRevision;
+    let selectedLogo = removeLogo ? "" : logoLibrarySelection[0]?.id ?? logoMediaId;
+    if (editor.kind === "company" && logoFiles.length) {
+      let uploaded: AdminUploadReceipt | undefined;
+      const saved = await data.uploadFiles(logoFiles, "Toàn dự án", expectedRevision, receipt => {
+        uploaded = receipt;
+        setLogoMediaId(receipt.mediaIds[0] ?? "");
+        setLogoFiles([]);
+        setLogoLibrarySelection([]);
+        setRemoveLogo(false);
+        setSaveRevision(receipt.revision);
+      });
+      if (!saved || !uploaded) return false;
+      selectedLogo = uploaded.mediaIds[0] ?? "";
+      expectedRevision = uploaded.revision;
+    }
     let command: B2BCommand;
     switch (editor.kind) {
       case "company":
@@ -68,6 +92,7 @@ export function BusinessRecordEditor({ editor, data, onClose, onSaved }: { edito
             note: text(values, "note"),
             taxId: text(values, "taxId"),
             address: text(values, "address"),
+            logoMediaId: selectedLogo,
           },
         };
         break;
@@ -132,10 +157,10 @@ export function BusinessRecordEditor({ editor, data, onClose, onSaved }: { edito
         };
         break;
     }
-    const saved = await data.execute(command, editor.expectedRevision);
-    if (saved) {
-      onSaved(editor.kind === "lease" ? "Đã ghi nhận hợp đồng thuê trên hệ thống." : "Đã lưu thay đổi.");
-    }
+    const saved = await data.execute(command, expectedRevision, receipt => {
+      setSaveRevision(receipt.revision);
+      onSaved(editor.kind === "lease" ? "Đã ghi nhận hợp đồng thuê trên hệ thống." : "Đã lưu thay đổi.", { ...receipt, kind: editor.kind });
+    });
     return saved;
   }
 
@@ -157,6 +182,12 @@ export function BusinessRecordEditor({ editor, data, onClose, onSaved }: { edito
         {(spaces.error || defaultsData.error || actionError) && <Alert tone="error">{actionError || spaces.error || defaultsData.error}<Button variant="quiet" type="button" onClick={() => { void (editor.kind === "request" ? spaces.reload() : defaultsData.reload()); }}>Thử lại</Button></Alert>}
         {editor.kind === "company" && (
           <>
+            <fieldset className="b2b-company-logo-field">
+              <legend>Logo doanh nghiệp</legend>
+              <Avatar className="b2b-company-logo" name={editor.record?.name ?? "Logo doanh nghiệp"} fallback={editor.record?.initials ?? "DN"} src={!removeLogo ? logoLibrarySelection[0]?.url ?? (logoMediaId === editor.record?.logoMediaId ? editor.record?.logoUrl : undefined) : undefined} size="lg"/>
+              <AdminMediaField data={data} id="company-logo-file" name="logoFile" label="Chọn logo doanh nghiệp" files={logoFiles} onFilesChange={files => { setLogoFiles(files); if (files.length) setRemoveLogo(false); }} library={logoLibrarySelection} onLibraryChange={items => { setLogoLibrarySelection(items); if (items.length) setRemoveLogo(false); }} max={1}/>
+              {!!logoMediaId && <CheckboxField id="company-remove-logo" name="removeLogo" label="Gỡ logo hiện tại" checked={removeLogo} onCheckedChange={setRemoveLogo}/>}
+            </fieldset>
             <TextField id="company-name" name="name" label="Tên doanh nghiệp" defaultValue={editor.record?.name} required maxLength={80} />
             <TextField id="company-industry" name="industry" label="Ngành hàng" defaultValue={editor.record?.industry} maxLength={120} />
             <TextField id="company-brand" name="brand" label="Thương hiệu" defaultValue={editor.record?.brand} maxLength={80} />
@@ -166,37 +197,21 @@ export function BusinessRecordEditor({ editor, data, onClose, onSaved }: { edito
             <TextField id="company-owner" name="owner" label="Nhân viên phụ trách" defaultValue={editor.record?.owner} maxLength={80} />
             <TextField id="company-tax" name="taxId" label="Mã số thuế" defaultValue={editor.record?.taxId} maxLength={30} />
             <TextField id="company-address" name="address" label="Địa chỉ" defaultValue={editor.record?.address} maxLength={240} />
-            <label>
-              Ghi chú nội bộ
-              <Textarea name="note" rows={3} maxLength={600} defaultValue={editor.record?.note} />
-            </label>
+            <TextareaField id="company-note" name="note" label="Ghi chú nội bộ" rows={3} maxLength={600} defaultValue={editor.record?.note}/>
           </>
         )}
         {editor.kind === "request" && (
           <>
             <CompanyPicker data={data} name="companyId" required defaultValue={editor.record?.companyId ?? editor.companyId ?? ""} />
-            <label>
-              Tầng
-              <Select
-                name="floor"
-                value={floor}
-                onChange={event => {
-                  const next = Number(event.target.value) as Floor;
-                  void ensureSession({ userAction: true }).then(() => { setActionError(""); setFloor(next); setSelectedSlots([]); }).catch(issue => setActionError(issue instanceof Error ? issue.message : "Không thể chọn tầng."));
-                }}
-              >
-                {spaces.floors.map((item) => (
-                  <option key={item.number} value={item.number}>
-                    Tầng {item.number} · {item.purpose}
-                  </option>
-                ))}
-              </Select>
-            </label>
+            <SelectField id="request-floor" name="floor" label="Tầng" value={String(floor)} onChange={event => {
+              const next = Number(event.target.value) as Floor;
+              void ensureSession({ userAction: true }).then(() => { setActionError(""); setFloor(next); setSelectedSlots([]); }).catch(issue => setActionError(issue instanceof Error ? issue.message : "Không thể chọn tầng."));
+            }} options={spaces.floors.map(item => ({ value: String(item.number), label: `Tầng ${item.number} · ${item.purpose}` }))}/>
             <fieldset className="b2b-slot-options">
               <legend>Slot · chọn tổ hợp liền kề cùng phía</legend>
               {availableFloorSlots
                 .map((item) => {
-                  const unavailable = item.status === "Đang thuê" || item.status === "Đã thuê";
+                  const unavailable = ["Giữ chỗ", "Đã ký", "Đã thuê"].includes(item.status);
                   return (
                     <label key={item.id}>
                       <Checkbox
@@ -223,10 +238,7 @@ export function BusinessRecordEditor({ editor, data, onClose, onSaved }: { edito
               <TextField id="request-start" name="start" label="Ngày bắt đầu" type="date" min={now.slice(0, 10)} defaultValue={editor.record?.start ?? now.slice(0, 10)} required />
               <TextField id="request-end" name="end" label="Ngày kết thúc" type="date" min={now.slice(0, 10)} defaultValue={editor.record?.end} required />
             </div>
-            <label>
-              Ghi chú nhu cầu
-              <Textarea name="note" maxLength={600} rows={3} defaultValue={editor.record?.note} />
-            </label>
+            <TextareaField id="request-note" name="note" label="Ghi chú nhu cầu" maxLength={600} rows={3} defaultValue={editor.record?.note}/>
           </>
         )}
         {editor.kind === "appointment" && (!!editor.record || !!defaults) && (
@@ -249,7 +261,7 @@ export function BusinessRecordEditor({ editor, data, onClose, onSaved }: { edito
         )}
         {editor.kind === "lease" && (
           <>
-            <TextField id="lease-ref" name="referenceNumber" label="Số tham chiếu / Mã hợp đồng" maxLength={80} placeholder="Ví dụ: HĐ-2026-001" />
+            <TextField id="lease-ref" name="referenceNumber" label="Số hợp đồng theo tài liệu gốc (nếu có)" maxLength={80} placeholder="Ví dụ: HĐ-2026-001" />
             <label>
               Điều khoản / Ghi chú hợp đồng
               <Textarea name="rentNote" rows={3} maxLength={600} defaultValue="Theo thỏa thuận hợp đồng thuê mặt bằng" />

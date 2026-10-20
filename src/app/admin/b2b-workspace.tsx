@@ -1,124 +1,64 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { CalendarDays, Check, CircleCheck, Clock3, Info, MapPin, Pencil, Plus, Search, X } from "lucide-react";
-import { AdminPanel, Alert, PaginatedContent, WorkspaceLayout, Tabs, Button, Input, Select, Textarea, Table, Badge, EmptyState, ConfirmDialog, Modal, Sheet, LoadingIndicator, type ToastTone } from "@mall/ui";
+import { useRef, useState } from "react";
+import { ChevronRight, CalendarDays, Check, CircleCheck, Clock3, Info, MapPin, Pencil, Plus, Search, X } from "lucide-react";
+import { AdminPanel, Alert, Avatar, PaginatedContent, Tabs, Button, Input, Select, Table, Badge, EmptyState, ConfirmSheet, LoadingIndicator, type ToastTone } from "@mall/ui";
 import { AdminPagination } from "@/features/admin/admin-pagination";
-import { BusinessRecordEditor, isStoredPdf, type BusinessEditor } from "./b2b-editors";
-import type { B2BCommand, Lease } from "@/shared/admin/b2b-model";
-import type { AdminMediaDetail } from "@/shared/admin/contracts";
+import { CreateRecordButton } from "@/features/admin/create-record-button";
+import type { B2BCommand } from "@/shared/admin/b2b-model";
 import { appointmentLabels, dateLabel, remainingLabel, requestLabels, slotCodes as formatSlotCodes, timeLabel } from "@/features/admin/record-labels";
 import { useAdminData, type AdminData } from "@/features/admin/use-admin-data";
-import type { SlotRecordEntry } from "@/features/admin/slot-detail";
 import type { Floor } from "@/shared/admin/space-model";
 import { FloorPlanMap } from "@/features/shared/floor-plan-map";
-import { useRecordDetail } from "@/features/admin/use-record-detail";
-import type { CompanyNotes } from "@/features/admin/use-company-notes";
-import { CollectionFeedback, CompanyPicker, useAdminCollection, useAdminRecord, useRelatedCompanies } from "@/features/admin/admin-collections";
-import { adminRequest, ensureSession } from "@/features/admin/session";
-import { makeCacheKey, screenCache } from "@/features/admin/memory-cache";
-import { parseMediaDetail } from "@/features/admin/http-repository";
+import { CollectionFeedback, useAdminCollection, useAdminRecord, useRelatedCompanies } from "@/features/admin/admin-collections";
+import { ensureSession } from "@/features/admin/session";
+import { useAdminListState, useAdminWorkspaceNavigation, type AdminRecordTarget } from "@/features/admin/admin-workspace-navigation";
+import { businessRequestLabel, holdHasExpired } from "@/features/admin/business-handoffs";
+export { BusinessActionHost } from "./business-action-host";
 
 export type B2BView = "customers" | "requests" | "leases" | "appointments";
-type Props = {
-  notes: CompanyNotes;
-  view: B2BView; data: AdminData; entry?: SlotRecordEntry; onView: (view: B2BView, entry?: SlotRecordEntry) => void;
-  onFloor: (floor: Floor, ids: string[]) => void; onMessage: (message: string, tone?: ToastTone) => void;
-  requestPage?: number; setRequestPage?: (page: number) => void;
-  requestFilter?: string; setRequestFilter?: (filter: string) => void;
-  leasePage?: number; setLeasePage?: (page: number) => void;
-  leaseQuery?: string; setLeaseQuery?: (query: string) => void;
-  leaseCompany?: string; setLeaseCompany?: (company: string) => void;
-};
+type Props = { view: B2BView; data: AdminData; mode: "list" | "detail"; record?: AdminRecordTarget; onMessage: (message: string, tone?: ToastTone) => void };
 const area = (value: number) => `${new Intl.NumberFormat("vi-VN").format(value)} m²`;
 function Period({ start, end }: { start: string; end: string }) { return <>{dateLabel(start)} – {dateLabel(end)}</>; }
 function Empty({ children }: { children: React.ReactNode }) { return <EmptyState title="Chưa có bản ghi phù hợp">{children}</EmptyState>; }
 function ScreenFeedback({ data }: { data: AdminData }) { return <>{data.loading && <LoadingIndicator label="Đang tải hồ sơ…"/>}{data.error && <Alert tone="error">{data.error} <Button variant="quiet" onClick={() => void data.reload()}>Thử lại</Button></Alert>}</>; }
 
-export default function B2BWorkspace(props: Props) {
-  const { view, data, entry, notes, onView, onFloor, onMessage } = props;
-  const details = useRecordDetail(view, view === "leases" ? 1200 : 1000);
-  const dialogContainer = useRef<HTMLDivElement>(null);
-  const documentDialogContainer = useRef<HTMLDivElement>(null);
-  const requestSheetHost = useRef<HTMLDivElement>(null);
-  const [companyId, setCompanyId] = useState("");
-  const [requestId, setRequestId] = useState("");
-  const [leaseId, setLeaseId] = useState("");
-  const [editor, setEditor] = useState<BusinessEditor | null>(null);
+export default function B2BWorkspace({ view, data, mode, record, onMessage }: Props) {
+  const navigation = useAdminWorkspaceNavigation();
+  const isList = mode === "list";
+  const [companiesState, setCompaniesState] = useAdminListState("companies", { query: "", status: "" });
+  const [appointmentsState, setAppointmentsState] = useAdminListState("appointments", { query: "", status: "" });
+  const [requestsState, setRequestsState] = useAdminListState("requests", { page: 1, status: "" });
+  const [leasesState, setLeasesState] = useAdminListState("leases", { page: 1, query: "", companyId: "" });
+  const companyPages = useAdminCollection(data, "companies", { query: companiesState.query, status: companiesState.status, includeSummary: true }, isList && view === "customers");
+  const appointmentPages = useAdminCollection(data, "appointments", { query: appointmentsState.query, status: appointmentsState.status }, isList && view === "appointments");
+  const companyDetail = useAdminRecord(data, "companies", record?.id, !isList && view === "customers");
+  const appointmentDetail = useAdminRecord(data, "appointments", record?.id, !isList && view === "appointments");
+  const company = companyDetail.item;
+  const companyTab = record?.tab ?? "overview";
+  const relationshipPage = record?.page ?? 1;
+  const companyId = company?.id ?? "";
+  const companyRequests = useAdminData(!isList && view === "customers" && !!companyId && companyTab === "requests" ? "requests" : null, { companyId, page: relationshipPage, pageSize: 20 });
+  const companyLeases = useAdminData(!isList && view === "customers" && !!companyId && companyTab === "contracts" ? "leases" : null, { companyId, page: relationshipPage, pageSize: 20 });
+  const companySpaces = useAdminData(!isList && view === "customers" && !!companyId && companyTab === "spaces" ? "tenants" : null, { companyId, page: relationshipPage, pageSize: 20 });
+  const request = !isList && view === "requests" ? data.requests.find(item => item.id === record?.id) : undefined;
+  const reservation = request ? data.reservations.find(item => item.requestId === request.id) : undefined;
+  const lease = !isList && view === "leases" ? data.leases.find(item => item.id === record?.id) : undefined;
+  const convertedLease = useAdminData(reservation?.status === "converted" ? "leases" : null, { reservationId: reservation?.id, pageSize: 1 });
+  const exactLease = convertedLease.leases.find(item => item.reservationId === reservation?.id);
+  const [cancelAppointmentId, setCancelAppointmentId] = useState<string | null>(null);
+  const cancellation = useAdminRecord(data, "appointments", cancelAppointmentId);
+  const cancellationInFlight = useRef(false);
+  const relatedCompanies = useRelatedCompanies(data, view === "appointments" ? [...appointmentPages.rows.map(item => item.companyId), appointmentDetail.item?.companyId, cancellation.item?.companyId] : view === "requests" ? data.requests.map(item => item.companyId) : view === "leases" ? data.leases.map(item => item.companyId) : [], view !== "customers");
+  const companyName = (id: string) => data.companies.find(item => item.id === id)?.name ?? relatedCompanies.items.find(item => item.id === id)?.name ?? (company?.id === id ? company.name : relatedCompanies.loading ? "Đang tải doanh nghiệp…" : "Doanh nghiệp chưa có thông tin");
+  const slots = [...data.slots, ...companyRequests.slots, ...companyLeases.slots, ...companySpaces.slots];
+  const slotCodes = (ids: string[]) => formatSlotCodes(ids, slots);
   const [actionError, setActionError] = useState("");
   const actionSequence = useRef(0);
   async function action(change: () => void | Promise<void>) {
     const sequence = ++actionSequence.current;
     try { await ensureSession({ userAction: true }); if (sequence !== actionSequence.current) return; setActionError(""); await change(); }
     catch (issue) { if (sequence === actionSequence.current) setActionError(issue instanceof Error ? issue.message : "Không thể thực hiện thao tác."); }
-  }
-  function openEditor(next: BusinessEditor, revision: number | null | undefined) {
-    void action(() => { if (revision == null) throw new Error("Chưa tải phiên bản hồ sơ. Tải lại trước khi sửa."); notes.navigate(() => setEditor({ ...next, expectedRevision: revision })); });
-  }
-  const [localRequestPage, setLocalRequestPage] = useState(1);
-  const [localRequestFilter, setLocalRequestFilter] = useState("");
-  const [localLeasePage, setLocalLeasePage] = useState(1);
-  const [localLeaseCompany, setLocalLeaseCompany] = useState("");
-  const [localLeaseQuery, setLocalLeaseQuery] = useState("");
-  const reqPage = props.requestPage ?? localRequestPage;
-  const setReqPage = props.setRequestPage ?? setLocalRequestPage;
-  const reqFilter = props.requestFilter ?? localRequestFilter;
-  const setReqFilter = props.setRequestFilter ?? setLocalRequestFilter;
-  const lPage = props.leasePage ?? localLeasePage;
-  const setLPage = props.setLeasePage ?? setLocalLeasePage;
-  const lCompany = props.leaseCompany ?? localLeaseCompany;
-  const setLCompany = props.setLeaseCompany ?? setLocalLeaseCompany;
-  const lQuery = props.leaseQuery ?? localLeaseQuery;
-  const setLQuery = props.setLeaseQuery ?? setLocalLeaseQuery;
-  const [query, setQuery] = useState("");
-  const [appointmentQuery, setAppointmentQuery] = useState("");
-  const [appointmentStatus, setAppointmentStatus] = useState("");
-  const companyPages = useAdminCollection(data, "companies", { query }, view === "customers");
-  const appointmentPages = useAdminCollection(data, "appointments", { query: appointmentQuery, status: appointmentStatus }, view === "appointments");
-  const companyDetail = useAdminRecord(data, "companies", companyId, view === "customers");
-  const company = companyDetail.item;
-  const [companyTab, setCompanyTab] = useState<"overview" | "requests" | "contracts" | "documents">("overview");
-  const [relationshipPage, setRelationshipPage] = useState(1);
-  const companyRequests = useAdminData(view === "customers" && !!companyId && companyTab === "requests" ? "requests" : null, { companyId, page: relationshipPage, pageSize: 20 });
-  const companyLeases = useAdminData(view === "customers" && !!companyId && (companyTab === "contracts" || companyTab === "documents") ? "leases" : null, { companyId, page: relationshipPage, pageSize: 20 });
-  const requestOnPage = view === "requests" ? data.requests.find(item => item.id === requestId) : undefined;
-  const leaseOnPage = view === "leases" ? data.leases.find(item => item.id === leaseId) : undefined;
-  const outsideRequest = useAdminData(view === "requests" && !!requestId && !data.loading && !requestOnPage ? "requests" : null, { id: requestId });
-  const outsideLease = useAdminData(view === "leases" && !!leaseId && !data.loading && !leaseOnPage ? "leases" : null, { id: leaseId });
-  const requestData = requestOnPage ? data : outsideRequest;
-  const leaseData = leaseOnPage ? data : outsideLease;
-  const request = requestOnPage ?? outsideRequest.requests.find(item => item.id === requestId);
-  const reservation = requestData.reservations.find(item => item.requestId === requestId);
-  const lease = leaseOnPage ?? outsideLease.leases.find(item => item.id === leaseId);
-  const requestRevision = requestData.screenData?.revision;
-  const [cancelAppointmentId, setCancelAppointmentId] = useState<string | null>(null);
-  const cancellation = useAdminRecord(data, "appointments", cancelAppointmentId, view === "appointments");
-  const cancellationInFlight = useRef(false);
-  const relatedCompanies = useRelatedCompanies(data, view === "appointments" ? [...appointmentPages.rows.map(item => item.companyId), cancellation.item?.companyId] : view === "requests" ? [request?.companyId, ...data.requests.map(item => item.companyId)].filter(id => !data.companies.some(item => item.id === id)) : view === "leases" ? [lease?.companyId, ...data.leases.map(item => item.companyId)].filter(id => !data.companies.some(item => item.id === id)) : [], view !== "customers");
-  const companyName = (id: string) => data.companies.find(item => item.id === id)?.name ?? relatedCompanies.items.find(item => item.id === id)?.name ?? (company?.id === id ? company.name : relatedCompanies.loading ? "Đang tải doanh nghiệp…" : id);
-  const slots = [...data.slots, ...requestData.slots, ...leaseData.slots, ...companyRequests.slots, ...companyLeases.slots];
-  const slotCodes = (ids: string[]) => formatSlotCodes(ids, slots);
-  function MiniPlan({ ids, floor }: { ids: string[]; floor: Floor }) {
-    const plan = data.floorPlans.find(item => item.floor === floor);
-    if (!plan) return null;
-    return <FloorPlanMap className="b2b-mini-plan" ariaLabel={`Vị trí ${slotCodes(ids)} trên sơ đồ tham khảo tầng ${floor}`} plan={plan} slots={plan.slots} selectedIds={ids} variant="mini" showLabels={false} showArea={false} showStatus={false}/>;
-  }
-  const consumedEntry = useRef<SlotRecordEntry | undefined>(undefined);
-  useEffect(() => {
-    if (!entry || entry.view !== view || consumedEntry.current === entry) return;
-    consumedEntry.current = entry;
-    if (entry.view === "customers") { setCompanyId(entry.id); setCompanyTab("overview"); setRelationshipPage(1); }
-    if (entry.view === "requests") setRequestId(entry.id);
-    if (entry.view === "leases") setLeaseId(entry.id);
-    details.openDetail(entry.view);
-  }, [entry, view]);
-  function goRecord(next: SlotRecordEntry, trigger?: HTMLElement) {
-    void action(() => notes.navigate(() => {
-      if (next.view === "customers") { setCompanyId(next.id); setCompanyTab("overview"); setRelationshipPage(1); }
-      if (next.view === "requests") setRequestId(next.id);
-      if (next.view === "leases") setLeaseId(next.id);
-      onView(next.view, next); details.openDetail(next.view, trigger);
-    }));
   }
   async function run(command: B2BCommand, message: string, revision: number | null | undefined) {
     if (revision == null) { setActionError("Chưa tải phiên bản hồ sơ. Tải lại trước khi lưu."); return; }
@@ -134,146 +74,66 @@ export default function B2BWorkspace(props: Props) {
     const info = source.screenPagination;
     return { page: info?.page ?? page, pageSize: info?.pageSize ?? 20, pageCount: info?.totalPages ?? 0, total: info?.totalItems ?? 0, start: ((info?.page ?? page) - 1) * (info?.pageSize ?? 20), setPage: (next: number) => { void action(() => select(next)); } };
   }
-  const requestPages = pagination(data, reqPage, setReqPage);
-  const leasePages = pagination(data, lPage, setLPage);
-  const relationshipData = companyTab === "requests" ? companyRequests : companyLeases;
-  const relationshipPages = pagination(relationshipData, relationshipPage, setRelationshipPage);
-  const [documentLease, setDocumentLease] = useState<Lease | null>(null);
-  const [documentResult, setDocumentResult] = useState<{ key: string; version: number; value: AdminMediaDetail } | null>(null);
-  const [documentError, setDocumentError] = useState("");
-  const documentId = documentLease?.documentMediaId;
-  const documentKey = makeCacheKey(data.sessionKey, "", "media-detail", { id: documentId });
-  useEffect(() => {
-    if (!documentId) return;
-    const controller = new AbortController();
-    setDocumentError("");
-    screenCache.load<AdminMediaDetail>(documentKey, async signal => {
-      const response = await adminRequest(`/api/admin/media/${encodeURIComponent(documentId)}/`, {}, { signal });
-      return parseMediaDetail(await response.json());
-    }, controller.signal).then(value => { if (!controller.signal.aborted) setDocumentResult({ key: documentKey, version: data.cacheVersion, value }); }).catch(issue => { if (!controller.signal.aborted) setDocumentError(issue instanceof Error ? issue.message : "Không tải được tài liệu."); });
-    return () => controller.abort();
-  }, [documentId, documentKey, data.cacheVersion]);
-  const document = documentResult?.key === documentKey && documentResult.version === data.cacheVersion ? documentResult.value.item : null;
-  const storedDocument = document && isStoredPdf(document) ? document : null;
-  const recordEditor = editor && <BusinessRecordEditor editor={editor} data={data} onClose={() => setEditor(null)} onSaved={onMessage}/>;
+  const requestPages = pagination(data, requestsState.page, page => setRequestsState(current => ({ ...current, page })));
+  const leasePages = pagination(data, leasesState.page, page => setLeasesState(current => ({ ...current, page })));
+  const relationshipData = companyTab === "requests" ? companyRequests : companyTab === "spaces" ? companySpaces : companyLeases;
+  const relationshipPages = pagination(relationshipData, relationshipPage, page => navigation.updateDetail({ page }));
+  const openCompany = (id: string) => navigation.openRecord({ kind: "customers", id });
+  const openSlots = (floor: Floor, ids: string[]) => { if (ids[0]) navigation.openRecord({ kind: "slot", id: ids[0], floor }); };
+  function MiniPlan({ ids, floor }: { ids: string[]; floor: Floor }) {
+    const plan = data.floorPlans.find(item => item.floor === floor);
+    return plan ? <FloorPlanMap className="b2b-mini-plan" ariaLabel={`Vị trí ${slotCodes(ids)} trên sơ đồ tham khảo tầng ${floor}`} plan={plan} slots={plan.slots} selectedIds={ids} variant="mini" showLabels={false} showArea={false} showStatus={false}/> : null;
+  }
+  function appointmentActions(item: NonNullable<typeof appointmentDetail.item>, revision: number | null) {
+    return <div className="b2b-appointment-actions">
+      {item.status !== "cancelled" && <Button variant="secondary" disabled={data.pending} onClick={() => navigation.openAction({ kind: "appointment", id: item.id })}><Pencil size={18} aria-hidden="true"/>Sửa lịch</Button>}
+      {item.status === "requested" && <Button variant="outline" className="b2b-appointment-confirm" disabled={data.pending || revision == null} onClick={() => void run({ type: "confirm-appointment", appointmentId: item.id }, "Đã xác nhận lịch hẹn.", revision)}><Check size={19} aria-hidden="true"/>Xác nhận lịch</Button>}
+      {item.status !== "cancelled" && <Button variant="secondary" className="b2b-appointment-cancel" disabled={data.pending} onClick={() => void action(() => setCancelAppointmentId(item.id))}><X size={18} aria-hidden="true"/>Hủy lịch</Button>}
+    </div>;
+  }
+  const feedback = <>{actionError && <Alert tone="error">{actionError}</Alert>}{view !== "customers" && <CollectionFeedback state={relatedCompanies}/>}<CollectionFeedback state={cancellation}/><ConfirmSheet open={!!cancellation.item} pending={data.pending} error={data.error} title="Hủy lịch hẹn?" description={cancellation.item ? `${companyName(cancellation.item.companyId)} · ${dateLabel(cancellation.item.startsAt)} · ${cancellation.item.purpose}. Giữ chỗ và hợp đồng không thay đổi.` : ""} confirmLabel={data.pending ? "Đang hủy…" : "Xác nhận hủy lịch"} cancelLabel="Giữ lịch hẹn" onClose={() => { if (!cancellationInFlight.current) setCancelAppointmentId(null); }} onConfirm={() => void confirmCancellation()}/></>;
 
-  return <div ref={details.scopeRef} className="b2b-workspace">
-    <div ref={dialogContainer} className="admin-dialog-host"/><div ref={documentDialogContainer} className="admin-dialog-host b2b-document-modal-host"/>
-    <div ref={requestSheetHost}/>
-    {actionError && <Alert tone="error">{actionError}</Alert>}
-    {view === "customers" && <><CollectionFeedback state={companyPages}/><CollectionFeedback state={companyDetail}/></>}
-    {view === "appointments" && <><CollectionFeedback state={appointmentPages}/><CollectionFeedback state={cancellation}/></>}
-    {view !== "customers" && <CollectionFeedback state={relatedCompanies}/>}
-    <ConfirmDialog open={!!cancellation.item} title="Hủy lịch hẹn?" description={cancellation.item ? `${companyName(cancellation.item.companyId)} · ${dateLabel(cancellation.item.startsAt)} · ${cancellation.item.purpose}. Giữ chỗ và hợp đồng không thay đổi.` : ""} confirmLabel={data.pending ? "Đang hủy…" : "Xác nhận hủy lịch"} cancelLabel="Giữ lịch hẹn" onClose={() => { if (!cancellationInFlight.current) setCancelAppointmentId(null); }} onConfirm={() => void confirmCancellation()} portalContainer={dialogContainer}/>
-    <Modal open={!!documentLease} onOpenChange={open => { if (!open) setDocumentLease(null); }} title="Xem tài liệu hợp đồng" description="Tài liệu lưu trước đây chỉ được mở khi bạn yêu cầu. Hợp đồng gốc mới lưu bên ngoài hệ thống." closeLabel="Đóng tài liệu" portalContainer={documentDialogContainer}>
-      {documentError ? <Alert tone="error">{documentError} <Button onClick={() => void action(() => screenCache.markAllStale())}>Thử lại</Button></Alert> : storedDocument?.url ? <><p><a href={storedDocument.url} target="_blank" rel="noopener noreferrer">Mở PDF trong tab mới</a> · <a href={storedDocument.url} download={storedDocument.name}>Tải PDF</a></p><iframe className="b2b-document-pdf" src={storedDocument.url} title={storedDocument.name}/></> : documentId && !document ? <LoadingIndicator label="Đang tải tài liệu…"/> : <p>Hợp đồng gốc được lưu bên ngoài hệ thống.</p>}
-    </Modal>
-    {view === "customers" && <WorkspaceLayout className="b2b-dossier-layout" mobilePresentation="drilldown" detailOpen={details.open} onDetailOpenChange={open => void action(() => details.setOpen(open))} returnFocusRef={details.returnFocusRef} detailLabel="Hồ sơ doanh nghiệp" backLabel="Quay lại danh sách doanh nghiệp" primary={<section className="b2b-company-list records-panel" aria-label="Danh sách doanh nghiệp">
-      <div className="b2b-panel-heading"><h2>Doanh nghiệp <span>{companyPages.total}</span></h2><Button variant="secondary" disabled={data.pending || companyPages.revision == null} onClick={() => openEditor({ kind: "company" }, companyPages.revision)}>Thêm doanh nghiệp</Button><label className="b2b-search"><span className="sr-only">Tìm doanh nghiệp</span><Input type="search" maxLength={200} placeholder="Tìm tên, ngành hàng…" value={query} onChange={event => { const next = event.target.value; void action(() => setQuery(next)); }}/></label></div>
-      <PaginatedContent layoutKey={companyPages.pageSize}>{companyPages.rows.map(item => <Button variant="quiet" className={`b2b-company-row ${companyId === item.id ? "is-active" : ""}`} key={item.id} onClick={event => goRecord({ view: "customers", id: item.id }, event.currentTarget)} aria-pressed={companyId === item.id}><span className="lead-avatar">{item.initials}</span><span><strong>{item.name}</strong><small>{item.industry}</small><Badge tone={item.category === "Đang thuê" ? "action" : item.category === "Đang giữ chỗ" ? "warning" : "neutral"}>{item.category ?? "Chưa tải phân loại"}</Badge><span className="b2b-row-meta">{item.requestCount == null ? "Chưa tải số yêu cầu" : `${item.requestCount} yêu cầu`} · {item.leaseCount == null ? "Chưa tải số hợp đồng" : `${item.leaseCount} hợp đồng`}</span></span></Button>)}{!companyPages.loading && !companyPages.error && !companyPages.rows.length && <Empty>Không tìm thấy doanh nghiệp. <Button variant="quiet" onClick={() => void action(() => setQuery(""))}>Xóa tìm kiếm</Button></Empty>}</PaginatedContent><AdminPagination state={companyPages} label="doanh nghiệp"/>
-    </section>} detail={<AdminPanel className="b2b-dossier records-panel">{company ? <>
-      <div className="b2b-dossier-header"><span className="b2b-company-mark">{company.initials}</span><div><h2>{company.name}</h2><p>{company.brand} · {company.industry}</p></div><Button variant="secondary" onClick={() => openEditor({ kind: "company", record: company }, companyDetail.revision)}>Sửa doanh nghiệp</Button></div>
-      <Tabs label="Các phần hồ sơ doanh nghiệp" className="b2b-dossier-tabs" scrollable value={companyTab} onValueChange={value => { if (value) void action(() => { setCompanyTab(value as typeof companyTab); setRelationshipPage(1); }); }} items={[
-        { value: "overview", label: "Tổng quan", content: <div className="b2b-dossier-body">
-          <div className="b2b-profile-columns"><section><h3>Thông tin liên hệ</h3><dl className="b2b-facts"><dt>Người liên hệ</dt><dd>{company.contact}</dd><dt>Email</dt><dd>{company.email}</dd><dt>Điện thoại</dt><dd>{company.phone}</dd><dt>Mã số thuế</dt><dd>{company.taxId || "Chưa bổ sung"}</dd><dt>Địa chỉ</dt><dd>{company.address || "Chưa bổ sung"}</dd></dl></section><section><h3>Quan hệ với trung tâm</h3><dl className="b2b-facts"><dt>Phụ trách</dt><dd>{company.owner}</dd><dt>Trạng thái</dt><dd>{company.category ?? "Chưa tải phân loại"}</dd><dt>Yêu cầu</dt><dd>{company.requestCount ?? "Chưa tải"}</dd><dt>Hợp đồng</dt><dd>{company.leaseCount ?? "Chưa tải"}</dd></dl></section></div>
-          <Button variant="quiet" onClick={() => void action(() => { setCompanyTab("requests"); setRelationshipPage(1); })}>Xem yêu cầu & giữ chỗ</Button>
-          <form className="b2b-note-form" key={company.id} onSubmit={event => {
-            event.preventDefault();
-            const revision = companyDetail.revision;
-            if (revision != null) void action(async () => { if (await notes.save(company, revision)) onMessage("Đã lưu ghi chú doanh nghiệp trên hệ thống."); });
-          }}>
-            <label>Ghi chú nội bộ<Textarea name="note" rows={3} maxLength={600} value={notes.value(company)} onChange={event => {
-              const next = event.target.value;
-              const revision = companyDetail.revision;
-              if (revision != null) void action(() => notes.update(company, next, revision));
-            }}/></label>
-            <p className="draft-status" aria-live="polite">{notes.dirty(company) ? "Chưa lưu · Bản nháp được giữ trong phiên này." : "Ghi chú đã lưu trên hệ thống."}</p>
-            <Button variant="secondary" type="submit" disabled={data.pending || companyDetail.revision == null}>Lưu ghi chú</Button>
-          </form>
-        </div> },
-        { value: "requests", label: "Yêu cầu & giữ chỗ", content: <div className="b2b-dossier-body"><ScreenFeedback data={companyRequests}/>{companyRequests.requests.map(item => { const hold = companyRequests.reservations.find(value => value.requestId === item.id); return <div className="b2b-activity-row" key={item.id}><div><strong>{item.id} · {slotCodes(item.slotIds)}</strong><small>Tầng {item.floor} · {area(item.area)} · <Period start={item.start} end={item.end}/></small>{hold?.status === "active" && <span className="b2b-deadline">{remainingLabel(hold.expiresAt)} giữ chỗ</span>}</div><Badge>{requestLabels[item.status]}</Badge><Button variant="quiet" onClick={() => goRecord({ view: "requests", id: item.id })}>Chi tiết</Button></div>; })}{companyRequests.isLoaded && !companyRequests.requests.length && <Empty>Chưa có yêu cầu thuê.</Empty>}<AdminPagination state={relationshipPages} label="yêu cầu của doanh nghiệp"/></div> },
-        { value: "contracts", label: "Hợp đồng", content: <div className="b2b-dossier-body"><ScreenFeedback data={companyLeases}/>{companyLeases.leases.map(item => <div className="b2b-activity-row" key={item.id}><div><strong>{item.id}</strong><small>Tầng {item.floor} · {slotCodes(item.slotIds)} · <Period start={item.start} end={item.end}/></small></div><Badge tone="success">Hồ sơ đã lưu</Badge><Button variant="quiet" onClick={() => goRecord({ view: "leases", id: item.id })}>Mở hợp đồng</Button></div>)}{companyLeases.isLoaded && !companyLeases.leases.length && <Empty>Chưa có hợp đồng. Ghi nhận hợp đồng không yêu cầu tải PDF.</Empty>}<AdminPagination state={relationshipPages} label="hợp đồng của doanh nghiệp"/></div> },
-        { value: "documents", label: "Tài liệu", content: <div className="b2b-dossier-body"><ScreenFeedback data={companyLeases}/>{companyLeases.leases.map(item => <div className="b2b-activity-row" key={item.id}><div><strong>{item.documentName || item.referenceNumber || item.id}</strong><small>{item.documentMediaId ? "Tệp hợp đồng lịch sử được lưu riêng tư" : "Hợp đồng gốc lưu bên ngoài hệ thống"}</small></div>{item.documentMediaId && <Button variant="quiet" onClick={() => void action(() => setDocumentLease(item))}>Xem tài liệu</Button>}</div>)}{companyLeases.isLoaded && !companyLeases.leases.length && <Empty>Chưa có hồ sơ hợp đồng.</Empty>}<AdminPagination state={relationshipPages} label="hồ sơ tài liệu"/></div> },
+  if (!isList) return <div className="b2b-workspace">{feedback}
+    {view === "customers" && <><CollectionFeedback state={companyDetail}/>{company ? <div className="b2b-company-dossier">
+      <div className="b2b-dossier-header"><Avatar className="b2b-company-mark b2b-company-logo" name={company.name} fallback={company.initials} src={company.logoUrl} size="lg"/><div><h2>{company.name}</h2><p>{company.industry || "Chưa bổ sung ngành hàng"}</p><Badge>{company.category ?? "Chưa tải phân loại"}</Badge></div><Button variant="secondary" onClick={() => navigation.openAction({ kind: "company", id: company.id })}><Pencil size={16} aria-hidden="true"/>Sửa doanh nghiệp</Button></div>
+      <div className="b2b-decision"><Button onClick={() => navigation.openAction({ kind: "request", companyId: company.id })}>Tạo yêu cầu thuê</Button><Button variant="secondary" onClick={() => navigation.openAction({ kind: "appointment", companyId: company.id })}>Tạo lịch hẹn</Button></div>
+      <Tabs label="Các phần hồ sơ doanh nghiệp" className="b2b-dossier-tabs" scrollable value={companyTab} onValueChange={value => { if (value) navigation.updateDetail({ tab: value as typeof companyTab, page: 1 }); }} items={[
+        { value: "overview", label: "Tổng quan", content: <div className="b2b-dossier-body"><section><h3>Thông tin doanh nghiệp</h3><dl className="b2b-facts"><dt>Thương hiệu</dt><dd>{company.brand || "Chưa bổ sung"}</dd><dt>Người liên hệ</dt><dd>{company.contact || "Chưa bổ sung"}</dd><dt>Email</dt><dd>{company.email || "Chưa bổ sung"}</dd><dt>Điện thoại</dt><dd>{company.phone || "Chưa bổ sung"}</dd><dt>Mã số thuế</dt><dd>{company.taxId || "Chưa bổ sung"}</dd><dt>Địa chỉ</dt><dd>{company.address || "Chưa bổ sung"}</dd><dt>Phụ trách</dt><dd>{company.owner || "Chưa phân công"}</dd></dl></section><section className="b2b-company-relationships"><h3>Quan hệ thuê mặt bằng</h3><dl className="b2b-facts"><dt>Trạng thái</dt><dd>{company.category ?? "Chưa tải phân loại"}</dd><dt>Yêu cầu</dt><dd>{company.requestCount ?? "—"}</dd><dt>Hợp đồng</dt><dd>{company.leaseCount ?? "—"}</dd></dl></section><section className="b2b-company-note"><h3>Ghi chú nội bộ</h3><p>{company.note || "Chưa có ghi chú."}</p><Button variant="secondary" onClick={() => navigation.openAction({ kind: "company", id: company.id })}>Sửa ghi chú</Button></section></div> },
+        { value: "requests", label: `Yêu cầu (${company.requestCount ?? "—"})`, content: <div className="b2b-dossier-body"><ScreenFeedback data={companyRequests}/>{companyRequests.requests.map(item => <div className="b2b-activity-row" key={item.id}><div><strong>{item.referenceCode} · {slotCodes(item.slotIds)}</strong><small>Tầng {item.floor} · {area(item.area)} · <Period start={item.start} end={item.end}/></small></div><Badge>{businessRequestLabel(item, companyRequests.reservations.find(hold => hold.requestId === item.id))}</Badge><Button variant="quiet" onClick={() => navigation.openRecord({ kind: "requests", id: item.id })}>Chi tiết</Button></div>)}{companyRequests.isLoaded && !companyRequests.requests.length && <Empty>Chưa có yêu cầu thuê.</Empty>}<AdminPagination state={relationshipPages} label="yêu cầu của doanh nghiệp"/></div> },
+        { value: "spaces", label: "Mặt bằng thuê", content: <div className="b2b-dossier-body"><ScreenFeedback data={companySpaces}/>{companySpaces.slots.map(slot => <div className="b2b-company-space" key={slot.id}><div><strong>{slot.code} · Tầng {slot.floor}</strong><small>{area(slot.area)}</small></div><Button variant="secondary" onClick={() => openSlots(slot.floor, [slot.id])}>Xem mặt bằng</Button></div>)}{companySpaces.isLoaded && !companySpaces.slots.length && <Empty>Chưa có mặt bằng thuê.</Empty>}<AdminPagination state={relationshipPages} label="mặt bằng của doanh nghiệp"/></div> },
+        { value: "contracts", label: `Hợp đồng (${company.leaseCount ?? "—"})`, content: <div className="b2b-dossier-body"><ScreenFeedback data={companyLeases}/>{companyLeases.leases.map(item => <div className="b2b-activity-row" key={item.id}><div><strong>{item.referenceCode}</strong><small>Tầng {item.floor} · {slotCodes(item.slotIds)} · <Period start={item.start} end={item.end}/></small>{item.referenceNumber && <small>Tham chiếu: {item.referenceNumber}</small>}</div><Button variant="secondary" onClick={() => navigation.openRecord({ kind: "leases", id: item.id })}>Mở hợp đồng</Button>{item.documentMediaId && <Button variant="quiet" onClick={() => navigation.openRecord({ kind: "media", id: item.documentMediaId! })}>Xem tài liệu</Button>}</div>)}{companyLeases.isLoaded && !companyLeases.leases.length && <Empty>Chưa có hợp đồng thuê.</Empty>}<AdminPagination state={relationshipPages} label="hợp đồng của doanh nghiệp"/></div> },
       ]}/>
-    </> : !companyDetail.loading && !companyDetail.error && <Empty>Chọn một doanh nghiệp để xem hồ sơ.</Empty>}</AdminPanel>}/>}
-    {view === "requests" && <>
-      <ol className="b2b-process" aria-label="Quy trình thuê"><li><span>1</span>Gửi yêu cầu<small>Chưa giữ slot</small></li><li><span>2</span>Xét duyệt<small>Kiểm tra tổ hợp</small></li><li><span>3</span>Giữ chỗ<small>Có thời hạn</small></li><li><span>4</span>Hợp đồng<small>Ghi nhận thông tin thuê</small></li></ol>
-      <AdminPanel className="records-panel">
-        <div className="b2b-panel-heading b2b-inline-heading">
-          <h2>Yêu cầu thuê <span>{requestPages.total}</span></h2>
-          <Button variant="secondary" disabled={data.loading || data.pending || !data.screenData} onClick={() => openEditor({ kind: "request" }, data.screenData?.revision)}>Thêm yêu cầu thuê</Button>
-          <label><span className="sr-only">Lọc yêu cầu thuê</span><Select value={reqFilter} onChange={event => { const next = event.target.value; void action(() => { setReqFilter(next); setReqPage(1); }); }}><option value="">Tất cả trạng thái</option>{Object.entries(requestLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</Select></label>
-        </div>
-        <PaginatedContent layoutKey={requestPages.pageSize}>
-          {data.requests.map(item => <Button variant="quiet" className={`b2b-request-row ${details.open && item.id === requestId ? "is-active" : ""}`} key={item.id} aria-haspopup="dialog" aria-pressed={details.open && item.id === requestId} onClick={event => goRecord({ view: "requests", id: item.id }, event.currentTarget)}>
-            <span className="b2b-request-company">{companyName(item.companyId)}<Badge>{requestLabels[item.status]}</Badge></span>
-            <strong>Tầng {item.floor} · {slotCodes(item.slotIds)}</strong>
-            <span>{area(item.area)} · <Period start={item.start} end={item.end}/></span>
-            <small>{item.id} · Gửi {dateLabel(item.received)}</small>
-          </Button>)}
-          {data.isLoaded && !data.requests.length && <Empty>Không có yêu cầu ở trạng thái này. <Button variant="quiet" onClick={() => void action(() => { setReqFilter(""); setReqPage(1); })}>Xem tất cả</Button></Empty>}
-        </PaginatedContent>
-        <AdminPagination state={requestPages} label="yêu cầu thuê"/>
-      </AdminPanel>
-      <Sheet open={details.open} onOpenChange={open => { if (!open) details.setOpen(false); }} title="Chi tiết yêu cầu & giữ chỗ" description="Xem nhu cầu thuê, xét duyệt và quản lý giữ chỗ có thời hạn." closeLabel="Đóng chi tiết yêu cầu" portalContainer={requestSheetHost} returnFocusRef={details.returnFocusRef}>
-        {actionError && <Alert tone="error">{actionError}</Alert>}
-        <div className="b2b-request-sheet-detail"><ScreenFeedback data={outsideRequest}/>{request ? <>
-        <div className="b2b-section-heading"><h2>{companyName(request.companyId)}</h2><Badge>{requestLabels[request.status]}</Badge></div><p className="muted">{request.id} · Yêu cầu thuê</p>{["submitted", "reviewing"].includes(request.status) && <Button variant="secondary" onClick={() => openEditor({ kind: "request", record: request }, requestRevision)}>Sửa yêu cầu</Button>}<MiniPlan ids={request.slotIds} floor={request.floor}/><h3>Tầng {request.floor} · {slotCodes(request.slotIds)}</h3><dl className="b2b-facts"><dt>Diện tích tham khảo</dt><dd>{area(request.area)}</dd><dt>Kỳ thuê mong muốn</dt><dd><Period start={request.start} end={request.end}/></dd></dl><p className="b2b-customer-note">{request.note || "Khách chưa bổ sung ghi chú."}</p><Button variant="quiet" onClick={() => void action(() => onFloor(request.floor, request.slotIds))}>Xem mặt bằng trên sơ đồ</Button>
-        {["submitted", "reviewing"].includes(request.status) && <div className="b2b-decision">{request.status === "submitted" && <Button variant="secondary" disabled={data.pending} onClick={() => void run({ type: "review-request", requestId: request.id }, "Đã tiếp nhận xét duyệt. Yêu cầu chưa giữ slot.", requestRevision)}>Tiếp nhận xét duyệt</Button>}<Button variant="primary" disabled={data.pending} onClick={() => openEditor({ kind: "approve", request }, requestRevision)}>Duyệt & giữ chỗ</Button><Button variant="secondary" disabled={data.pending} onClick={() => openEditor({ kind: "reject", request }, requestRevision)}>Từ chối yêu cầu</Button></div>}
-        {reservation?.status === "active" && <div className="b2b-hold-panel"><h3>{Date.parse(reservation.expiresAt) <= Date.now() ? "Giữ chỗ đã hết hạn" : "Đang giữ chỗ"}</h3><strong>{remainingLabel(reservation.expiresAt)}</strong><p>Hết hạn {timeLabel(reservation.expiresAt)}, {dateLabel(reservation.expiresAt)} · {reservation.id}</p><Button variant="primary" disabled={data.pending || Date.parse(reservation.expiresAt) <= Date.now()} onClick={() => openEditor({ kind: "lease", reservation }, requestRevision)}>Ghi nhận hợp đồng & chuyển thuê</Button><p className="panel-note">Ghi nhận thông tin hợp đồng và chuyển slot sang trạng thái đang thuê, không yêu cầu tải PDF.</p><Button variant="secondary" disabled={data.pending} onClick={() => openEditor({ kind: "cancel-hold", reservation }, requestRevision)}>Hủy toàn bộ giữ chỗ</Button></div>}
-        {reservation?.status === "converted" && <div className="b2b-hold-panel"><h3>Đã chuyển sang hợp đồng</h3><Button variant="secondary" onClick={() => void action(() => { setLCompany(reservation.companyId); setLQuery(""); setLPage(1); onView("leases"); })}>Xem hợp đồng của doanh nghiệp</Button></div>}{reservation?.status === "cancelled" && <p>Giữ chỗ đã hủy. Gửi yêu cầu mới để kiểm tra khả dụng.</p>}
-      </> : !outsideRequest.loading && !outsideRequest.error && <Empty>{requestId ? "Không tìm thấy yêu cầu này." : "Chọn yêu cầu để xem chi tiết."}</Empty>}</div>
-        {recordEditor}
-      </Sheet>
-    </>}
-    {view === "leases" && <WorkspaceLayout className="b2b-lease-layout" mobilePresentation="drilldown" detailOpen={details.open} onDetailOpenChange={open => void action(() => details.setOpen(open))} returnFocusRef={details.returnFocusRef} detailLabel="Chi tiết hợp đồng" backLabel="Quay lại danh sách hợp đồng" primary={<AdminPanel className="records-panel"><div className="b2b-panel-heading"><h2>Danh mục hợp đồng <span>{leasePages.total}</span></h2><div className="b2b-contract-filters"><label>Tìm hợp đồng<Input type="search" maxLength={200} value={lQuery} placeholder="Tìm mã, doanh nghiệp, slot…" onChange={event => { const next = event.target.value; void action(() => { setLQuery(next); setLPage(1); }); }}/></label><CompanyPicker data={data} label="Lọc doanh nghiệp" emptyLabel="Tất cả doanh nghiệp" value={lCompany} onValueChange={next => void action(() => { setLCompany(next); setLPage(1); })}/></div></div><PaginatedContent layoutKey={leasePages.pageSize}><Table viewportLabel="Danh sách hợp đồng, có thể cuộn ngang" rows={data.leases} getRowKey={item => item.id} getRowClassName={item => item.id === leaseId ? "selected-row" : undefined} onRowClick={item => goRecord({ view: "leases", id: item.id })} emptyLabel="Không tìm thấy hợp đồng phù hợp." columns={[
-      { id: "company", header: "Hợp đồng / doanh nghiệp", cell: item => <><strong>{item.id}</strong><small>{companyName(item.companyId)}</small></> },
-      { id: "space", header: "Mặt bằng", cell: item => <>Tầng {item.floor}<small>{slotCodes(item.slotIds)} · {area(item.area)}</small></> },
-      { id: "end", header: "Ngày kết thúc", cell: item => dateLabel(item.end) },
-      { id: "action", header: "Thao tác", cell: item => <Button variant="quiet" aria-label={`Xem hợp đồng ${item.id}`} onClick={event => { event.stopPropagation(); goRecord({ view: "leases", id: item.id }, event.currentTarget); }}>Chi tiết</Button> },
-    ]}/></PaginatedContent><AdminPagination state={leasePages} label="hợp đồng"/><p className="panel-note">Hết kỳ thuê chưa đồng nghĩa sẵn sàng cho khách mới. Cần xác nhận gia hạn và bàn giao.</p></AdminPanel>} detail={<aside className="b2b-lease-detail records-panel" aria-label="Chi tiết hợp đồng đã chọn"><ScreenFeedback data={outsideLease}/>{lease ? <><div className="b2b-section-heading"><h2>{lease.id}</h2><Badge tone="success">Hồ sơ đã lưu</Badge></div><h3>{companyName(lease.companyId)}</h3><MiniPlan ids={lease.slotIds} floor={lease.floor}/><dl className="b2b-facts"><dt>Mặt bằng</dt><dd>Tầng {lease.floor} · {slotCodes(lease.slotIds)}</dd><dt>Diện tích tham khảo</dt><dd>{area(lease.area)}</dd><dt>Kỳ thuê</dt><dd><Period start={lease.start} end={lease.end}/></dd><dt>Điều khoản thuê</dt><dd>{lease.rentNote}</dd><dt>Số tham chiếu</dt><dd>{lease.referenceNumber || "Chưa nhập"}</dd><dt>Tài liệu</dt><dd>{lease.documentMediaId ? "Tệp hợp đồng lịch sử lưu riêng tư" : "Hợp đồng gốc lưu bên ngoài hệ thống"}</dd></dl><Button variant="secondary" onClick={() => void action(() => onFloor(lease.floor, lease.slotIds))}>Xem các slot liên kết</Button>{lease.documentMediaId && <Button variant="quiet" onClick={() => void action(() => setDocumentLease(lease))}>Xem tài liệu</Button>}</> : !outsideLease.loading && !outsideLease.error && <Empty>{leaseId ? "Không tìm thấy hợp đồng này." : "Chọn hợp đồng để xem chi tiết."}</Empty>}</aside>}/>}
-    {view === "appointments" && <div className="b2b-appointments-layout">
-      <AdminPanel className="records-panel b2b-appointments-panel">
-        <div className="b2b-appointments-header">
-          <div className="b2b-appointments-title">
-            <span className="b2b-appointments-icon"><CalendarDays size={28} aria-hidden="true"/></span>
-            <div><h2>Lịch tư vấn & khảo sát</h2><p>Quản lý các lịch hẹn tư vấn, khảo sát mặt bằng với khách hàng và đối tác.</p></div>
-          </div>
-          <Button className="b2b-appointment-add" disabled={data.pending || appointmentPages.revision == null} onClick={() => openEditor({ kind: "appointment" }, appointmentPages.revision)}><Plus size={20} aria-hidden="true"/>Thêm lịch hẹn</Button>
-        </div>
-        <div className="b2b-appointment-filters">
-          <label>Tìm lịch hẹn
-            <span className="b2b-appointment-search"><Search size={20} aria-hidden="true"/><Input type="search" value={appointmentQuery} maxLength={200} placeholder="Tìm nội dung, địa điểm, doanh nghiệp…" onChange={event => { const next = event.target.value; void action(() => setAppointmentQuery(next)); }}/></span>
-          </label>
-          <label>Trạng thái<Select value={appointmentStatus} onChange={event => { const next = event.target.value; void action(() => setAppointmentStatus(next)); }}><option value="">Tất cả trạng thái</option>{Object.entries(appointmentLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></label>
-        </div>
-        <div className="b2b-appointment-notice"><Info size={20} aria-hidden="true"/><p><strong>Giờ Việt Nam</strong> · Lịch hẹn không tạo cam kết giữ mặt bằng.</p></div>
-        <PaginatedContent className="b2b-appointment-list" layoutKey={appointmentPages.pageSize}>
-          {appointmentPages.rows.map(item => <div className="b2b-appointment-row" key={item.id}>
-            <div className="b2b-time">
-              <span>{new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", weekday: "short" }).format(new Date(item.startsAt))}</span>
-              <strong><time dateTime={item.startsAt}>{timeLabel(item.startsAt)}</time></strong>
-              <small>{dateLabel(item.startsAt)}</small>
-            </div>
-            <div className="b2b-appointment-detail">
-              <strong className="b2b-appointment-purpose">{item.purpose}</strong>
-              <span className="b2b-appointment-company">{companyName(item.companyId)}</span>
-              <div className="b2b-appointment-meta"><span><MapPin size={17} aria-hidden="true"/>{item.location}</span><span><Clock3 size={17} aria-hidden="true"/>{item.durationMinutes} phút</span></div>
-              <Badge className="b2b-appointment-status" tone={item.status === "confirmed" || item.status === "completed" ? "success" : item.status === "requested" ? "warning" : item.status === "no_show" ? "error" : "neutral"}>
-                {item.status === "confirmed" || item.status === "completed" ? <CircleCheck size={16} aria-hidden="true"/> : item.status === "requested" ? <Clock3 size={16} aria-hidden="true"/> : <X size={16} aria-hidden="true"/>}{appointmentLabels[item.status]}
-              </Badge>
-            </div>
-            <div className="b2b-appointment-actions">
-              {item.status !== "cancelled" && <Button variant="secondary" onClick={() => openEditor({ kind: "appointment", record: item }, appointmentPages.revision)}><Pencil size={18} aria-hidden="true"/>Sửa lịch</Button>}
-              {item.status === "requested" && <Button variant="outline" className="b2b-appointment-confirm" disabled={data.pending} onClick={() => void run({ type: "confirm-appointment", appointmentId: item.id }, "Đã xác nhận lịch hẹn.", appointmentPages.revision)}><Check size={19} aria-hidden="true"/>Xác nhận lịch</Button>}
-              {item.status !== "cancelled" && <Button variant="secondary" className="b2b-appointment-cancel" disabled={data.pending} onClick={() => void action(() => setCancelAppointmentId(item.id))}><X size={18} aria-hidden="true"/>Hủy lịch</Button>}
-            </div>
-          </div>)}
-          {!appointmentPages.loading && !appointmentPages.error && !appointmentPages.total && <Empty>Không có lịch hẹn phù hợp. Thêm lịch hoặc đổi bộ lọc.</Empty>}
-        </PaginatedContent>
-        <AdminPagination state={appointmentPages} label="lịch hẹn"/>
-      </AdminPanel>
-    </div>}
-    {(view !== "requests" || !details.open) && recordEditor}
+    </div> : !companyDetail.loading && !companyDetail.error && <Empty>Không tìm thấy hồ sơ doanh nghiệp.</Empty>}</>}
+    {view === "requests" && <div className="b2b-request-sheet-detail"><ScreenFeedback data={data}/>{request ? <>
+      <div className="b2b-section-heading"><h2><Button variant="quiet" onClick={() => openCompany(request.companyId)}>{companyName(request.companyId)}</Button></h2><Badge>{businessRequestLabel(request, reservation)}</Badge></div><p className="muted">{request.referenceCode} · Yêu cầu thuê</p>
+      {["submitted", "reviewing"].includes(request.status) && <Button variant="secondary" onClick={() => navigation.openAction({ kind: "request", id: request.id })}>Sửa yêu cầu</Button>}
+      <MiniPlan ids={request.slotIds} floor={request.floor}/><h3>Tầng {request.floor} · {slotCodes(request.slotIds)}</h3><dl className="b2b-facts"><dt>Diện tích tham khảo</dt><dd>{area(request.area)}</dd><dt>Kỳ thuê mong muốn</dt><dd><Period start={request.start} end={request.end}/></dd></dl><p className="b2b-customer-note">{request.note || "Khách chưa bổ sung ghi chú."}</p><Button variant="quiet" onClick={() => openSlots(request.floor, request.slotIds)}>Xem mặt bằng trên sơ đồ</Button>
+      {["submitted", "reviewing"].includes(request.status) && <div className="b2b-decision">{request.status === "submitted" && <Button variant="secondary" disabled={data.pending} onClick={() => void run({ type: "review-request", requestId: request.id }, "Đã tiếp nhận xét duyệt. Yêu cầu chưa giữ slot.", data.screenData?.revision)}>Tiếp nhận xét duyệt</Button>}<Button disabled={data.pending} onClick={() => navigation.openAction({ kind: "approve", requestId: request.id })}>Duyệt & giữ chỗ</Button><Button variant="secondary" disabled={data.pending} onClick={() => navigation.openAction({ kind: "reject", requestId: request.id })}>Từ chối yêu cầu</Button></div>}
+      {reservation && (reservation.status === "active" || reservation.status === "expired") && <div className="b2b-hold-panel"><h3>{holdHasExpired(reservation) ? "Giữ chỗ đã hết hạn" : "Đang giữ chỗ"}</h3><strong>{remainingLabel(reservation.expiresAt)}</strong><p>Hết hạn {timeLabel(reservation.expiresAt)}, {dateLabel(reservation.expiresAt)} · {reservation.referenceCode}</p>{!holdHasExpired(reservation) && <><Button disabled={data.pending} onClick={() => navigation.openAction({ kind: "lease", reservationId: reservation.id })}>Ghi nhận hợp đồng & chuyển thuê</Button><p className="panel-note">Ghi nhận thông tin hợp đồng và chuyển slot sang trạng thái đang thuê, không yêu cầu tải PDF.</p><Button variant="secondary" disabled={data.pending} onClick={() => navigation.openAction({ kind: "cancel-hold", reservationId: reservation.id })}>Hủy toàn bộ giữ chỗ</Button></>}</div>}
+      {reservation?.status === "converted" && <div className="b2b-hold-panel"><h3>Đã chuyển sang hợp đồng</h3><ScreenFeedback data={convertedLease}/>{exactLease ? <Button variant="secondary" onClick={() => navigation.openRecord({ kind: "leases", id: exactLease.id })}>Xem hợp đồng</Button> : convertedLease.isLoaded && <Alert tone="warning">Không tìm thấy hợp đồng liên kết với giữ chỗ này.</Alert>}</div>}
+      {reservation?.status === "cancelled" && <p>Giữ chỗ đã hủy. Gửi yêu cầu mới để kiểm tra khả dụng.</p>}
+      {reservation && (reservation.status === "cancelled" || holdHasExpired(reservation)) && <Button variant="secondary" onClick={() => navigation.openAction({ kind: "request", companyId: request.companyId, floor: request.floor, slotIds: request.slotIds })}>Tạo yêu cầu mới từ lựa chọn này</Button>}
+    </> : data.isLoaded && <Empty>Không tìm thấy yêu cầu này.</Empty>}</div>}
+    {view === "leases" && <aside className="b2b-lease-detail records-panel" aria-label="Chi tiết hợp đồng"><ScreenFeedback data={data}/>{lease ? <><div className="b2b-section-heading"><h2>{lease.referenceCode}</h2><Badge tone="success">Hồ sơ đã lưu</Badge></div><h3><Button variant="quiet" onClick={() => openCompany(lease.companyId)}>{companyName(lease.companyId)}</Button></h3><MiniPlan ids={lease.slotIds} floor={lease.floor}/><dl className="b2b-facts"><dt>Mặt bằng</dt><dd>Tầng {lease.floor} · {slotCodes(lease.slotIds)}</dd><dt>Diện tích tham khảo</dt><dd>{area(lease.area)}</dd><dt>Kỳ thuê</dt><dd><Period start={lease.start} end={lease.end}/></dd><dt>Điều khoản thuê</dt><dd>{lease.rentNote}</dd><dt>Số hợp đồng theo tài liệu gốc</dt><dd>{lease.referenceNumber || "Chưa nhập"}</dd><dt>Tài liệu</dt><dd>{lease.documentMediaId ? "Tệp hợp đồng lịch sử lưu riêng tư" : "Hợp đồng gốc lưu bên ngoài hệ thống"}</dd></dl><Button variant="secondary" onClick={() => openSlots(lease.floor, lease.slotIds)}>Xem các slot liên kết</Button>{lease.documentMediaId && <Button variant="quiet" onClick={() => navigation.openRecord({ kind: "media", id: lease.documentMediaId! })}>Xem tài liệu</Button>}</> : data.isLoaded && <Empty>Không tìm thấy hợp đồng này.</Empty>}</aside>}
+    {view === "appointments" && <><CollectionFeedback state={appointmentDetail}/>{appointmentDetail.item ? <div className="b2b-dossier-body"><h2>{appointmentDetail.item.purpose}</h2><Button variant="quiet" onClick={() => openCompany(appointmentDetail.item!.companyId)}>{companyName(appointmentDetail.item.companyId)}</Button><Badge>{appointmentLabels[appointmentDetail.item.status]}</Badge><dl className="b2b-facts"><dt>Thời gian · giờ Việt Nam</dt><dd>{timeLabel(appointmentDetail.item.startsAt)} · {dateLabel(appointmentDetail.item.startsAt)}</dd><dt>Địa điểm</dt><dd>{appointmentDetail.item.location}</dd><dt>Thời lượng</dt><dd>{appointmentDetail.item.durationMinutes} phút</dd></dl><p>Lịch hẹn không tạo cam kết giữ mặt bằng.</p>{appointmentActions(appointmentDetail.item, appointmentDetail.revision)}</div> : !appointmentDetail.loading && !appointmentDetail.error && <Empty>Không tìm thấy lịch hẹn.</Empty>}</>}
+  </div>;
+
+  return <div className="b2b-workspace">{feedback}
+    {view === "customers" && <AdminPanel className="records-panel b2b-enterprise-register">
+      <div className="b2b-enterprise-heading"><div><h2>Doanh nghiệp</h2><p>Quản lý doanh nghiệp và quan hệ thuê mặt bằng.</p></div><CreateRecordButton disabled={data.pending} onClick={() => navigation.openAction({ kind: "company" })}>Thêm doanh nghiệp</CreateRecordButton></div>
+      <dl className="b2b-enterprise-summary" aria-label="Tổng quan doanh nghiệp"><div><dt>Tổng doanh nghiệp</dt><dd>{companyPages.summary?.totalCompanies ?? "—"}</dd></div><div><dt>Đang thuê</dt><dd>{companyPages.summary?.rentingCompanies ?? "—"}</dd></div><div><dt>Có hợp đồng</dt><dd>{companyPages.summary?.withContracts ?? "—"}</dd></div></dl>
+      <div className="b2b-enterprise-filters"><label>Tìm doanh nghiệp<span className="b2b-enterprise-search"><Search size={18} aria-hidden="true"/><Input type="search" maxLength={200} placeholder="Tìm tên, ngành hàng…" value={companiesState.query} onChange={event => { const query = event.target.value; void action(() => setCompaniesState(current => ({ ...current, query }))); }}/></span></label><label>Trạng thái<Select value={companiesState.status} onChange={event => { const status = event.target.value; void action(() => setCompaniesState(current => ({ ...current, status }))); }}><option value="">Tất cả trạng thái</option>{["Đang thuê", "Đang giữ chỗ", "Đang tư vấn", "Chưa thuê"].map(status => <option key={status} value={status}>{status}</option>)}</Select></label></div>
+      <CollectionFeedback state={companyPages}/><PaginatedContent layoutKey={companyPages.pageSize}><Table viewportLabel="Danh sách doanh nghiệp" rows={companyPages.rows} getRowKey={item => item.id} onRowClick={item => openCompany(item.id)} emptyLabel="Không tìm thấy doanh nghiệp phù hợp." columns={[
+        { id: "company", header: "Doanh nghiệp", cell: item => <Button className="b2b-enterprise-name" variant="quiet" aria-haspopup="dialog" onClick={event => { event.stopPropagation(); openCompany(item.id); }}><Avatar className="lead-avatar b2b-company-logo" name={item.name} fallback={item.initials} src={item.logoUrl}/><span><strong>{item.name}</strong><small>{item.industry || "Chưa bổ sung ngành hàng"}</small></span></Button> },
+        { id: "status", header: "Trạng thái", cell: item => <Badge className="b2b-enterprise-status" tone={item.category === "Đang thuê" ? "success" : item.category === "Đang giữ chỗ" ? "warning" : "neutral"}>{item.category ?? "Chưa tải phân loại"}</Badge> },
+        { id: "requests", header: "Yêu cầu", cell: item => item.requestCount ?? "—" }, { id: "leases", header: "Hợp đồng", cell: item => item.leaseCount ?? "—" },
+        { id: "open", header: <span className="sr-only">Thao tác</span>, cell: item => <Button variant="quiet" aria-label={`Mở hồ sơ ${item.name}`} onClick={event => { event.stopPropagation(); openCompany(item.id); }}><ChevronRight size={18} aria-hidden="true"/></Button> },
+      ]} mobileCard={item => <Button variant="quiet" className="b2b-enterprise-mobile-row" aria-haspopup="dialog" onClick={() => openCompany(item.id)}><Avatar className="lead-avatar b2b-company-logo" name={item.name} fallback={item.initials} src={item.logoUrl}/><span><strong>{item.name}</strong><small>{item.industry || "Chưa bổ sung ngành hàng"}</small><Badge>{item.category ?? "Chưa tải phân loại"}</Badge><small>{item.requestCount ?? "—"} yêu cầu · {item.leaseCount ?? "—"} hợp đồng</small></span><ChevronRight size={18} aria-hidden="true"/></Button>}/></PaginatedContent><AdminPagination state={companyPages} label="doanh nghiệp"/>
+    </AdminPanel>}
+    {view === "requests" && <><ol className="b2b-process" aria-label="Quy trình thuê"><li><span>1</span>Gửi yêu cầu<small>Chưa giữ slot</small></li><li><span>2</span>Xét duyệt<small>Kiểm tra tổ hợp</small></li><li><span>3</span>Giữ chỗ<small>Có thời hạn</small></li><li><span>4</span>Hợp đồng<small>Ghi nhận thông tin thuê</small></li></ol><AdminPanel className="records-panel"><div className="b2b-panel-heading b2b-inline-heading"><h2>Yêu cầu thuê <span>{requestPages.total}</span></h2><CreateRecordButton disabled={data.pending} onClick={() => navigation.openAction({ kind: "request" })}>Thêm yêu cầu thuê</CreateRecordButton><label><span className="sr-only">Lọc yêu cầu thuê</span><Select value={requestsState.status} onChange={event => { const status = event.target.value; void action(() => setRequestsState(current => ({ ...current, status, page: 1 }))); }}><option value="">Tất cả trạng thái</option>{Object.entries({ ...requestLabels, active: "Đang giữ chỗ", expired: "Giữ chỗ hết hạn", cancelled: "Giữ chỗ đã hủy", converted: "Đã chuyển thuê" }).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</Select></label></div><PaginatedContent layoutKey={requestPages.pageSize}>{data.requests.map(item => <Button variant="quiet" className="b2b-request-row" key={item.id} aria-haspopup="dialog" onClick={() => navigation.openRecord({ kind: "requests", id: item.id })}><span className="b2b-request-company">{companyName(item.companyId)}<Badge>{businessRequestLabel(item, data.reservations.find(hold => hold.requestId === item.id))}</Badge></span><strong>Tầng {item.floor} · {slotCodes(item.slotIds)}</strong><span>{area(item.area)} · <Period start={item.start} end={item.end}/></span><small>{item.referenceCode} · Gửi {dateLabel(item.received)}</small></Button>)}{data.isLoaded && !data.requests.length && <Empty>Không có yêu cầu ở trạng thái này.</Empty>}</PaginatedContent><AdminPagination state={requestPages} label="yêu cầu thuê"/></AdminPanel></>}
+    {view === "leases" && <AdminPanel className="records-panel"><div className="b2b-panel-heading"><h2>Danh mục hợp đồng <span>{leasePages.total}</span></h2><div className="b2b-contract-filters b2b-contract-search"><label>Tìm hợp đồng<Input type="search" maxLength={200} value={leasesState.query} placeholder="Tìm mã, doanh nghiệp, slot…" onChange={event => { const query = event.target.value; void action(() => setLeasesState(current => ({ ...current, query, page: 1 }))); }}/></label>{leasesState.companyId && <div className="b2b-contract-company-filter"><span>{companyName(leasesState.companyId)}</span><Button variant="quiet" onClick={() => void action(() => setLeasesState(current => ({ ...current, companyId: "", page: 1 })))}>Xóa lọc doanh nghiệp</Button></div>}</div></div><PaginatedContent layoutKey={leasePages.pageSize}><Table viewportLabel="Danh sách hợp đồng, có thể cuộn ngang" rows={data.leases} getRowKey={item => item.id} onRowClick={item => navigation.openRecord({ kind: "leases", id: item.id })} emptyLabel="Không tìm thấy hợp đồng phù hợp." columns={[
+      { id: "company", header: "Hợp đồng / doanh nghiệp", cell: item => <><strong>{item.referenceCode}</strong><small>{companyName(item.companyId)}</small></> }, { id: "space", header: "Mặt bằng", cell: item => <>Tầng {item.floor}<small>{slotCodes(item.slotIds)} · {area(item.area)}</small></> }, { id: "end", header: "Ngày kết thúc", cell: item => dateLabel(item.end) }, { id: "action", header: "Thao tác", cell: item => <Button variant="quiet" aria-label={`Xem hợp đồng ${item.referenceCode}`} onClick={event => { event.stopPropagation(); navigation.openRecord({ kind: "leases", id: item.id }); }}>Chi tiết</Button> },
+    ]}/></PaginatedContent><AdminPagination state={leasePages} label="hợp đồng"/><p className="panel-note">Hết kỳ thuê chưa đồng nghĩa sẵn sàng cho khách mới. Cần xác nhận gia hạn và bàn giao.</p></AdminPanel>}
+    {view === "appointments" && <div className="b2b-appointments-layout"><AdminPanel className="records-panel b2b-appointments-panel"><div className="b2b-appointments-header"><div className="b2b-appointments-title"><span className="b2b-appointments-icon"><CalendarDays size={28} aria-hidden="true"/></span><div><h2>Lịch tư vấn & khảo sát</h2><p>Quản lý các lịch hẹn tư vấn, khảo sát mặt bằng với khách hàng và đối tác.</p></div></div><Button className="b2b-appointment-add" disabled={data.pending} onClick={() => navigation.openAction({ kind: "appointment" })}><Plus size={20} aria-hidden="true"/>Thêm lịch hẹn</Button></div><div className="b2b-appointment-filters"><label>Tìm lịch hẹn<span className="b2b-appointment-search"><Search size={20} aria-hidden="true"/><Input type="search" value={appointmentsState.query} maxLength={200} placeholder="Tìm nội dung, địa điểm, doanh nghiệp…" onChange={event => { const query = event.target.value; void action(() => setAppointmentsState(current => ({ ...current, query }))); }}/></span></label><label>Trạng thái<Select value={appointmentsState.status} onChange={event => { const status = event.target.value; void action(() => setAppointmentsState(current => ({ ...current, status }))); }}><option value="">Tất cả trạng thái</option>{Object.entries(appointmentLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></label></div><div className="b2b-appointment-notice"><Info size={20} aria-hidden="true"/><p><strong>Giờ Việt Nam</strong> · Lịch hẹn không tạo cam kết giữ mặt bằng.</p></div><CollectionFeedback state={appointmentPages}/><PaginatedContent className="b2b-appointment-list" layoutKey={appointmentPages.pageSize}>{appointmentPages.rows.map(item => <div className="b2b-appointment-row" key={item.id}><div className="b2b-time"><span>{new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", weekday: "short" }).format(new Date(item.startsAt))}</span><strong><time dateTime={item.startsAt}>{timeLabel(item.startsAt)}</time></strong><small>{dateLabel(item.startsAt)}</small></div><div className="b2b-appointment-detail"><Button variant="quiet" className="b2b-appointment-purpose" onClick={() => navigation.openRecord({ kind: "appointments", id: item.id })}>{item.purpose}</Button><Button variant="quiet" className="b2b-appointment-company" onClick={() => openCompany(item.companyId)}>{companyName(item.companyId)}</Button><div className="b2b-appointment-meta"><span><MapPin size={17} aria-hidden="true"/>{item.location}</span><span><Clock3 size={17} aria-hidden="true"/>{item.durationMinutes} phút</span></div><Badge className="b2b-appointment-status" tone={item.status === "confirmed" || item.status === "completed" ? "success" : item.status === "requested" ? "warning" : item.status === "no_show" ? "error" : "neutral"}>{item.status === "confirmed" || item.status === "completed" ? <CircleCheck size={16} aria-hidden="true"/> : item.status === "requested" ? <Clock3 size={16} aria-hidden="true"/> : <X size={16} aria-hidden="true"/>}{appointmentLabels[item.status]}</Badge></div>{appointmentActions(item, appointmentPages.revision)}</div>)}{!appointmentPages.loading && !appointmentPages.error && !appointmentPages.total && <Empty>Không có lịch hẹn phù hợp. Thêm lịch hoặc đổi bộ lọc.</Empty>}</PaginatedContent><AdminPagination state={appointmentPages} label="lịch hẹn"/></AdminPanel></div>}
   </div>;
 }

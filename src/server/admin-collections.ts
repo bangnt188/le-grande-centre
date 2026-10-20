@@ -2,10 +2,10 @@ import "server-only";
 import type { AdminCollectionName, AdminCollectionQuery, AdminCollectionItems, AdminCollectionPage, AdminCollectionDetail } from "../shared/admin/collection-contracts";
 import { BackendError } from "@shared/backend";
 import { withAdminTransaction, WorkspaceError, type AdminIdentity } from "./database";
-import { createAdminCrudServices } from "./admin-crud";
+import { createAdminCrudServices, readCompanySummary } from "./admin-crud";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const statuses: Record<AdminCollectionName, readonly string[]> = { companies: [], leads: ["Mới", "Đang tư vấn", "Đã xử lý"], appointments: ["requested", "confirmed", "completed", "cancelled", "no_show"] };
+const statuses: Record<AdminCollectionName, readonly string[]> = { companies: ["Đang thuê", "Đang giữ chỗ", "Đang tư vấn", "Chưa thuê"], leads: ["Mới", "Đang tư vấn", "Đã xử lý"], appointments: ["requested", "confirmed", "completed", "cancelled", "no_show"] };
 export function parseCollectionName(value: string): AdminCollectionName {
   if (value !== "companies" && value !== "leads" && value !== "appointments") throw new WorkspaceError("Unknown collection", 404);
   return value;
@@ -15,7 +15,7 @@ export function parseCollectionId(value: string): string {
   return value;
 }
 export function parseCollectionQuery(collection: AdminCollectionName, params: URLSearchParams): AdminCollectionQuery {
-  const allowed = ["page", "pageSize", "query", "status", "ids", "companyId"];
+  const allowed = ["page", "pageSize", "query", "status", "ids", "companyId", "includeSummary"];
   for (const key of params.keys()) if (!allowed.includes(key) || params.getAll(key).length !== 1) throw new WorkspaceError("Unexpected query parameters");
   const integer = (key: string, fallback: number, max: number) => {
     const raw = params.get(key);
@@ -35,6 +35,10 @@ export function parseCollectionQuery(collection: AdminCollectionName, params: UR
     const status = params.get("status")!;
     if (!statuses[collection].includes(status)) throw new WorkspaceError("Invalid status");
     result.status = status;
+  }
+  if (params.has("includeSummary")) {
+    if (collection !== "companies" || params.get("includeSummary") !== "true") throw new WorkspaceError("Invalid summary option");
+    result.includeSummary = true;
   }
   if (params.has("companyId")) {
     if (collection === "companies") throw new WorkspaceError("Invalid company filter");
@@ -58,7 +62,8 @@ export async function readAdminCollection<C extends AdminCollectionName>(identit
     if (!revision) throw new WorkspaceError("Property not found", 404);
     const crud = createAdminCrudServices(identity, client, request, { query });
     const result = await crud[collection].list(crud.request, query);
-    return { ...result, revision: Number(revision.workspace_revision) } as AdminCollectionPage<AdminCollectionItems[C]>;
+    const summary = collection === "companies" && query.includeSummary ? await readCompanySummary(client, identity.propertyId) : undefined;
+    return { ...result, ...(summary ? { summary } : {}), revision: Number(revision.workspace_revision) } as AdminCollectionPage<AdminCollectionItems[C]>;
   }).catch(collectionError);
 }
 export async function readAdminCollectionItem<C extends AdminCollectionName>(identity: AdminIdentity, collection: C, id: string, request?: Request): Promise<AdminCollectionDetail<AdminCollectionItems[C]>> {

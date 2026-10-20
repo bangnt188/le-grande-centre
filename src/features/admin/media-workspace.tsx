@@ -6,7 +6,7 @@ import {
   Alert,
   Badge,
   Button,
-  ConfirmDialog,
+  ConfirmSheet,
   EmptyState,
   Input,
   PaginatedContent,
@@ -14,16 +14,16 @@ import {
   Select,
   Textarea,
   Video,
-  WorkspaceLayout,
   type ToastTone,
 } from "@mall/ui";
 import type { AdminMediaPage, MediaItem } from "@/shared/admin/contracts";
-import { FLOORS, type Floor } from "@/shared/admin/space-model";
+import { FLOORS } from "@/shared/admin/space-model";
 import { storageState } from "@/shared/admin/storage-policy";
-import { useAdminData, type AdminData } from "./use-admin-data";
+import type { AdminData } from "./use-admin-data";
 import { AdminEditor } from "./admin-editor";
+import { AdminMediaField } from "./admin-media-field";
 import { AdminPagination } from "./admin-pagination";
-import { useRecordDetail } from "./use-record-detail";
+import { useAdminListState, useAdminWorkspaceNavigation, type AdminRecordTarget } from "./admin-workspace-navigation";
 import { StorageUsagePanel } from "./storage-usage-panel";
 import { adminRequest, ensureSession } from "./session";
 import { screenCache, makeCacheKey } from "./memory-cache";
@@ -33,13 +33,14 @@ import styles from "./admin-records.module.css";
 type Props = {
   data: AdminData;
   onMessage: (message: string, tone?: ToastTone) => void;
-  initialMediaId?: string;
-  initialScope?: string;
+  mode?: "list" | "detail";
+  record?: AdminRecordTarget;
 };
 
 const field = (form: FormData, name: string) => String(form.get(name) ?? "").trim();
 
-export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }: Props) {
+export function MediaWorkspace({ data, onMessage, mode = "list", record }: Props) {
+  const navigation = useAdminWorkspaceNavigation();
   // Destructure stable primitives and functions from data to avoid whole data object deps
   const {
     sessionKey,
@@ -55,12 +56,9 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
     revision: dataRevision,
   } = data;
 
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(24);
-  const [query, setQuery] = useState("");
-  const [kind, setKind] = useState<string>("");
-  const [source, setSource] = useState<string>("");
-  const [scopeFilter, setScopeFilter] = useState("");
+  const [filters, setFilters] = useAdminListState("media", { page: 1, pageSize: 24, query: "", kind: "", source: "", scope: "" });
+  const { page, pageSize, query, kind, source } = filters;
+  const scopeFilter = navigation.location.scope ?? filters.scope;
 
   const mediaKey = makeCacheKey(sessionKey, "", "media", { page, pageSize, query: query.trim() || undefined, kind: kind || undefined, source: source || undefined, scope: scopeFilter || undefined });
   const [mediaResult, setMediaResult] = useState<{ key: string; version: number; value: AdminMediaPage } | null>(null);
@@ -69,23 +67,24 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
   const [fetchError, setFetchError] = useState("");
 
   // Click-only preview: NO auto-first preview
-  const [selectedId, setSelectedId] = useState<string | null>(initialMediaId ?? null);
-  const [selectedItem, setSelectedItem] = useState<MediaItem | null>(null);
+  const selectedId = mode === "detail" ? record?.id ?? null : null;
+  const [detailItem, setSelectedItem] = useState<MediaItem | null>(null);
+  const selectedItem = detailItem?.id === selectedId ? detailItem : null;
   const [detailRevision, setDetailRevision] = useState<number | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
   const selectedIdRef = useRef<string | null>(selectedId);
   selectedIdRef.current = selectedId;
 
-  const [editor, setEditor] = useState<"upload" | "rename" | "link" | null>(null);
+  const [editor, setEditor] = useState<"upload" | "rename" | null>(null);
   const [editingMedia, setEditingMedia] = useState<MediaItem | null>(null);
+  const [uploadFilesSelection, setUploadFilesSelection] = useState<File[]>([]);
   const [deleting, setDeleting] = useState<MediaItem | null>(null);
   const [reviewing, setReviewing] = useState<MediaItem | null>(null);
+  const [editingRevision, setEditingRevision] = useState<number | undefined>();
 
   const dialogHost = useRef<HTMLDivElement>(null);
   const deletingRef = useRef(false);
-  const details = useRecordDetail("media");
-  const openDetail = details.openDetail;
 
   const requestSerial = useRef(0);
   const currentKey = useRef(mediaKey);
@@ -138,7 +137,7 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
       setMediaResult({ key: cacheKey, version: cacheVersion, value: result });
       setSourceRevision("media", result.revision);
       if (result.totalPages > 0 && page > result.totalPages) {
-        setPage(result.totalPages);
+        setFilters(previous => ({ ...previous, page: result.totalPages }));
       }
     } catch (err: unknown) {
       if (signal?.aborted || serial !== requestSerial.current || currentKey.current !== cacheKey || sessionKey !== requestSessionKey) {
@@ -154,19 +153,12 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
 
   // Initial and reactive effect: wait for session ready; abort/stale identity response cannot overwrite after filter/account change; mutation refreshes CURRENT page only via cacheVersion
   useEffect(() => {
-    if (!sessionKey) return;
+    if (!sessionKey || mode !== "list") return;
     const controller = new AbortController();
     void fetchMedia(controller.signal);
     return () => controller.abort();
-  }, [fetchMedia, cacheVersion, sessionKey]);
+  }, [fetchMedia, cacheVersion, sessionKey, mode]);
 
-  // When initialMediaId changes, select it and open detail without looping on details object
-  useEffect(() => {
-    if (initialMediaId) {
-      setSelectedId(initialMediaId);
-      openDetail();
-    }
-  }, [initialMediaId, openDetail]);
 
   const fetchDetail = useCallback(async (id: string, signal?: AbortSignal) => {
     if (!id || !sessionKey) return;
@@ -226,40 +218,23 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
     return () => controller.abort();
   }, [selectedId, mediaPage, fetchDetail, cacheVersion]);
 
-  // Detail panel unmounted or closed: unmount immediately, no stale preview
-  useEffect(() => {
-    if (!details.open) {
-      setSelectedId(null);
-      setSelectedItem(null);
-      setDetailRevision(null);
-      setDetailError("");
-      setDetailLoading(false);
-    }
-  }, [details.open]);
 
   // Scope picker bounded lookup state
   const [extraScopeLabels, setExtraScopeLabels] = useState<Record<string, string>>({});
-  const [scopeFloor, setScopeFloor] = useState<Floor | null>(null);
   const [scopeError, setScopeError] = useState("");
-  const [scopeChoice, setScopeChoice] = useState(initialScope ?? "Toàn dự án");
-  useEffect(() => { setScopeChoice(editingMedia?.scope ?? initialScope ?? "Toàn dự án"); }, [editor, editingMedia?.id, editingMedia?.scope, initialScope]);
-  const scopeData = useAdminData(editor && editor !== "rename" && scopeFloor ? "spaces" : null, { floor: scopeFloor ?? 1 });
 
   const baseScopes = useMemo(() => [
     { value: "Toàn dự án", label: "Toàn dự án" },
     ...FLOORS.map((floor) => ({ value: `Tầng ${floor}`, label: `Tầng ${floor}` })),
-    ...(scopeData.screenData && "slots" in scopeData.screenData ? scopeData.screenData.slots.map(slot => ({ value: `slot:${slot.id}`, label: `Tầng ${slot.floor} · ${slot.code}` })) : []),
-    ...(scopeData.screenData && "groups" in scopeData.screenData ? scopeData.screenData.groups.map(group => ({ value: `group:${group.id}`, label: `Tầng ${group.floor} · Nhóm ${group.name}` })) : []),
-  ], [scopeData.screenData]);
+  ], []);
 
   const referencedScopes = useMemo(() => {
     const set = new Set<string>();
-    if (initialScope) set.add(initialScope);
+    if (scopeFilter) set.add(scopeFilter);
     if (editingMedia?.scope) set.add(editingMedia.scope);
     if (selectedItem?.scope) set.add(selectedItem.scope);
-    set.add(scopeChoice);
     return Array.from(set);
-  }, [initialScope, editingMedia?.scope, selectedItem?.scope, scopeChoice]);
+  }, [scopeFilter, editingMedia?.scope, selectedItem?.scope]);
 
   useEffect(() => {
     if (!sessionKey) return;
@@ -326,8 +301,7 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
   const handleQueryChange = async (val: string) => {
     try {
       await ensureSession({ userAction: true });
-      setQuery(val);
-      setPage(1);
+      setFilters(previous => ({ ...previous, query: val, page: 1 }));
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : "Phiên làm việc hết hạn.");
     }
@@ -336,8 +310,7 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
   const handleKindChange = async (val: string) => {
     try {
       await ensureSession({ userAction: true });
-      setKind(val);
-      setPage(1);
+      setFilters(previous => ({ ...previous, kind: val, page: 1 }));
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : "Phiên làm việc hết hạn.");
     }
@@ -346,8 +319,7 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
   const handleSourceChange = async (val: string) => {
     try {
       await ensureSession({ userAction: true });
-      setSource(val);
-      setPage(1);
+      setFilters(previous => ({ ...previous, source: val, page: 1 }));
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : "Phiên làm việc hết hạn.");
     }
@@ -356,8 +328,8 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
   const handleScopeFilterChange = async (val: string) => {
     try {
       await ensureSession({ userAction: true });
-      setScopeFilter(val);
-      setPage(1);
+      setFilters(previous => ({ ...previous, scope: val, page: 1 }));
+      if (navigation.location.scope) navigation.navigateView("media", { scope: val });
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : "Phiên làm việc hết hạn.");
     }
@@ -366,11 +338,8 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
   const handleClearFilters = async () => {
     try {
       await ensureSession({ userAction: true });
-      setQuery("");
-      setKind("");
-      setScopeFilter("");
-      setSource("");
-      setPage(1);
+      setFilters(previous => ({ ...previous, query: "", kind: "", scope: "", source: "", page: 1 }));
+      if (navigation.location.scope) navigation.navigateView("media");
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : "Phiên làm việc hết hạn.");
     }
@@ -379,7 +348,7 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
   const handlePageChange = async (p: number) => {
     try {
       await ensureSession({ userAction: true });
-      setPage(p);
+      setFilters(previous => ({ ...previous, page: p }));
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : "Phiên làm việc hết hạn.");
     }
@@ -388,25 +357,12 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
   const handlePageSizeChange = async (ps: number) => {
     try {
       await ensureSession({ userAction: true });
-      setPageSize(ps);
-      setPage(1);
+      setFilters(previous => ({ ...previous, pageSize: ps, page: 1 }));
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : "Phiên làm việc hết hạn.");
     }
   };
 
-  const handleTileClick = async (item: MediaItem, target: HTMLElement) => {
-    try {
-      await ensureSession({ userAction: true });
-      setSelectedId(item.id);
-      setSelectedItem(item);
-      setDetailRevision(mediaPage?.revision ?? null);
-      setDetailError("");
-      details.openDetail("media", target);
-    } catch (err) {
-      setFetchError(err instanceof Error ? err.message : "Phiên làm việc hết hạn.");
-    }
-  };
 
   const paginationState = {
     rows: items,
@@ -440,9 +396,16 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
     }
     return ok;
   }, [reconcileStorage, mediaPage?.revision, dataRevision, onMessage, fetchMedia, selectedId, fetchDetail]);
+  async function begin(change: () => void) {
+    if (pending) return;
+    try { await ensureSession({ userAction: true }); change(); }
+    catch (issue) { onMessage(issue instanceof Error ? issue.message : "Không thể thực hiện thao tác.", "error"); }
+  }
 
   return (
-    <div ref={details.scopeRef} className={styles.workspace}>
+    <div className={styles.workspace}>
+      {scopeError && <Alert tone="error">{scopeError}</Alert>}
+      {mode === "list" && <>
       <StorageUsagePanel usage={usage} pending={pending} onReconcile={handleReconcile} />
 
       <p className="panel-note">
@@ -455,11 +418,13 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
           Ảnh tối đa 4 megapixel và 4096 px mỗi cạnh.
         </p>
         <Button
-          disabled={pending || state.blocked}
-          onClick={() => {
+          disabled={pending || state.blocked || mediaPage?.revision == null}
+          onClick={() => void begin(() => {
             setEditingMedia(null);
+            setEditingRevision(mediaPage?.revision);
+            setUploadFilesSelection([]);
             setEditor("upload");
-          }}
+          })}
         >
           Tải tệp lên
         </Button>
@@ -467,24 +432,7 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
 
       {fetchError && <Alert tone="error">{fetchError}</Alert>}
 
-      <WorkspaceLayout
-        className={`records-layout ${styles.layout}`}
-        mobilePresentation="drilldown"
-        detailOpen={details.open}
-        onDetailOpenChange={(open) => {
-          details.setOpen(open);
-          if (!open) {
-            setSelectedId(null);
-            setSelectedItem(null);
-            setDetailRevision(null);
-            setDetailError("");
-            setDetailLoading(false);
-          }
-        }}
-        returnFocusRef={details.returnFocusRef}
-        detailLabel="Chi tiết tệp"
-        backLabel="Quay lại thư viện media"
-        primary={
+      {navigation.location.scope && <Button variant="quiet" onClick={() => { setFilters(previous => ({ ...previous, scope: "", page: 1 })); navigation.navigateView("media"); }}>Mở toàn bộ thư viện tệp</Button>}
           <AdminPanel className="records-panel">
             <div className="register-heading">
               <h2>
@@ -559,9 +507,8 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
                     variant="quiet"
                     className={styles.tile}
                     aria-pressed={selectedId === item.id}
-                    onClick={(event) => {
-                      void handleTileClick(item, event.currentTarget);
-                    }}
+                    aria-haspopup="dialog"
+                    onClick={() => navigation.openRecord({ kind: "media", id: item.id })}
                   >
                     <span className={styles.thumbnail}>
                       {item.thumbnailUrl ? (
@@ -616,9 +563,8 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
 
             {mediaPage && <AdminPagination state={paginationState} label="tệp" />}
           </AdminPanel>
-        }
-        detail={
-          <AdminPanel className={`records-panel ${styles.detail}`}>
+      </>}
+      {mode === "detail" && <div className={styles.detail}>
             {detailLoading ? (
               <p role="status">Đang tải chi tiết tệp…</p>
             ) : detailError ? (
@@ -682,7 +628,7 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
                         Tải tệp cách ly để kiểm tra bên ngoài
                       </a>
                     )}
-                    <Button disabled={pending} onClick={() => setReviewing(selectedItem)}>
+                    <Button disabled={pending} onClick={() => void begin(() => { setEditingRevision(currentRevision(selectedItem.id)); setReviewing(selectedItem); })}>
                       Duyệt sau kiểm tra bên ngoài
                     </Button>
                   </div>
@@ -714,27 +660,18 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
                     <Button
                       variant="secondary"
                       disabled={pending}
-                      onClick={() => {
+                      onClick={() => void begin(() => {
                         setEditingMedia(selectedItem);
+                        setEditingRevision(currentRevision(selectedItem.id));
                         setEditor("rename");
-                      }}
+                      })}
                     >
                       Đổi tên
                     </Button>
                     <Button
                       variant="secondary"
                       disabled={pending || protectedMedia}
-                      onClick={() => {
-                        setEditingMedia(selectedItem);
-                        setEditor("link");
-                      }}
-                    >
-                      Đổi liên kết
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      disabled={pending || protectedMedia}
-                      onClick={() => setDeleting(selectedItem)}
+                      onClick={() => void begin(() => { setEditingRevision(currentRevision(selectedItem.id)); setDeleting(selectedItem); })}
                     >
                       Xóa tệp
                     </Button>
@@ -746,9 +683,7 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
                 Chọn ảnh, video hoặc tài liệu để xem thông tin chi tiết.
               </EmptyState>
             )}
-          </AdminPanel>
-        }
-      />
+      </div>}
 
       {editor && (
         <AdminEditor
@@ -756,12 +691,11 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
           title={
             editor === "upload"
               ? "Tải tệp lên"
-              : editor === "rename"
-              ? "Đổi tên tệp"
-              : "Đổi liên kết tệp"
+            : "Đổi tên tệp"
           }
           description="Ảnh website lưu trên Neon. PDF nội bộ lưu R2 riêng tư và cách ly đến khi được duyệt thủ công sau kiểm tra bên ngoài."
           saveLabel={editor === "upload" ? "Lưu tệp" : "Lưu thay đổi"}
+          saveDisabled={editor === "upload" && !uploadFilesSelection.length}
           onClose={() => {
             setEditor(null);
             setEditingMedia(null);
@@ -769,28 +703,18 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
           onSave={async (form) => {
             let saved = false;
             if (editor === "upload") {
-              const files = form
-                .getAll("files")
-                .filter((value): value is File => value instanceof File && value.size > 0);
-              if (!files.length) return false;
-              const expectedRev = mediaPage?.revision ?? (dataRevision ?? undefined);
-              saved = await uploadFiles(files, field(form, "scope"), expectedRev);
+              if (!uploadFilesSelection.length || editingRevision == null) return false;
+              saved = await uploadFiles(uploadFilesSelection, "Toàn dự án", editingRevision, receipt => {
+                setEditingRevision(receipt.revision);
+                setUploadFilesSelection([]);
+              });
             } else if (editingMedia) {
-              const expectedRev = currentRevision(editingMedia.id);
-              saved = await execute(
-                editor === "rename"
-                  ? {
-                      type: "rename-media",
-                      mediaId: editingMedia.id,
-                      name: field(form, "name"),
-                    }
-                  : {
-                      type: "link-media",
-                      mediaId: editingMedia.id,
-                      scope: field(form, "scope"),
-                    },
-                expectedRev
-              );
+              const expectedRev = editingRevision;
+              saved = await execute({
+                type: "rename-media",
+                mediaId: editingMedia.id,
+                name: field(form, "name"),
+              }, expectedRev);
             }
             if (saved) {
               onMessage(
@@ -802,49 +726,13 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
             return saved;
           }}
         >
-          {(scopeError || scopeData.error) && <Alert tone="error">{scopeError || scopeData.error}</Alert>}
-          {editor !== "rename" && <label>
-            Tải danh sách căn / nhóm theo tầng
-            <Select value={scopeFloor ?? ""} onChange={event => {
-              const floor = Number(event.target.value) as Floor;
-              void ensureSession({ userAction: true }).then(() => { setScopeError(""); setScopeFloor(FLOORS.includes(floor) ? floor : null); }).catch(issue => setScopeError(issue instanceof Error ? issue.message : "Không thể tải phiên."));
-            }}>
-              <option value="">Chọn tầng nếu cần liên kết căn / nhóm</option>
-              {FLOORS.map(floor => <option key={floor} value={floor}>Tầng {floor}</option>)}
-            </Select>
-          </label>}
-          {scopeData.loading && <LoadingIndicator label="Đang tải căn / nhóm của tầng…"/>}
           {editor === "upload" && (
-            <label>
-              Chọn tệp
-              <Input
-                name="files"
-                type="file"
-                multiple
-                required
-                accept="image/png,image/jpeg,image/webp,application/pdf"
-              />
-            </label>
+            <AdminMediaField data={data} id="media-files" name="files" label="Chọn tệp" files={uploadFilesSelection} onFilesChange={setUploadFilesSelection} libraryEnabled={false} max={4} allowPdf/>
           )}
-          {editor === "rename" ? (
+          {editor === "rename" && (
             <label>
               Tên tệp
               <Input name="name" required maxLength={160} defaultValue={editingMedia?.name} />
-            </label>
-          ) : (
-            <label>
-              Liên kết với
-              <Select
-                name="scope"
-                value={scopeChoice}
-                onChange={event => setScopeChoice(event.target.value)}
-              >
-                {scopes.map((scope) => (
-                  <option key={scope.value} value={scope.value}>
-                    {scope.label}
-                  </option>
-                ))}
-              </Select>
             </label>
           )}
         </AdminEditor>
@@ -852,8 +740,10 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
 
       <div ref={dialogHost} className="admin-dialog-host" />
 
-      <ConfirmDialog
+      <ConfirmSheet
         open={!!deleting}
+        pending={pending}
+        error={dataError || fetchError}
         title="Xóa tệp đã lưu?"
         description={
           deleting
@@ -874,20 +764,18 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
           if (!deleting || deletingRef.current || pending) return;
           deletingRef.current = true;
           const targetId = deleting.id;
-          const expectedRev = currentRevision(targetId);
+          const expectedRev = editingRevision;
           const willBeEmptyPage = items.length === 1 && page > 1;
           void execute({ type: "delete-media", mediaId: targetId }, expectedRev)
             .then((saved) => {
               if (saved) {
                 setDeleting(null);
                 if (selectedId === targetId) {
-                  setSelectedId(null);
-                  setSelectedItem(null);
-                  setDetailError("");
+                  navigation.closeDetail();
                 }
                 onMessage("Đã xóa tệp khỏi hệ thống.");
                 if (willBeEmptyPage) {
-                  setPage((prev) => Math.max(1, prev - 1));
+                  setFilters(previous => ({ ...previous, page: Math.max(1, previous.page - 1) }));
                 }
               } else {
                 onMessage("Chưa xóa được tệp. Kiểm tra lỗi và thử lại.", "error");
@@ -909,10 +797,9 @@ export function MediaWorkspace({ data, onMessage, initialMediaId, initialScope }
           onClose={() => setReviewing(null)}
           onSave={async (form) => {
             if (form.get("confirmed") !== "on") return false;
-            const expectedRev = currentRevision(reviewing.id);
+            const expectedRev = editingRevision;
             const saved = await reviewMedia(reviewing.id, field(form, "note"), expectedRev);
             if (saved) {
-              setReviewing(null);
               onMessage("Đã ghi nhận người duyệt và mở quyền sử dụng tài liệu.");
             }
             return saved;

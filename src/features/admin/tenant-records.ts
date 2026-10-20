@@ -15,8 +15,8 @@ export function tenantRecords(data: Pick<B2BData, "companies" | "leases"> & { sl
     const company = data.companies.find(item => item.id === companyId);
     const leases = data.leases.filter(lease => lease.companyId === companyId);
     const ids = new Set(leases.flatMap(lease => lease.slotIds));
-    return { id: companyId, name: company?.name ?? `Chưa tải được hồ sơ doanh nghiệp (${companyId})`, label: "Doanh nghiệp trong hồ sơ thuê", leases: leases.map(lease => lease.id).join(", "), slots: data.slots.filter(slot => ids.has(slot.id)) };
+    return { id: companyId, name: company?.name ?? "Doanh nghiệp chưa có thông tin", label: "Doanh nghiệp trong hồ sơ thuê", leases: leases.map(lease => lease.referenceCode).join(", "), slots: data.slots.filter(slot => ids.has(slot.id)) };
   });
-  const manual = data.slots.filter(slot => (slot.status === "Đã thuê" || slot.status === "Đang thuê") && !leasedIds.has(slot.id)).map(slot => ({ id: `manual:${slot.id}`, name: slot.tenant.trim() || "Chưa ghi tên bên thuê", label: "Ghi nhận trực tiếp trên slot · chưa có hồ sơ thuê liên kết", leases: "—", slots: [slot] }));
+  const manual = data.slots.filter(slot => ["Đã ký", "Đã thuê"].includes(slot.status) && !leasedIds.has(slot.id)).map(slot => ({ id: `manual:${slot.id}`, name: slot.tenant.trim() || "Chưa ghi tên bên thuê", label: "Ghi nhận trực tiếp trên slot · chưa có hồ sơ thuê liên kết", leases: "—", slots: [slot] }));
   return [...registered, ...manual];
 }

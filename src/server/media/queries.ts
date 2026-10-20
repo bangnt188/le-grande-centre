@@ -34,6 +34,7 @@ export function parseMediaQuery(params: URLSearchParams): AdminMediaQuery {
 const mediaFrom = `FROM leasing.document_versions v JOIN leasing.documents d ON d.id=v.document_id AND d.property_id=v.property_id JOIN leasing.media_object_state s ON s.document_version_id=v.id AND s.property_id=v.property_id`;
 const mediaColumns = `v.id,d.title,v.content_type,d.media_scope,v.byte_size::text,s.state,v.public_url,v.manual_reviewed_at,
  CASE WHEN EXISTS(SELECT 1 FROM leasing.website_settings w WHERE w.property_id=v.property_id AND w.logo_media_id=v.id) THEN 'Chọn và lưu logo khác trước khi xóa logo hiện tại.'
+ WHEN EXISTS(SELECT 1 FROM leasing.property_customers pc WHERE pc.property_id=v.property_id AND pc.logo_media_id=v.id AND pc.deleted_at IS NULL) THEN 'Gỡ hoặc thay logo doanh nghiệp trước khi xóa hay đổi liên kết tệp.'
  WHEN EXISTS(SELECT 1 FROM leasing.lease_documents ld WHERE ld.property_id=v.property_id AND ld.document_version_id=v.id)
  OR EXISTS(SELECT 1 FROM leasing.plan_documents pd WHERE pd.property_id=v.property_id AND pd.document_version_id=v.id)
  OR EXISTS(SELECT 1 FROM leasing.document_retention dr WHERE dr.property_id=v.property_id AND dr.document_version_id=v.id AND (dr.legal_hold OR dr.retention_until>now()))

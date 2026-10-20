@@ -145,6 +145,17 @@ test("malformed screen and collection DTOs fail closed instead of inventing load
   assert.deepEqual(parseCollectionPage("companies", { revision: 14, items: [], page: 1, pageSize: 20, totalItems: 0, totalPages: 0 }), { revision: 14, items: [], page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
 });
 
+test("company overview validates totals without requiring summaries on picker responses", () => {
+  const page = { revision: 14, items: [], page: 1, pageSize: 20, totalItems: 0, totalPages: 0 };
+  const summary = { totalCompanies: 105, rentingCompanies: 2, withContracts: 2 };
+  assert.deepEqual(parseCollectionPage("companies", { ...page, summary }).summary, summary);
+  assert.equal(parseCollectionPage("companies", page).summary, undefined);
+  for (const bad of [null, {}, { ...summary, totalCompanies: -1 }, { ...summary, rentingCompanies: "2" }]) {
+    assert.throws(() => parseCollectionPage("companies", { ...page, summary: bad }), AdminSessionError);
+  }
+  assert.throws(() => parseCollectionPage("leads", { ...page, summary }), AdminSessionError);
+});
+
 test("a brochure slot with unspecified width still renders, but negative dimensions fail", () => {
   const slot = { id: "slot-f2", floor: 6, code: "F.2", order: 2, side: null, area: 1020, width: 0, tenant: "", status: "Còn trống" };
   const response = { revision: 5, floorPlans: [], slots: [slot], groups: [], companies: [], requests: [], reservations: [], leases: [] };
@@ -160,4 +171,12 @@ test("invalid media pages cannot become an empty gallery or bypass quota metadat
   assert.throws(() => parseMediaPage({ ...page, pageSize: 101 }), AdminSessionError);
   assert.throws(() => parseMediaPage({ ...page, storage: { usedBytes: -1 } }), AdminSessionError);
   assert.throws(() => parseMediaDetail({ revision: 2, item: { ...item, sizeBytes: -1 } }), AdminSessionError);
+});
+
+
+test("company logo projection keeps media identity and rejects malformed image fields", () => {
+  const item = { id:"company",version:1,name:"Business",initials:"B",industry:"",brand:"",contact:"",email:"",phone:"",owner:"",note:"",logoMediaId:crypto.randomUUID(),logoUrl:"https://media.example.test/logo.png" };
+  assert.equal(parseCollectionDetail("companies",{revision:1,item}).item.logoMediaId,item.logoMediaId);
+  assert.throws(()=>parseCollectionDetail("companies",{revision:1,item:{...item,logoUrl:{url:item.logoUrl}}}),AdminSessionError);
+  assert.throws(()=>parseCollectionDetail("companies",{revision:1,item:{...item,logoMediaId:12}}),AdminSessionError);
 });

@@ -23,15 +23,26 @@ export function parsePublicWebsite(value: unknown): PublicWebsite {
   if (!Array.isArray(data.floors) || data.floors.length > 6 || !Array.isArray(data.units) || data.units.length > 5000) {
     throw new Error("Invalid public website catalog.");
   }
+  if (data.tenants !== undefined && (!Array.isArray(data.tenants) || data.tenants.length > 500)) throw new Error("Invalid public tenant catalog.");
   const logoUrl = data.logoUrl === null ? null : text(data.logoUrl);
   if (logoUrl !== null && new URL(logoUrl).protocol !== "https:") throw new Error("Invalid public logo URL.");
+  const tenants = (data.tenants ?? []).map(value => {
+    const row = object(value), name = text(row.name), tenantLogoUrl = text(row.logoUrl);
+    if (!name || !tenantLogoUrl || new URL(tenantLogoUrl).protocol !== "https:") throw new Error("Invalid public tenant logo.");
+    return { id: text(row.id), name, logoUrl: tenantLogoUrl };
+  });
   const floors = data.floors.map(value => {
     const row = object(value), number = floor(row.number);
+    const plan = object(row.plan);
+    if (!Array.isArray(plan.slots) || plan.slots.some(value => {
+      const slot = object(value);
+      return slot.status !== undefined && slot.status !== "Còn trống" && slot.status !== "Liên hệ" && slot.status !== "Đã thuê";
+    })) throw new Error("Invalid public floor plan status.");
     return {
       number,
       publicTitle: text(row.publicTitle),
       publicDescription: text(row.publicDescription),
-      plan: parseFloorPlan(row.plan, number),
+      plan: parseFloorPlan(plan, number),
     };
   });
   const plans = new Map(floors.map(item => [item.number, item.plan]));
@@ -42,6 +53,7 @@ export function parsePublicWebsite(value: unknown): PublicWebsite {
       address: text(website.address), zaloUrl: text(website.zaloUrl),
     },
     logoUrl,
+    tenants,
     floors,
     units: data.units.map(value => {
       const row = object(value);

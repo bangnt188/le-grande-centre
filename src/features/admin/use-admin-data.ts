@@ -10,6 +10,7 @@ import type { FloorPlan } from "../../shared/leasing/plan-model";
 import { createHttpRepository } from "./http-repository";
 import { makeCacheKey, screenCache, stableQueryKey } from "./memory-cache";
 import { ensureSession, getSessionSnapshot, useAdminSession } from "./session";
+import { beginAdminOperation, endAdminOperation, useAdminOperationState } from "./admin-operation-state";
 
 export type AdminData = {
   revision: number | null;
@@ -26,8 +27,8 @@ export type AdminData = {
   setSourceRevision: (source: string, revision: number) => void;
   markDraft: (key: string, dirty: boolean) => void;
   hasUnsavedDrafts: boolean; pending: boolean; loading: boolean; error: string; isLoaded: boolean;
-  execute: (command: AdminCommand, expectedRevision?: number) => Promise<boolean>;
-  uploadFiles: (files: File[], scope: string, expectedRevision?: number) => Promise<boolean>;
+  execute: (command: AdminCommand, expectedRevision?: number, onExecuted?: (receipt: AdminMutationReceipt) => void) => Promise<boolean>;
+  uploadFiles: (files: File[], scope: string, expectedRevision?: number, onUploaded?: (receipt: AdminUploadReceipt) => void) => Promise<boolean>;
   reload: () => Promise<boolean>;
   reviewMedia: (id: string, note: string, expectedRevision?: number) => Promise<boolean>;
   reconcileStorage: (expectedRevision?: number) => Promise<boolean>;
@@ -47,11 +48,11 @@ export function useAdminData(activeScreen: string | null = "floors", screenQuery
   const screen = activeScreen && Object.hasOwn(SCREENS, activeScreen) ? activeScreen as AdminScreenName : null;
   const visit = React.useRef({ key: dataKey, sequence: 0 });
   if (visit.current.key !== dataKey) visit.current = { key: dataKey, sequence: visit.current.sequence + 1 };
-  const [result, setResult] = React.useState<{ key: string; version: number; visit: number; value: AdminScreenResponse } | null>(null);
+  const [result, setResult] = React.useState<{ key: string; visit: number; value: AdminScreenResponse } | null>(null);
   const [failure, setFailure] = React.useState<{ key: string; message: string } | null>(null);
   const [actionError, setActionError] = React.useState("");
-  const [pending, setPending] = React.useState(false);
-  const [drafts, setDrafts] = React.useState<Record<string, boolean>>({});
+  const { pending, hasUnsavedDrafts, markDraft } = useAdminOperationState(identityKey);
+  const retryReceipt = React.useRef<{ fingerprint: string; key: string } | null>(null);
   const [source, setSource] = React.useState<{ key: string; revision: number } | null>(null);
   const revisionRef = React.useRef<{ key: string; revision: number } | null>(null);
   const sourceRevisions = React.useRef(new Map<string, { key: string; source: string; revision: number }>());
@@ -67,15 +68,6 @@ export function useAdminData(activeScreen: string | null = "floors", screenQuery
     revisionRef.current = { key: dataKey, revision };
     setSource({ key: dataKey, revision });
   }, [dataKey]);
-  const markDraft = React.useCallback((key: string, dirty: boolean) => {
-    setDrafts(current => {
-      if (!!current[key] === dirty) return current;
-      const next = { ...current };
-      if (dirty) next[key] = true; else delete next[key];
-      return next;
-    });
-  }, []);
-  React.useEffect(() => { setDrafts({}); }, [identityKey]);
   React.useEffect(() => { sourceRevisions.current.clear(); }, [sessionKey]);
   React.useEffect(() => { setActionError(""); }, [dataKey]);
 
@@ -86,7 +78,7 @@ export function useAdminData(activeScreen: string | null = "floors", screenQuery
     try {
       const value = await screenCache.load(dataKey, signal => repository.read(screen, query, signal), signal);
       if (signal?.aborted || currentKey.current !== dataKey || serial !== requestSerial.current) return false;
-      setResult({ key: dataKey, version: cacheVersion, visit: visit.current.sequence, value });
+      setResult({ key: dataKey, visit: visit.current.sequence, value });
       setSourceRevision(screen, value.revision);
       return true;
     } catch (issue) {
@@ -101,9 +93,9 @@ export function useAdminData(activeScreen: string | null = "floors", screenQuery
     return () => { controller.abort(); };
   }, [fetchScreen]);
 
-  const mutate = React.useCallback(async (operation: (revision: number, key: string) => Promise<AdminMutationReceipt | AdminUploadReceipt>, expectedRevision?: number, revisionSource?: string): Promise<boolean> => {
-    if (lock.current) return false;
-    lock.current = true; setPending(true); setActionError("");
+  const mutate = React.useCallback(async (operation: (revision: number, key: string) => Promise<AdminMutationReceipt | AdminUploadReceipt>, expectedRevision?: number, revisionSource?: string, onReceipt?: (receipt: AdminMutationReceipt | AdminUploadReceipt) => void, fingerprint = revisionSource ?? "mutation"): Promise<boolean> => {
+    if (lock.current || !beginAdminOperation(identityKey)) return false;
+    lock.current = true; setActionError("");
     const startedSession = getSessionSnapshot();
     const identity = startedSession && JSON.stringify([startedSession.actorId, startedSession.propertyId]);
     const known = revisionRef.current;
@@ -114,19 +106,22 @@ export function useAdminData(activeScreen: string | null = "floors", screenQuery
       const renewed = await ensureSession({ userAction: true });
       if (!identity || identity !== JSON.stringify([renewed.actorId, renewed.propertyId])) throw new Error("Tài khoản đã thay đổi. Tải lại dữ liệu trước khi lưu.");
       if (revision === null || !Number.isSafeInteger(revision) || revision < 0) throw new Error("Chưa tải phiên bản dữ liệu của màn hình. Tải lại trước khi lưu.");
-      const receipt = await operation(revision, crypto.randomUUID());
-      if (currentKey.current === dataKey) setSourceRevision("mutation", receipt.revision);
+      const requestFingerprint = JSON.stringify([fingerprint, revision]);
+      if (retryReceipt.current?.fingerprint !== requestFingerprint) retryReceipt.current = { fingerprint: requestFingerprint, key: crypto.randomUUID() };
+      const receipt = await operation(revision, retryReceipt.current.key);
+      retryReceipt.current = null;
+      if (currentKey.current === dataKey) { setSourceRevision("mutation", receipt.revision); onReceipt?.(receipt); }
       return true;
     } catch (issue) {
       if (currentKey.current === dataKey) setActionError(issue instanceof Error ? issue.message : "Thao tác thất bại. Thử lại.");
       return false;
-    } finally { lock.current = false; setPending(false); }
-  }, [dataKey, activeScreen, setSourceRevision]);
-  const execute = React.useCallback((command: AdminCommand, expectedRevision?: number) => {
+    } finally { lock.current = false; endAdminOperation(identityKey); }
+  }, [dataKey, activeScreen, setSourceRevision, identityKey]);
+  const execute = React.useCallback((command: AdminCommand, expectedRevision?: number, onExecuted?: (receipt: AdminMutationReceipt) => void) => {
     const revisionSource = command.type.includes("company") ? "companies" : command.type.includes("lead") ? "leads" : command.type.includes("appointment") ? "appointments" : command.type.endsWith("media") ? "media" : undefined;
-    return mutate((revision, key) => repository.execute(command, revision, key), expectedRevision, revisionSource);
+    return mutate((revision, key) => repository.execute(command, revision, key), expectedRevision, revisionSource, receipt => { if ("entityId" in receipt) onExecuted?.(receipt); }, JSON.stringify(command));
   }, [mutate, repository]);
-  const uploadFiles = React.useCallback((files: File[], scope: string, expectedRevision?: number) => mutate((revision, key) => repository.upload(files, scope, revision, key), expectedRevision, "media"), [mutate, repository]);
+  const uploadFiles = React.useCallback((files: File[], scope: string, expectedRevision?: number, onUploaded?: (receipt: AdminUploadReceipt) => void) => mutate((revision, key) => repository.upload(files, scope, revision, key), expectedRevision, "media", receipt => { if ("mediaIds" in receipt) onUploaded?.(receipt); }), [mutate, repository]);
   const reviewMedia = React.useCallback((id: string, note: string, expectedRevision?: number) => mutate((revision, key) => repository.reviewMedia(id, note, revision, key), expectedRevision, "media"), [mutate, repository]);
   const reconcileStorage = React.useCallback((expectedRevision?: number) => mutate((revision, key) => repository.reconcileStorage(revision, key), expectedRevision, "media"), [mutate, repository]);
   const reload = React.useCallback(async () => {
@@ -141,7 +136,9 @@ export function useAdminData(activeScreen: string | null = "floors", screenQuery
     }
   }, []);
 
-  const value = result?.key === dataKey && result.version === cacheVersion && result.visit === visit.current.sequence ? result.value : screen && sessionKey ? screenCache.get<AdminScreenResponse>(dataKey)?.data ?? null : null;
+  // Keep this visit's rendered data while revalidating. Clearing it unmounts editors
+  // and loses their files/drafts; identity, screen and visit boundaries still discard it.
+  const value = result?.key === dataKey && result.visit === visit.current.sequence ? result.value : screen && sessionKey ? screenCache.get<AdminScreenResponse>(dataKey)?.data ?? null : null;
   const loadedKeys = value ? Object.keys(value).filter(key => key !== "revision") : [];
   const error = actionError || (failure?.key === dataKey ? failure.message : "");
   return {
@@ -160,7 +157,7 @@ export function useAdminData(activeScreen: string | null = "floors", screenQuery
     leases: value && "leases" in value ? value.leases : [],
     appointments: [], leads: [], media: [], storage: null, collections: null,
     dataKey, sessionKey, cacheVersion, loadedKeys, setSourceRevision, markDraft,
-    hasUnsavedDrafts: Object.keys(drafts).length > 0, pending,
+    hasUnsavedDrafts, pending,
     loading: !!screen && !!sessionKey && !value && !error,
     error, isLoaded: !!value, execute, uploadFiles, reload, reviewMedia, reconcileStorage,
   };

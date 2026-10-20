@@ -1,8 +1,18 @@
 export const FLOORS = [1, 2, 3, 4, 5, 6] as const;
-export const SLOT_STATUSES = ["Còn trống", "Liên hệ", "Đã thuê"] as const;
-export type SlotStatus = (typeof SLOT_STATUSES)[number] | "Trống" | "Đang thuê";
-export function isSlotStatus(value: unknown): value is SlotStatus {
-  return value === "Còn trống" || value === "Liên hệ" || value === "Đã thuê" || value === "Trống" || value === "Đang thuê";
+export const INTERNAL_BUSINESS_STATUSES = ["Còn trống", "Có Lead", "Đang thương lượng", "Giữ chỗ", "Đã ký", "Đã thuê"] as const;
+export type InternalBusinessStatus = (typeof INTERNAL_BUSINESS_STATUSES)[number];
+export type SlotStatus = InternalBusinessStatus;
+export type PublicAvailability = "Còn trống" | "Liên hệ" | "Đã thuê";
+export function isInternalBusinessStatus(value: unknown): value is InternalBusinessStatus {
+  return INTERNAL_BUSINESS_STATUSES.some(status => status === value);
+}
+export function isSlotStatus(value: unknown): value is SlotStatus | PublicAvailability {
+  return isInternalBusinessStatus(value) || value === "Liên hệ";
+}
+export function mapBusinessStatusToPublic(status: InternalBusinessStatus, effectiveLease = false): PublicAvailability {
+  if (status === "Còn trống") return "Còn trống";
+  if (status === "Đã thuê" || (status === "Đã ký" && effectiveLease)) return "Đã thuê";
+  return "Liên hệ";
 }
 export type Floor = (typeof FLOORS)[number];
 export type Slot = {
@@ -52,7 +62,7 @@ export function mergeIssue(slots: Slot[], groups: SpaceGroup[], ids: string[], f
     if (valid.some((slot, i) => i > 0 && slot.order !== valid[i - 1].order + 1)) return "Các slot phải liền kề. Chọn thêm slot ở giữa hoặc bỏ slot cách xa.";
   }
   if (groups.some((group) => group.slotIds.some((id) => ids.includes(id)))) return "Slot đã thuộc một mặt bằng ghép. Tách nhóm hiện có trước.";
-  if (valid.some(slot => slot.tenant || (slot.status !== "Còn trống" && slot.status !== "Trống"))) return "Chỉ ghép slot Còn trống, chưa có đối tác. Rà soát trạng thái trước.";
+  if (valid.some(slot => slot.tenant || slot.status !== "Còn trống")) return "Chỉ ghép slot Còn trống, chưa có đối tác. Rà soát trạng thái trước.";
   return null;
 }
 

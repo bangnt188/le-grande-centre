@@ -50,6 +50,7 @@ async function runRegression() {
   });
   await runChild([...childArguments, "--test", "tests/live-workspace.test.ts"], { ...process.env, APPROVED_LOGO_URL: publicUrl });
   await runChild([...childArguments, "--test", "tests/contact-outbox.test.ts"], { ...process.env, APPROVED_LOGO_URL: publicUrl });
+  await runChild([...childArguments, "--test", "tests/email-notifications.test.ts"], { ...process.env });
 }
 
 async function availablePort() {

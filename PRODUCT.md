@@ -51,12 +51,12 @@ hoặc chữ ký từ nội dung minh họa.
 - Hợp đồng chỉ upload/quản lý/liên kết/thay PDF có sẵn, không draft editor/eSign/
   tự xác nhận đã ký. PDF quarantine cần **manual external review**, không antivirus.
   Financial fields thiếu vẫn unknown/null, không số mẫu giả.
-- Sidebar giữ một mục **Doanh nghiệp**, không mục riêng Khách đang thuê/Hợp đồng.
-  Bên trong dùng outer `@mall/ui Tabs`: **Tất cả / Khách đang thuê / Hợp đồng**.
+- Sidebar giữ một mục **Doanh nghiệp**: một danh sách có search/status filter và một pagination server, không còn ba tab lớn. Tổng quan toàn property độc lập bộ lọc.
+- Hồ sơ mở bằng shared Sheet bên phải (~45% desktop, toàn màn hình mobile), gồm **Tổng quan / Yêu cầu / Mặt bằng thuê / Hợp đồng**. Chỉ tải dữ liệu phần đang mở; tài liệu private nằm cùng hợp đồng. Không có lịch sử hoạt động trên giao diện, vẫn giữ business audit.
 - Card category là projection theo thứ tự: recorded lease → **Đang thuê**; else
   active hold chưa hết hạn → **Đang giữ chỗ**; else submitted/reviewing request →
   **Đang tư vấn**; else **Chưa thuê**. Không lưu category như master field riêng.
-- Dossier→Hợp đồng giữ đúng record ID qua subtab; unsaved notes có xác nhận.
+- Hồ sơ→Hợp đồng giữ đúng record ID; biểu mẫu có thay đổi chưa lưu vẫn được bảo vệ.
   Arrow keys di chuyển focus tab, Enter kích hoạt. Không giả mất context bằng
   chọn record đầu tiên sau chuyển tab.
 - Bỏ global `AdminPageHeader` title/description/reload trên mọi screen. Giữ heading

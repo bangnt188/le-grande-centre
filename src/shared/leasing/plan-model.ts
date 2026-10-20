@@ -1,4 +1,4 @@
-import type { Floor, SlotStatus } from "../admin/space-model";
+import type { Floor, PublicAvailability } from "../admin/space-model";
 
 export type PlanPoint = Readonly<{ x: number; y: number }>;
 
@@ -25,7 +25,7 @@ export type PlanSlot = Readonly<{
   geometry: PlanGeometry;
   area?: number;
   dimensions?: Readonly<{ width: number; depth: number }> | null;
-  status?: SlotStatus;
+  status?: PublicAvailability;
 }>;
 
 export type PlanOrientation = Readonly<{
@@ -130,7 +130,7 @@ export function parseFloorPlan(value: unknown, expectedFloor?: Floor): FloorPlan
       depth: number(measured.depth, Number.MIN_VALUE, Number.MAX_VALUE),
     } : null;
     const status = slot.status;
-    if (status !== undefined && status !== "Còn trống" && status !== "Trống" && status !== "Liên hệ" && status !== "Đã thuê" && status !== "Đang thuê") {
+    if (status !== undefined && status !== "Còn trống" && status !== "Liên hệ" && status !== "Đã thuê") {
       throw new Error("Invalid floor plan slot status.");
     }
     return {

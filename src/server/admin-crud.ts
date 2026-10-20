@@ -2,10 +2,10 @@ import "server-only";
 import { BackendError, createPostgresRepository, type CrudService, type CrudRepository, type CrudRow, type PgQuery, type PostgresOptions } from "@shared/backend";
 import type { Company, CompanyInput, Appointment, AppointmentInput } from "../shared/admin/b2b-model";
 import type { Lead, LeadInput } from "../shared/admin/contracts";
-import type { AdminCollectionName, AdminCollectionQuery } from "../shared/admin/collection-contracts";
+import type { AdminCollectionName, AdminCollectionQuery, CompanySummary } from "../shared/admin/collection-contracts";
 import { parseAppointmentInput, parseCompanyInput, parseCompanyPatch, parseLeadInput } from "../shared/admin/parse-command";
 import { initials } from "../shared/admin/validation";
-import { type AdminIdentity, type PoolClient } from "./database";
+import { WorkspaceError, type AdminIdentity, type PoolClient } from "./database";
 import { assertSessionActive } from "./admin-session";
 import { siteUrl } from "../config/site";
 
@@ -35,13 +35,33 @@ const clientQuery = (client: PoolClient): PgQuery => async (statement, values) =
 };
 
 
+// One derived relationship rule serves list filtering, rows and overview counts.
+function companyCategorySql(customer: "pc" | "property_customers") {
+  return `CASE WHEN EXISTS(SELECT 1 FROM leasing.leases l WHERE l.property_id=${customer}.property_id AND l.organization_id=${customer}.organization_id AND l.status='executed') THEN 'Đang thuê'
+    WHEN EXISTS(SELECT 1 FROM leasing.reservations r WHERE r.property_id=${customer}.property_id AND r.organization_id=${customer}.organization_id AND r.status='active' AND r.expires_at>now()) THEN 'Đang giữ chỗ'
+    WHEN EXISTS(SELECT 1 FROM leasing.leasing_requests q WHERE q.property_id=${customer}.property_id AND q.organization_id=${customer}.organization_id AND q.status IN ('submitted','under_review')) THEN 'Đang tư vấn'
+    ELSE 'Chưa thuê' END`;
+}
+
+/** Property-wide totals stay independent of the active search, status and page. */
+export async function readCompanySummary(client: PoolClient, propertyId: string): Promise<CompanySummary> {
+  const result = await client.query(`SELECT count(*) AS total,
+    count(*) FILTER(WHERE category='Đang thuê') AS renting
+    FROM (SELECT ${companyCategorySql("pc")} AS category FROM leasing.property_customers pc
+      WHERE pc.property_id=$1 AND pc.deleted_at IS NULL) companies`, [propertyId]);
+  const row = result.rows[0];
+  const rentingCompanies = integer(row.renting);
+  // The current lifecycle has recorded/executed contracts only; both views agree.
+  return { totalCompanies: integer(row.total), rentingCompanies, withContracts: rentingCompanies };
+}
+
 function collectionFilter(collection: AdminCollectionName, filter: AdminCollectionQuery): NonNullable<PostgresOptions<CrudRow>["listFilter"]> {
   return (_scope, bind) => {
     const conditions: string[] = [];
     const idColumn = collection === "companies" ? "organization_id" : "id";
     if (filter.ids) conditions.push(`${idColumn}=ANY(${bind(filter.ids)}::uuid[])`);
     if (filter.companyId) conditions.push(`organization_id=${bind(filter.companyId)}::uuid`);
-    if (filter.status) conditions.push(`status=${bind(filter.status)}`);
+    if (filter.status) conditions.push(`${collection === "companies" ? `(${companyCategorySql("property_customers")})` : "status"}=${bind(filter.status)}`);
     if (filter.query) {
       const pattern = bind(`%${filter.query.replace(/[\\%_]/g, "\\$&")}%`);
       if (collection === "companies") conditions.push(`EXISTS(SELECT 1 FROM leasing.organizations search_org WHERE search_org.id=property_customers.organization_id AND (search_org.legal_name ILIKE ${pattern} OR search_org.industry ILIKE ${pattern}))`);
@@ -64,14 +84,14 @@ async function loadCompanies(client: PoolClient, scopeId: string, ids: string[])
   const rows = (await client.query(`SELECT pc.organization_id AS id,pc.revision AS version,pc.property_id AS tenant_id,
       o.legal_name AS name,o.industry,coalesce(b.name,'') AS brand,coalesce(c.display_name,'') AS contact,
       coalesce(c.email,'') AS email,coalesce(c.phone,'') AS phone,o.account_owner AS owner,o.internal_note AS note,
-      o.registration_number AS tax_id,o.registered_address AS address,
+      o.registration_number AS tax_id,o.registered_address AS address,pc.logo_media_id,
+      CASE WHEN logo_state.state='ready' THEN coalesce(logo.public_url,'/api/admin/media/'||logo.id::text||'/view/') END AS logo_url,
       (SELECT count(*)::int FROM leasing.leasing_requests q WHERE q.property_id=pc.property_id AND q.organization_id=o.id) AS request_count,
       (SELECT count(*)::int FROM leasing.leases l WHERE l.property_id=pc.property_id AND l.organization_id=o.id AND l.status='executed') AS lease_count,
-      CASE WHEN EXISTS(SELECT 1 FROM leasing.leases l WHERE l.property_id=pc.property_id AND l.organization_id=o.id AND l.status='executed') THEN 'Đang thuê'
-       WHEN EXISTS(SELECT 1 FROM leasing.reservations r WHERE r.property_id=pc.property_id AND r.organization_id=o.id AND r.status='active' AND r.expires_at>now()) THEN 'Đang giữ chỗ'
-       WHEN EXISTS(SELECT 1 FROM leasing.leasing_requests q WHERE q.property_id=pc.property_id AND q.organization_id=o.id AND q.status IN ('submitted','under_review')) THEN 'Đang tư vấn'
-       ELSE 'Chưa thuê' END AS category
+      ${companyCategorySql("pc")} AS category
     FROM leasing.property_customers pc JOIN leasing.organizations o ON o.id=pc.organization_id
+    LEFT JOIN leasing.document_versions logo ON logo.id=pc.logo_media_id AND logo.property_id=pc.property_id
+    LEFT JOIN leasing.media_object_state logo_state ON logo_state.document_version_id=logo.id AND logo_state.property_id=pc.property_id
     LEFT JOIN LATERAL(SELECT name FROM leasing.brands WHERE organization_id=o.id ORDER BY created_at LIMIT 1)b ON true
     LEFT JOIN LATERAL(SELECT display_name,email,phone FROM leasing.contacts WHERE organization_id=o.id ORDER BY created_at LIMIT 1)c ON true
     WHERE pc.property_id=$1 AND pc.organization_id=ANY($2::uuid[]) AND pc.deleted_at IS NULL`,[scopeId,ids])).rows;
@@ -79,10 +99,21 @@ async function loadCompanies(client: PoolClient, scopeId: string, ids: string[])
     const row=dbRow(input),name=text(row.name);
     return { id:text(row.id),version:integer(row.version,1),tenantId:text(row.tenant_id),name,initials:initials(name),
       industry:text(row.industry),brand:text(row.brand),contact:text(row.contact),email:text(row.email),phone:text(row.phone),
-      owner:text(row.owner),note:text(row.note),taxId:nullableText(row.tax_id),address:nullableText(row.address),
+      owner:text(row.owner),note:text(row.note),taxId:nullableText(row.tax_id),address:nullableText(row.address),logoMediaId:nullableText(row.logo_media_id),logoUrl:nullableText(row.logo_url),
       category:text(row.category) as Company["category"],requestCount:integer(row.request_count),leaseCount:integer(row.lease_count) };
   });
 }
+async function assertCompanyLogo(client: PoolClient, propertyId: string, logoMediaId: string | undefined) {
+  if (!logoMediaId) return;
+  const result = await client.query(`SELECT v.id FROM leasing.document_versions v
+    JOIN leasing.documents d ON d.id=v.document_id AND d.property_id=v.property_id
+    JOIN leasing.media_object_state s ON s.document_version_id=v.id AND s.property_id=v.property_id
+    WHERE v.id=$2 AND v.property_id=$1 AND v.storage_provider='neon'
+      AND v.content_type IN ('image/png','image/jpeg','image/webp') AND v.scan_state='clean'
+      AND s.state='ready' AND d.classification='public_media'`, [propertyId, logoMediaId]);
+  if (!result.rows.length) throw new WorkspaceError("Logo phải là ảnh đã tải lên Neon của dự án.");
+}
+
 function companyRepository(client: PoolClient, filter: AdminCollectionQuery): CrudRepository<CompanyRow, CompanyInput, Partial<CompanyInput>> {
   const query=clientQuery(client);
   const links=createPostgresRepository<CompanyLink,CompanyLinkChange,CompanyLinkChange>({
@@ -101,16 +132,19 @@ function companyRepository(client: PoolClient, filter: AdminCollectionQuery): Cr
     async list(scope,page){const result=await links.list(scope,page);return {items:await expand(result.items,scope),totalItems:result.totalItems};},
     async listAuthorized(scope,page,selection){const result=await links.listAuthorized!(scope,page,selection);return {items:await expand(result.items,scope),totalItems:result.totalItems};},
     async insert(data,scope){
+      await assertCompanyLogo(client,scope.tenantId,data.logoMediaId);
       const id=crypto.randomUUID();
       await client.query(`INSERT INTO leasing.organizations(id,legal_name,industry,account_owner,internal_note,registration_number,registered_address)
         VALUES($1,$2,$3,$4,$5,$6,$7)`,[id,data.name,data.industry,data.owner,data.note,data.taxId||null,data.address||null]);
-      await client.query("INSERT INTO leasing.property_customers(property_id,organization_id,revision) VALUES($1,$2,1)",[scope.tenantId,id]);
+      await client.query("INSERT INTO leasing.property_customers(property_id,organization_id,revision,logo_media_id) VALUES($1,$2,1,$3)",[scope.tenantId,id,data.logoMediaId||null]);
       await client.query("INSERT INTO leasing.brands(organization_id,name) VALUES($1,$2)",[id,data.brand]);
       await client.query("INSERT INTO leasing.contacts(organization_id,display_name,email,phone) VALUES($1,$2,$3,$4)",[id,data.contact,data.email,data.phone]);
       const created=await find(id,scope);if(!created)throw new BackendError("UNAVAILABLE");return created;
     },
     async update(id,data,expectedVersion,scope){
+      await assertCompanyLogo(client,scope.tenantId,data.logoMediaId);
       const changed=await links.update(id,{updatedAt:new Date().toISOString()},expectedVersion,scope);if(!changed)return null;
+      if(Object.hasOwn(data,"logoMediaId"))await client.query("UPDATE leasing.property_customers SET logo_media_id=$3 WHERE property_id=$1 AND organization_id=$2",[scope.tenantId,id,data.logoMediaId||null]);
       const orgFields:[keyof CompanyInput,string][]=[["name","legal_name"],["industry","industry"],["owner","account_owner"],["note","internal_note"],["taxId","registration_number"],["address","registered_address"]];
       const updates=orgFields.filter(([key])=>Object.hasOwn(data,key));
       if(updates.length){const values:unknown[]=[id];const sets=updates.map(([key,column])=>{values.push(key==="taxId"||key==="address"?(data[key]||null):data[key]);return `${column}=$${values.length}`;});await client.query(`UPDATE leasing.organizations SET ${sets.join(",")} WHERE id=$1`,values);}

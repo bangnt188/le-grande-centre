@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AdminPanel, Badge, Button, Input, LoadingIndicator, Table, Textarea, type ToastTone } from "@mall/ui";
+import type { AdminMutationReceipt, AdminUploadReceipt, MediaItem } from "@/shared/admin/contracts";
 import { FLOORS, FLOOR_PUBLIC_DESCRIPTION_MAX_LENGTH, FLOOR_PUBLIC_TITLE_MAX_LENGTH, FLOOR_PURPOSE_MAX_LENGTH, type Floor } from "@/shared/admin/space-model";
 import { r2AssetBase } from "@/config/site";
 import { BROCHURE_PATH } from "@/features/public/brochure-leasing";
@@ -11,6 +12,7 @@ import { AdminPagination } from "@/features/admin/admin-pagination";
 import styles from "@/features/admin/admin-records.module.css";
 import { tenantRecords } from "@/features/admin/tenant-records";
 import { ensureSession } from "@/features/admin/session";
+import { AdminMediaField } from "@/features/admin/admin-media-field";
 
 type Props = {
   data: AdminData;
@@ -26,6 +28,10 @@ const number = (value: number) => new Intl.NumberFormat("vi-VN").format(value);
 export function FloorOverview({ data, onSpace, onMessage }: Props) {
   const [editing, setEditing] = useState<Floor | null>(null);
   const [editingRevision, setEditingRevision] = useState<number | null>(null);
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [floorLibraryMedia, setFloorLibraryMedia] = useState<MediaItem[]>([]);
+  const [uploadLibraryMedia, setUploadLibraryMedia] = useState<MediaItem[]>([]);
+  const [uploading, setUploading] = useState<{ floor: Floor; revision: number } | null>(null);
   async function action(change: () => void) {
     try { await ensureSession({ userAction: true }); change(); }
     catch (issue) { onMessage(issue instanceof Error ? issue.message : "Không thể thực hiện thao tác.", "error"); }
@@ -38,7 +44,8 @@ export function FloorOverview({ data, onSpace, onMessage }: Props) {
   });
   const renderRowActions = (row: (typeof rows)[number]) => <>
     <Button variant="quiet" onClick={() => void action(() => onSpace(row.floor))}>Xem slot tầng {row.floor}</Button>
-    <Button variant="secondary" disabled={data.pending || data.loading || !data.screenData} onClick={() => { const revision = data.screenData?.revision ?? null; void action(() => { setEditingRevision(revision); setEditing(row.floor); }); }}>Sửa nội dung</Button>
+    <Button variant="secondary" disabled={data.pending || data.loading || !data.screenData} onClick={() => { const revision = data.screenData?.revision; if (revision != null) void action(() => { setMediaFiles([]); setUploadLibraryMedia([]); setUploading({ floor: row.floor, revision }); }); }}>Thêm media tầng {row.floor}</Button>
+    <Button variant="secondary" disabled={data.pending || data.loading || !data.screenData} onClick={() => { const revision = data.screenData?.revision ?? null; void action(() => { setEditingRevision(revision); setMediaFiles([]); setFloorLibraryMedia([]); setEditing(row.floor); }); }}>Sửa nội dung</Button>
   </>;
   return <><AdminPanel className="records-panel" labelledBy="floor-overview-heading">
     <div className="register-heading"><h2 id="floor-overview-heading">Danh sách tầng</h2><Badge tone="success">Lưu trên hệ thống</Badge></div>
@@ -73,16 +80,69 @@ export function FloorOverview({ data, onSpace, onMessage }: Props) {
     const sourcePage = data.floorPlans.find(item => item.floor === editing)?.sourcePage;
     return <AdminEditor data={data} title={`Nội dung tầng ${editing}`} description="Tên và mô tả website này được dùng chung tại trang chủ, tổng quan tầng và mặt bằng." onClose={() => setEditing(null)} onSave={async form => {
       if (editingRevision == null) return false;
-      const saved = await data.execute({ type: "update-floor", floor: editing, purpose: String(form.get("purpose") ?? "").trim(), publicTitle: String(form.get("publicTitle") ?? "").trim(), publicDescription: String(form.get("publicDescription") ?? "").trim() }, editingRevision);
+      let revision = editingRevision;
+      if (mediaFiles.length) {
+        let receipt: AdminUploadReceipt | undefined;
+        const uploaded = await data.uploadFiles(mediaFiles, `Tầng ${editing}`, revision, saved => {
+          receipt = saved;
+          setEditingRevision(saved.revision);
+          setMediaFiles([]);
+        });
+        if (!uploaded || !receipt) return false;
+        revision = receipt.revision;
+        onMessage(`Đã tải media lên tầng ${editing}.`);
+      }
+      for (const item of floorLibraryMedia) {
+        if (item.scope === `Tầng ${editing}`) continue;
+        let receipt: AdminMutationReceipt | undefined;
+        const linked = await data.execute({ type: "link-media", mediaId: item.id, scope: `Tầng ${editing}` }, revision, saved => {
+          receipt = saved;
+          setEditingRevision(saved.revision);
+          setFloorLibraryMedia(current => current.map(selected => selected.id === item.id ? { ...selected, scope: `Tầng ${editing}` } : selected));
+        });
+        if (!linked || !receipt) return false;
+        revision = receipt.revision;
+        onMessage(`Đã thêm ${item.name} vào thư viện media tầng ${editing}.`);
+      }
+      const saved = await data.execute({ type: "update-floor", floor: editing, purpose: String(form.get("purpose") ?? "").trim(), publicTitle: String(form.get("publicTitle") ?? "").trim(), publicDescription: String(form.get("publicDescription") ?? "").trim() }, revision, receipt => setEditingRevision(receipt.revision));
       if (saved) onMessage("Đã lưu nội dung tầng trên hệ thống.");
       return saved;
     }}>
       <label>Công năng nội bộ<Input name="purpose" required maxLength={FLOOR_PURPOSE_MAX_LENGTH} defaultValue={content.purpose}/></label>
       <label>Tên hiển thị trên website<Input name="publicTitle" required maxLength={FLOOR_PUBLIC_TITLE_MAX_LENGTH} defaultValue={content.publicTitle}/></label>
       <label>Mô tả dùng chung<Textarea name="publicDescription" required maxLength={FLOOR_PUBLIC_DESCRIPTION_MAX_LENGTH} defaultValue={content.publicDescription}/></label>
+      <AdminMediaField data={data} id="floor-content-media" name="files" label={`Media tầng ${editing}`} files={mediaFiles} onFilesChange={setMediaFiles} library={floorLibraryMedia} onLibraryChange={setFloorLibraryMedia} max={4} allowPdf targetScope={`Tầng ${editing}`}/>
       {sourcePage ? <a href={`${assetBase}${BROCHURE_PATH}#page=${sourcePage}`} target="_blank" rel="noopener noreferrer">Đối chiếu tầng {editing} · trang {sourcePage} trong brochure PDF<span className="sr-only"> (tab mới)</span></a> : <p className="panel-note">Tầng này chưa có số trang tham chiếu.</p>}
     </AdminEditor>;
-  })()}</>;
+  })()}{uploading && <AdminEditor data={data} title={`Thêm media tầng ${uploading.floor}`} description={`Chọn ảnh từ thư viện hoặc tải tệp mới để gắn vào Tầng ${uploading.floor}.`} saveLabel="Lưu media" saveDisabled={!mediaFiles.length && !uploadLibraryMedia.length} onClose={() => setUploading(null)} onSave={async () => {
+    if (!mediaFiles.length && !uploadLibraryMedia.length) return false;
+    let revision = uploading.revision;
+    if (mediaFiles.length) {
+      let receipt: AdminUploadReceipt | undefined;
+      const uploaded = await data.uploadFiles(mediaFiles, `Tầng ${uploading.floor}`, revision, saved => {
+        receipt = saved;
+        setUploading(current => current ? { ...current, revision: saved.revision } : current);
+        setMediaFiles([]);
+      });
+      if (!uploaded || !receipt) return false;
+      revision = receipt.revision;
+    }
+    for (const item of uploadLibraryMedia) {
+      if (item.scope === `Tầng ${uploading.floor}`) continue;
+      let receipt: AdminMutationReceipt | undefined;
+      const linked = await data.execute({ type: "link-media", mediaId: item.id, scope: `Tầng ${uploading.floor}` }, revision, saved => {
+        receipt = saved;
+        setUploading(current => current ? { ...current, revision: saved.revision } : current);
+        setUploadLibraryMedia(current => current.map(selected => selected.id === item.id ? { ...selected, scope: `Tầng ${uploading.floor}` } : selected));
+      });
+      if (!linked || !receipt) return false;
+      revision = receipt.revision;
+    }
+    onMessage(`Đã lưu media cho tầng ${uploading.floor}.`);
+    return true;
+  }}>
+    <AdminMediaField data={data} id="floor-media-files" name="files" label="Media tầng" files={mediaFiles} onFilesChange={setMediaFiles} library={uploadLibraryMedia} onLibraryChange={setUploadLibraryMedia} max={4} allowPdf targetScope={`Tầng ${uploading.floor}`}/>
+  </AdminEditor>}</>;
 }
 
 export function TenantOverview({ data, onSpace, onMessage, tenantPage, setTenantPage, tenantQuery, setTenantQuery }: Props) {

@@ -9,11 +9,49 @@ Cập nhật source và Worker 19/10/2026. Owner xác nhận dự án không tri
 | Runtime | Next App Router SSR (`output: standalone`), OpenNext Cloudflare; admin/API cùng origin. Không static export/Pages hoặc deploy-dev-pages. |
 | Auth | Neon email/password, verified email + allowlist/issuer/subject khi mint signed cookie `HttpOnly/Secure` tối đa900s; warm request verify cục bộ, không provider/DB permission lookup. Renew chỉ từ thao tác khi thiếu/hết cache, không sliding/timer/focus/poll. Revoke trễ tối đa15 phút. Administrator/Editor; root giữ riêng/ẩn khỏi staff. |
 | DB | Admin/write dùng một request-local Neon transaction `leasing_runtime` với actor context/RLS, expiry precommit, property lock, CAS/idempotency/business audit. Không generic access-decision write trên warm admin reads, không re-authorize DB trong cùng operation. Public miss giữ một Neon HTTP transaction gọn. |
-| Schema | Worker dùng `production` (`br-tiny-butterfly-b3uuw92p`), đã xác minh migrations 001–015 và seed floor-plan. Branch test stage2 cũ đã xóa sau khi Worker chuyển về production. |
+| Schema | Worker/local dùng `production` (`br-tiny-butterfly-b3uuw92p`), đã xác minh migrations001–017 và seed floor-plan. Đồng bộ016 khắc phục slot/yêu cầu503; đồng bộ017 khắc phục doanh nghiệp/media503. Không có Worker deploy mới trong hai lần đồng bộ. Branch test stage2 cũ đã xóa sau khi Worker chuyển về production. |
 | Public | SSR và `/api/public/website` dùng projection DB đã lọc; React request dedup + cache revalidation 60 giây. Worker dùng private R2 incremental cache, D1 tag cache và DO queue. Mutation đợi D1 expiration sau commit trước HTTP thành công; API/SSR immediate-read đã qua ba vòng có hoàn nguyên. Intake bỏ qua render cache. Không trả tenant/contact nội bộ, hold expiry hoặc hợp đồng; không fixture khi DB lỗi. |
 | Intake | `@mall/ui/forms` live → `POST /api/contact`, cap JSON 16 KiB, consent/field/origin validation, UUID idempotency, HMAC IP + DB cooldown/rate limit. Commit lead/intake trước HTTP 201; visit request không tạo/xác nhận booking. Không có Turnstile. |
 | Media | Bounded multipart, PNG/JPEG/WebP decode/re-encode trên Node; Neon-only logo/ảnh upload, R2 private PDF; DB ownership/quota/reservations, inventory và cleanup/reconcile. |
 | Tài liệu | PDF quarantine; ordinary view 403 trước manual external review. Review ghi actor/time/note/hash, không đặt scan-clean hay xác nhận chữ ký. GET/HEAD/Range kiểm tra quyền, retention/link chặn xóa. Không soạn hợp đồng/eSign. |
+
+### Khắc phục API slot/yêu cầu503 — 19/10/2026
+
+Source đọc `reference_code` trong projection request/hold/lease, nhưng runtime DB
+mới đến015. Migration016 ban đầu còn lỗi `55006` khi backfill giữ chỗ đã tồn tại
+rồi ALTER TABLE: deferred commitment triggers chưa chạy hết. Lần đó rollback
+toàn bộ. Đã sửa migration **trước khi apply thành công** bằng
+`SET CONSTRAINTS ALL IMMEDIATE` trước DDL, không tắt trigger hoặc bỏ validation.
+
+Regression PostgreSQL do runner sở hữu đã bắt đúng lỗi với request/hold/lease
+thật, fail trước/pass sau; toàn bộ `test:database` **5 pass** và TypeScript pass.
+Đã apply016 bằng canonical direct URL sau khi xác minh pooled/direct đều thuộc
+production; ledger/checksum khớp, counts vẫn1request/1hold/0lease/6floors/81slots.
+Đăng nhập managed Auth thật trên localhost:3000: hai slot IDs được báo lỗi,
+requests?page1 và leases?page1 trả200; click hồ sơ B.1 và Sheet yêu cầu/giữ chỗ
+thành công, không runtime exception. Không tạo/sửa hồ sơ kinh doanh, upload
+hoặc phát hành Worker trong lần kiểm tra này; backfill chỉ cấp mã tra cứu.
+
+### Khắc phục API doanh nghiệp/media503
+
+Source logo doanh nghiệp đọc `property_customers.logo_media_id` trong company
+projection và kiểm tra bảo vệ media, nhưng runtime DB mới đến016. Vì vậy cả
+company list/detail, resolve doanh nghiệp liên quan của requests và media
+list/detail đều có thể lỗi503. Không phải lỗi hiển thị Sheet hay cần retry.
+
+Đã xác minh canonical pooled/direct cùng production rồi áp dụng017 bằng
+`npm run db:migrate`. Cột logo nullable, FK theo property và partial index đã có;
+ledger/checksum001–017 khớp, không còn pending. Counts không đổi:
+1company/1request/1hold/0lease/1media/81slots. Không backfill hoặc sửa hồ sơ.
+
+Regression PostgreSQL tạm **6 pass**, gồm gắn/gỡ logo, bảo vệ media và property
+isolation; TypeScript pass. Đăng nhập managed Auth thật tại localhost:3000:
+cả năm URL được báo lỗi trả200, gồm companies theo IDs, companies có summary,
+requests?page1, media?page1 và đúng media detail ID. Chrome mở hồ sơ doanh
+nghiệp, Sheet yêu cầu/giữ chỗ và chọn media thành công; không runtime exception
+hoặc admin API lỗi trong các thao tác đó. Không upload, thay dữ liệu nghiệp vụ
+hay deploy Worker. Build/deploy không tự apply migration; phải đồng bộ schema
+trước khi chạy source phụ thuộc cột mới.
 
 ## Media origin và secrets
 

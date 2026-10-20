@@ -5,7 +5,7 @@ import { DEFAULT_WEBSITE_SETTINGS } from "../src/shared/admin/website-defaults";
 import { publicBuildEnv } from "../scripts/public-build-env.mjs";
 
 const projection = () => ({
-  website: { ...DEFAULT_WEBSITE_SETTINGS }, logoUrl: null,
+  website: { ...DEFAULT_WEBSITE_SETTINGS }, logoUrl: null, tenants: [],
   floors: [{
     number: 1, publicTitle: "Tầng 1", publicDescription: "Nội dung công khai",
     plan: {
@@ -26,10 +26,11 @@ test("public prerender data cannot carry private API fields into pages", () => {
   const input = {
     ...expected, companies: [{ email: "private@example.test" }],
     website: { ...expected.website, sessionToken: "private-token" },
-    units: expected.units.map(unit => ({ ...unit, tenant: "Private tenant", rent: 1234 })),
+    units: expected.units.map(unit => ({ ...unit, tenant: "Private tenant", rent: 1234, businessStatus: "Đang thương lượng" })),
   };
   const before = structuredClone(input);
   assert.deepEqual(parsePublicWebsite(input), expected);
+  assert.doesNotMatch(JSON.stringify(parsePublicWebsite(input)), /businessStatus|Đang thương lượng/);
   assert.deepEqual(input, before);
 });
 
@@ -40,6 +41,8 @@ test("malformed public projections fail instead of producing a cached fallback",
     { ...projection(), units: [{ ...projection().units[0], floor: 7 }] },
     { ...projection(), units: [{ ...projection().units[0], area: NaN }] },
     { ...projection(), units: [{ ...projection().units[0], status: "private-state" }] },
+    { ...projection(), units: [{ ...projection().units[0], status: "Đang thương lượng", businessStatus: "Đang thương lượng" }] },
+    { ...projection(), floors: [{ ...projection().floors[0], plan: { ...projection().floors[0].plan, slots: [{ id: "private", code: "A.5", geometry: { x: 0, y: 0, width: 1, height: 1 }, status: "Đang thương lượng" }] } }] },
   ]) assert.throws(() => parsePublicWebsite(input));
 });
 

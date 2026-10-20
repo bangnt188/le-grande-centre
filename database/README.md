@@ -1,7 +1,7 @@
 # Database PostgreSQL / Neon
 
 `schema.sql` remains the authoritative relational baseline; migration files
-`001-live-workspace.sql` through `015-versioned-floor-plans.sql` are present in
+`001-live-workspace.sql` through `016-admin-reference-codes.sql` are present in
 this checkout. Source presence does not mean a migration is applied to a live branch.
 There is no opaque stored workspace snapshot or browser persistence fallback.
 Runtime composition lives in `src/server/{database,workspace,public,public-data}.ts` and `media/`.
@@ -51,6 +51,26 @@ Migration **015** is applied to the verified local production branch. Current
 runner also seeded those fields and features. Therefore every database used by
 this source must have 015 and the reference seed. Verify the exact runtime branch
 before any separate stage2 migration; build/deploy does not migrate.
+
+Migration **016** is applied to the verified production branch as of
+19/10/2026. It adds admin lookup codes for requests, holds and leases, keeping
+the optional contract number separate. Both pooled local runtime and direct
+migration connections returned `br-tiny-butterfly-b3uuw92p`; all migration
+checksums matched after application. Existing data remained **1 request,
+1 hold, 0 leases, 6 floors and 81 slots**; no customer transactions were seeded.
+
+The first attempt rolled back because the backfill queued deferred commitment
+checks, blocking the following `ALTER TABLE` (`55006`). The then-unapplied
+migration was corrected to run `SET CONSTRAINTS ALL IMMEDIATE` before the DDL,
+validating rather than disabling integrity triggers. A regression on populated
+owned PostgreSQL failed before and passed after this change, retaining lease
+status, allocations and a real contract number. Do not edit the now-applied 016.
+
+Real managed-auth local smoke returned HTTP200 for both reported slot IDs,
+`requests?page=1` and `leases?page=1`; Chrome opened the slot dossier and
+request/hold Sheet without runtime errors. This was a database synchronization
+and local verification, not a new Worker deployment. Build/deploy still does
+not apply migrations.
 
 `011-metadata-only-leases.sql` replaces the mandatory contract-document
 predicate with recorded lease metadata, retaining inventory/period/exclusivity
@@ -246,3 +266,16 @@ that verified production target before release `166e6004-3da2-4af3-96cc-4c9cb7ab
 on 19/10/2026; its public API then returned the expected 6 floors and 81 units.
 The separate test branch was removed after the Worker cutover. Build/deploy
 still never applies migrations or seeds the database.
+
+
+## Company logos (migration 017)
+
+Migration `017-company-logos.sql` is now applied to the verified production branch shared by local and the existing Worker. It adds a nullable property-scoped media reference and composite foreign key, without backfill or changing existing company identities. The application accepts only ready processed Neon images from the same property and prevents deleting/re-scoping linked logos. Replacement/removal changes the reference, preserving the old media file. Do not edit the now-applied migration.
+
+The company-logo source had reached local runtime before017 was applied: both company projections and media protection queries referenced the missing `property_customers.logo_media_id`, causing503 in company list/detail, related-company resolution on requests, and media list/detail. Canonical pooled/direct connections both verified production `br-tiny-butterfly-b3uuw92p`; after `npm run db:migrate`, all001–017 checksums match and no migration remains pending. Counts remain1company/1request/1hold/0leases/1media/81slots.
+
+The owned local PostgreSQL runner applied migrations twice and passed all6 checks, including company-logo link/removal, media protection and property isolation; TypeScript passed. Real managed-auth localhost smoke returned200 for all five reported URLs, including the exact company/media IDs. Chrome opened company and request/hold Sheets and selected media without runtime exceptions or failing admin API responses. No business-data edits, uploads or Worker deployment were performed. Build/deploy still does not apply migrations: apply pending migrations before running their dependent source.
+
+## Internal business status (migration 018)
+
+`018-internal-business-status.sql` adds `leasing.slots.business_status` with exactly six allowed CMS values and backfills from the legacy operational status, preferring an executed lease whose occupancy period includes today. Lead intake does not write this field. Admin APIs expose it only behind the existing admin authorization boundary. Public website projection maps it to the existing three public labels and never returns the internal field. Apply migration 018 to the verified runtime database before releasing code that reads the new column; build/deploy does not run migrations.

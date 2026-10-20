@@ -3,6 +3,7 @@ import test from "node:test";
 import { parseAdminCommand } from "../src/shared/admin/parse-command";
 import { isStorageUsage, storageState, storageUploadIssue, STORAGE_LIMIT_BYTES } from "../src/shared/admin/storage-policy";
 import { dates, vietnamToday } from "../src/shared/admin/validation";
+import { mapBusinessStatusToPublic } from "../src/shared/admin/space-model";
 
 const website = { logoMediaId: crypto.randomUUID(), email: "leasing@example.test", hotline: "0901234567", secondaryPhone: "", managementPhone: "", address: "Project office", zaloUrl: "https://zalo.me/0901234567" };
 test("website command rejects unsafe contact links and privilege fields without mutating inputs", () => {
@@ -47,14 +48,38 @@ test("lease dates use Vietnam day boundaries and reject past, reversed and impos
     for (const [start, end] of [["2026-10-12", "2026-10-14"], ["2026-10-14", "2026-10-13"], ["2027-02-30", "2027-03-01"], ["2026-1-13", "2026-10-14"]]) assert.throws(() => dates(start, end));
   } finally { Date.now = now; }
 });
-test("update-slot and update-group accept Còn trống, Liên hệ, Đã thuê", () => {
+test("update-slot and update-group accept exactly the six internal business statuses", () => {
   const slotId = crypto.randomUUID(), groupId = crypto.randomUUID();
-  for (const status of ["Còn trống", "Liên hệ", "Đã thuê", "Trống", "Đang thuê"]) {
+  for (const status of ["Còn trống", "Có Lead", "Đang thương lượng", "Giữ chỗ", "Đã ký", "Đã thuê"]) {
     assert.doesNotThrow(() => parseAdminCommand({ type: "update-slot", slotId, status, tenant: "" }));
     assert.doesNotThrow(() => parseAdminCommand({ type: "update-group", groupId, name: "Group A", status }));
   }
-  for (const status of ["invalid", "", "Khác", 123]) {
+  for (const status of ["invalid", "", "Liên hệ", "Trống", "Đang thuê", 123]) {
     assert.throws(() => parseAdminCommand({ type: "update-slot", slotId, status, tenant: "" }));
   }
 });
 
+test("internal business statuses map only to the three public labels, including A5 negotiation", () => {
+  assert.equal(mapBusinessStatusToPublic("Còn trống"), "Còn trống");
+  for (const status of ["Có Lead", "Đang thương lượng", "Giữ chỗ"] as const) {
+    assert.equal(mapBusinessStatusToPublic(status), "Liên hệ");
+  }
+  assert.equal(mapBusinessStatusToPublic("Đã ký"), "Liên hệ");
+  assert.equal(mapBusinessStatusToPublic("Đã ký", true), "Đã thuê");
+  assert.equal(mapBusinessStatusToPublic("Đã thuê"), "Đã thuê");
+  const a5BusinessStatus = "Đang thương lượng" as const;
+  assert.equal(mapBusinessStatusToPublic(a5BusinessStatus), "Liên hệ");
+});
+
+
+
+test("company logo accepts a stored media ID or explicit removal, never a URL or display projection", () => {
+  const values = {name:"Doanh nghiệp",industry:"",brand:"",contact:"",email:"",phone:"",owner:"",note:""};
+  const logoMediaId = crypto.randomUUID();
+  const command = parseAdminCommand({type:"upsert-company",values:{...values,logoMediaId}});
+  assert.equal(command.type,"upsert-company");
+  if(command.type==="upsert-company")assert.equal(command.values.logoMediaId,logoMediaId);
+  assert.doesNotThrow(()=>parseAdminCommand({type:"upsert-company",values:{...values,logoMediaId:""}}));
+  for(const invalid of ["https://example.test/logo.png","project:logo",null])assert.throws(()=>parseAdminCommand({type:"upsert-company",values:{...values,logoMediaId:invalid}}));
+  assert.throws(()=>parseAdminCommand({type:"upsert-company",values:{...values,logoUrl:"https://example.test/logo.png"}}));
+});

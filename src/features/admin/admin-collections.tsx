@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Button, Input, LoadingIndicator, Select } from "@mall/ui";
+import { Alert, Button, LoadingIndicator, SelectField, TextField } from "@mall/ui";
 import type { AdminCollectionName, AdminCollectionItems, AdminCollectionPage, AdminCollectionQuery } from "../../shared/admin/collection-contracts";
 import type { AdminData } from "./use-admin-data";
 import { AdminPagination } from "./admin-pagination";
 import { adminRequest, ensureSession } from "./session";
 import { makeCacheKey, screenCache, stableQueryKey } from "./memory-cache";
 import { parseCollectionDetail, parseCollectionPage } from "./http-repository";
+import { useOptionalAdminWorkspaceNavigation } from "./admin-workspace-navigation";
 
 function queryString(query: AdminCollectionQuery) {
   const params = new URLSearchParams();
@@ -51,9 +52,17 @@ function useCollectionResource<T extends { revision: number }>(data: AdminData, 
 }
 
 /** List/detail revisions come from their own endpoints, not a workspace snapshot. */
-export function useAdminCollection<C extends AdminCollectionName>(data: AdminData, collection: C, filters: Pick<AdminCollectionQuery, "query" | "status" | "companyId"> = {}, enabled = true, initialPageSize = 20) {
-  const [selection, setSelection] = useState({ key: "", page: 1, pageSize: initialPageSize });
+export function useAdminCollection<C extends AdminCollectionName>(data: AdminData, collection: C, filters: Pick<AdminCollectionQuery, "query" | "status" | "companyId" | "includeSummary"> = {}, enabled = true, initialPageSize = 20) {
+  const navigation = useOptionalAdminWorkspaceNavigation();
+  const persist = !!navigation && (collection !== "companies" || filters.includeSummary === true);
+  const [localSelection, setLocalSelection] = useState({ key: "", page: 1, pageSize: initialPageSize });
+  const saved = persist ? navigation.lists[collection] : undefined;
   const filterKey = stableQueryKey(filters);
+  const selection = saved ? { key: String(saved.filterKey ?? filterKey), page: Number(saved.page ?? 1), pageSize: Number(saved.pageSize ?? initialPageSize) } : localSelection;
+  const setSelection = useCallback((next: { key: string; page: number; pageSize: number }) => {
+    if (persist) navigation.setListState(collection, previous => ({ ...previous, filterKey: next.key, page: next.page, pageSize: next.pageSize }));
+    else setLocalSelection(next);
+  }, [persist, navigation?.setListState, collection]);
   const page = selection.key === filterKey ? selection.page : 1;
   const pageSize = selection.pageSize;
   const requestKey = `${collection}/?${queryString({ ...filters, page, pageSize })}`;
@@ -74,7 +83,7 @@ export function useAdminCollection<C extends AdminCollectionName>(data: AdminDat
   };
   const [navigationError, setNavigationError] = useState("");
   return {
-    rows: value?.items ?? [], revision: resource.revision,
+    rows: value?.items ?? [], revision: resource.revision, summary: value?.summary,
     page, pageSize, pageCount: value?.totalPages ?? 0, total: value?.totalItems ?? 0, start: (page - 1) * pageSize,
     setPage: (next: number) => { void navigate(next, pageSize); },
     setPageSize: (next: number) => { void navigate(1, next); },
@@ -135,14 +144,14 @@ export function CompanyPicker({ data, name, defaultValue = "", required = false,
   }
   return <div className="company-picker">
     {name && <input type="hidden" name={name} value={selectedId}/>}
-    <label>Tìm doanh nghiệp<Input type="search" value={inputQuery} maxLength={200} placeholder="Tìm tên, ngành hàng…" onChange={event => { void search(event.target.value); }}/></label>
+    <TextField id="company-picker-search" label="Tìm doanh nghiệp" type="search" value={inputQuery} maxLength={200} placeholder="Tìm tên, ngành hàng…" onChange={event => { void search(event.target.value); }}/>
     {actionError && <Alert tone="error">{actionError}</Alert>}
     <CollectionFeedback state={pages}/><CollectionFeedback state={selected}/>
-    <label>{label}<Select value={selectedId} required={required} onChange={event => { void select(event.target.value); }}>
-      <option value="">{emptyLabel}</option>
-      {selectedId && !options.some(item => item.id === selectedId) && <option value={selectedId} disabled>{selected.loading ? "Đang tải doanh nghiệp đã chọn…" : `Không tải được hồ sơ (${selectedId})`}</option>}
-      {options.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-    </Select></label>
+    <SelectField id="company-picker-selection" label={label} value={selectedId} required={required} onChange={event => { void select(event.target.value); }} options={[
+      { value: "", label: emptyLabel },
+      ...(selectedId && !options.some(item => item.id === selectedId) ? [{ value: selectedId, label: selected.loading ? "Đang tải doanh nghiệp đã chọn…" : "Không tải được hồ sơ doanh nghiệp đã chọn", disabled: true }] : []),
+      ...options.map(item => ({ value: item.id, label: item.name })),
+    ]}/>
     <AdminPagination state={pages} label="doanh nghiệp để chọn"/>
   </div>;
 }

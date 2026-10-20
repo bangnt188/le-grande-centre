@@ -14,10 +14,10 @@ export function parseScreenName(value: string): AdminScreenName {
   return value as AdminScreenName;
 }
 export function parseScreenQuery(screen: AdminScreenName, params: URLSearchParams): AdminScreenQuery {
-  const allowed: Record<AdminScreenName, string[]> = { floors: [], settings: [], defaults: [], spaces: ["floor"], slot: ["id"], tenants: ["floor", "id", "page", "pageSize", "query", "companyId", "status"], requests: ["floor", "id", "page", "pageSize", "query", "companyId", "status"], leases: ["floor", "id", "page", "pageSize", "query", "companyId", "status"] };
+  const allowed: Record<AdminScreenName, string[]> = { floors: [], settings: [], defaults: [], spaces: ["floor"], slot: ["id"], tenants: ["floor", "id", "page", "pageSize", "query", "companyId", "status"], requests: ["floor", "id", "page", "pageSize", "query", "companyId", "status"], leases: ["floor", "id", "reservationId", "page", "pageSize", "query", "companyId", "status"] };
   for (const key of params.keys()) if (!allowed[screen].includes(key) || params.getAll(key).length !== 1) throw new WorkspaceError("Unexpected query parameters");
   const result: AdminScreenQuery = {};
-  for (const key of ["id", "companyId"] as const) if (params.has(key)) result[key] = parseCollectionId(params.get(key)!);
+  for (const key of ["id", "companyId", "reservationId"] as const) if (params.has(key)) result[key] = parseCollectionId(params.get(key)!);
   for (const key of ["page", "pageSize", "floor"] as const) if (params.has(key)) {
     const raw = params.get(key)!, value = Number(raw), maximum = key === "pageSize" ? 100 : key === "floor" ? 6 : Number.MAX_SAFE_INTEGER;
     if (!/^[1-9]\d*$/.test(raw) || !Number.isSafeInteger(value) || value > maximum) throw new WorkspaceError("Invalid pagination or floor");
@@ -31,7 +31,7 @@ export function parseScreenQuery(screen: AdminScreenName, params: URLSearchParam
   }
   if (params.has("status")) {
     const status = params.get("status")!;
-    if (!(screen === "requests" ? ["submitted", "reviewing", "approved", "rejected", "active", "cancelled", "converted"] : ["executed"]).includes(status)) throw new WorkspaceError("Invalid status");
+    if (!(screen === "requests" ? ["submitted", "reviewing", "approved", "rejected", "active", "expired", "cancelled", "converted"] : ["executed"]).includes(status)) throw new WorkspaceError("Invalid status");
     result.status = status;
   }
   if (screen === "slot" && !result.id) throw new WorkspaceError("Slot ID is required");
@@ -49,9 +49,9 @@ async function relatedCompanies(client: PoolClient, identity: AdminIdentity, ids
   return companies;
 }
 function projectGroups(rows: Omit<SpaceGroup, "status">[], slots: Slot[]): SpaceGroup[] {
-  return rows.map(group => ({ ...group, status: slots.some(slot => group.slotIds.includes(slot.id) && ["Đã thuê", "Đang thuê"].includes(slot.status)) ? "Đã thuê" : slots.some(slot => group.slotIds.includes(slot.id) && slot.status === "Liên hệ") ? "Liên hệ" : "Còn trống" }));
+  return rows.map(group => ({ ...group, status: slots.find(slot => group.slotIds.includes(slot.id))?.status ?? "Còn trống" }));
 }
-async function readFloorPlans(client: PoolClient, propertyId: string) {
+async function readFloorPlans(client: PoolClient, propertyId: string, includeInternalStatus: boolean) {
   const rows = (await client.query<{floor:number;plan:unknown}>(`
     SELECT f.floor_number AS floor, jsonb_build_object(
       'floor', f.floor_number,
@@ -73,7 +73,7 @@ async function readFloorPlans(client: PoolClient, propertyId: string) {
           'id',s.id,
           'code',s.code,
           'area',m.area_m2::float8,
-          'status',CASE WHEN l.id IS NOT NULL THEN 'Đã thuê' WHEN s.operational_status='Đang thuê' THEN 'Đã thuê' WHEN s.operational_status='Trống' THEN 'Còn trống' ELSE s.operational_status END,
+          'status',${includeInternalStatus ? "s.business_status" : "CASE WHEN s.business_status='Còn trống' THEN 'Còn trống' WHEN s.business_status='Đã thuê' OR (s.business_status='Đã ký' AND l.id IS NOT NULL) THEN 'Đã thuê' ELSE 'Liên hệ' END"},
           'geometry',v.geometry,
           'dimensions',CASE WHEN jsonb_typeof(v.technical_spec->'dimensions')='object' THEN v.technical_spec->'dimensions' ELSE NULL END
         ) ORDER BY s.display_order)
@@ -81,7 +81,7 @@ async function readFloorPlans(client: PoolClient, propertyId: string) {
         JOIN LATERAL(SELECT id,geometry,technical_spec FROM leasing.slot_versions WHERE slot_id=s.id AND plan_version_id=pv.id ORDER BY version_number DESC LIMIT 1)v ON true
         JOIN leasing.slot_measurements m ON m.slot_version_id=v.id AND m.area_kind='commercial_reference'
         LEFT JOIN leasing.slot_allocations a ON a.slot_id=s.id AND a.property_id=p.id AND a.lease_id IS NOT NULL AND a.released_at IS NULL
-        LEFT JOIN leasing.leases l ON l.id=a.lease_id AND l.property_id=p.id AND l.status='executed'
+        LEFT JOIN leasing.leases l ON l.id=a.lease_id AND l.property_id=p.id AND l.status='executed' AND l.occupancy_period @> CURRENT_DATE
         WHERE s.property_id=p.id AND s.floor_id=f.id AND s.retired_at IS NULL
       ), '[]'::jsonb)
     ) AS plan
@@ -100,7 +100,8 @@ export async function readAdminScreen<S extends AdminScreenName>(identity: Admin
     const property = (await client.query("SELECT workspace_revision FROM leasing.properties WHERE id=$1 FOR SHARE", [identity.propertyId])).rows[0];
     if (!property) throw new WorkspaceError("Property not found", 404);
     const revision = Number(property.workspace_revision), p = identity.propertyId;
-    const floorPlans = await readFloorPlans(client,p);
+    const includeInternalStatus = identity.role !== "editor";
+    const floorPlans = await readFloorPlans(client,p,includeInternalStatus);
     let data: AdminScreenData[AdminScreenName];
     if (screen === "settings") data = { settings: (await readSettings(client, p)).settings };
     else if (screen === "defaults") data = { defaults: (await client.query(`SELECT default_hold_hours AS "defaultHoldHours",appointment_minutes AS "appointmentMinutes",appointment_location AS "appointmentLocation" FROM leasing.properties WHERE id=$1`, [p])).rows[0] };
@@ -108,18 +109,18 @@ export async function readAdminScreen<S extends AdminScreenName>(identity: Admin
       const floors = (await client.query(floorsSql, [p])).rows;
       // Floor summaries do not query customer, lease, request, settings or media tables.
       const slots = (await client.query<Slot>(`SELECT s.id,f.floor_number AS floor,s.code,s.display_order AS "order",s.core_zone AS side,m.area_m2::float8 AS area,coalesce(fr.width_m,0)::float8 AS width,
-       CASE WHEN EXISTS(SELECT 1 FROM leasing.slot_allocations a WHERE a.property_id=s.property_id AND a.slot_id=s.id AND a.lease_id IS NOT NULL AND a.released_at IS NULL) THEN 'Đã thuê' WHEN s.operational_status='Đang thuê' THEN 'Đã thuê' WHEN s.operational_status='Trống' THEN 'Còn trống' ELSE s.operational_status END AS status,s.tenant_label AS tenant
+       ${includeInternalStatus ? "s.business_status" : "CASE WHEN s.business_status='Còn trống' THEN 'Còn trống' WHEN s.business_status='Đã thuê' OR (s.business_status='Đã ký' AND EXISTS(SELECT 1 FROM leasing.slot_allocations a JOIN leasing.leases l ON l.id=a.lease_id AND l.property_id=a.property_id WHERE a.property_id=s.property_id AND a.slot_id=s.id AND a.released_at IS NULL AND l.status='executed' AND l.occupancy_period @> CURRENT_DATE)) THEN 'Đã thuê' ELSE 'Liên hệ' END"} AS status,s.tenant_label AS tenant
        FROM leasing.slots s JOIN leasing.floors f ON f.id=s.floor_id JOIN LATERAL(SELECT id FROM leasing.slot_versions WHERE slot_id=s.id ORDER BY version_number DESC LIMIT 1)v ON true JOIN leasing.slot_measurements m ON m.slot_version_id=v.id AND m.area_kind='commercial_reference'
        LEFT JOIN LATERAL(SELECT width_m FROM leasing.slot_frontages WHERE slot_version_id=v.id AND frontage_kind='external' LIMIT 1)fr ON true WHERE s.property_id=$1 AND s.retired_at IS NULL ORDER BY f.floor_number,s.display_order`, [p])).rows;
       data = { floors, slots };
     } else if (screen === "spaces") {
       const floor = validated.floor ?? 1;
       const floors = (await client.query(floorsSql, [p])).rows;
-      const slots = (await client.query<Slot>(`SELECT * FROM (${slotsSql}) scoped WHERE floor=$2 ORDER BY "order",id`, [p, floor])).rows;
+      const slots = (await client.query<Slot>(`SELECT * FROM (${slotsSql(includeInternalStatus)}) scoped WHERE floor=$2 ORDER BY "order",id`, [p, floor])).rows;
       const groups = projectGroups((await client.query<Omit<SpaceGroup, "status">>(`SELECT * FROM (${groupsSql}) scoped WHERE floor=$2 ORDER BY id`, [p, floor])).rows, slots);
       data = { floors, slots, groups };
     } else if (screen === "slot") {
-      const slots = (await client.query<Slot>(`SELECT * FROM (${slotsSql}) scoped WHERE id=$2 OR id IN (SELECT m.slot_id FROM leasing.spaces g JOIN LATERAL(SELECT id FROM leasing.space_versions WHERE space_id=g.id ORDER BY version_number DESC LIMIT 1) v ON true JOIN leasing.space_members m ON m.space_version_id=v.id WHERE g.property_id=$1 AND g.id=$2 AND g.is_admin_group AND g.retired_at IS NULL) ORDER BY "order",id`, [p, validated.id])).rows;
+      const slots = (await client.query<Slot>(`SELECT * FROM (${slotsSql(includeInternalStatus)}) scoped WHERE id=$2 OR id IN (SELECT m.slot_id FROM leasing.spaces g JOIN LATERAL(SELECT id FROM leasing.space_versions WHERE space_id=g.id ORDER BY version_number DESC LIMIT 1) v ON true JOIN leasing.space_members m ON m.space_version_id=v.id WHERE g.property_id=$1 AND g.id=$2 AND g.is_admin_group AND g.retired_at IS NULL) ORDER BY "order",id`, [p, validated.id])).rows;
       if (!slots.length) throw new WorkspaceError("Slot not found", 404);
       const ids = slots.map(slot => slot.id);
       const groups = projectGroups((await client.query<Omit<SpaceGroup, "status">>(`SELECT * FROM (${groupsSql}) scoped WHERE "slotIds" && $2::uuid[] ORDER BY id`, [p, ids])).rows, slots);
@@ -129,14 +130,14 @@ export async function readAdminScreen<S extends AdminScreenName>(identity: Admin
       const companies = await relatedCompanies(client, identity, [...requests, ...reservations, ...leases].map(item => item.companyId));
       data = { slots, groups, requests, reservations, leases, companies };
     } else if (screen === "tenants") {
-      const page = validated.page ?? 1, pageSize = validated.pageSize ?? 20, values: unknown[] = [p], conditions = ["inventory.status IN ('Đã thuê','Đang thuê')"];
+      const page = validated.page ?? 1, pageSize = validated.pageSize ?? 20, values: unknown[] = [p], conditions = ["(active_lease.id IS NOT NULL OR inventory.status IN ('Đã ký','Đã thuê'))"];
       const bind = (value: unknown) => { values.push(value); return "$" + values.length; };
       if (validated.floor) conditions.push(`inventory.floor=${bind(validated.floor)}`);
       if (validated.companyId) conditions.push(`active_lease.organization_id=${bind(validated.companyId)}::uuid`);
       if (validated.id) { const id = bind(validated.id); conditions.push(`(inventory.id=${id}::uuid OR active_lease.id=${id}::uuid)`); }
       if (validated.query) { const pattern = bind("%" + validated.query.replace(/[\\%_]/g, "\\$&") + "%"); conditions.push(`(inventory.tenant ILIKE ${pattern} OR inventory.code ILIKE ${pattern})`); }
       const occupied = `SELECT inventory.*,active_lease.id AS lease_id,active_lease.organization_id AS company_id,coalesce(active_lease.organization_id::text,'manual:'||inventory.id::text) AS tenant_key
-       FROM (${slotsSql}) inventory LEFT JOIN LATERAL(SELECT l.id,l.organization_id FROM leasing.slot_allocations a JOIN leasing.leases l ON l.id=a.lease_id AND l.property_id=a.property_id WHERE a.property_id=$1 AND a.slot_id=inventory.id AND a.released_at IS NULL AND l.status='executed' ORDER BY l.id LIMIT 1)active_lease ON true WHERE ${conditions.join(" AND ")}`;
+       FROM (${slotsSql(includeInternalStatus)}) inventory LEFT JOIN LATERAL(SELECT l.id,l.organization_id FROM leasing.slot_allocations a JOIN leasing.leases l ON l.id=a.lease_id AND l.property_id=a.property_id WHERE a.property_id=$1 AND a.slot_id=inventory.id AND a.released_at IS NULL AND l.status='executed' AND l.occupancy_period @> CURRENT_DATE ORDER BY l.id LIMIT 1)active_lease ON true WHERE ${conditions.join(" AND ")}`;
       const totalItems = Number((await client.query(`SELECT count(DISTINCT tenant_key) AS count FROM (${occupied}) occupied`, values)).rows[0].count);
       const limit = bind(pageSize), offset = bind((page - 1) * pageSize);
       const rows = (await client.query<Slot & { lease_id: string | null; company_id: string | null; tenant_key: string }>(`WITH occupied AS (${occupied}),selected AS (SELECT tenant_key FROM occupied GROUP BY tenant_key ORDER BY min(tenant),tenant_key LIMIT ${limit} OFFSET ${offset}) SELECT occupied.* FROM occupied JOIN selected USING(tenant_key) ORDER BY tenant_key,floor,"order",id`, values)).rows;
@@ -149,14 +150,15 @@ export async function readAdminScreen<S extends AdminScreenName>(identity: Admin
       const bind = (value: unknown) => { values.push(value); return "$" + values.length; };
       if (validated.floor) conditions.push(`floor=${bind(validated.floor)}`);
       if (validated.companyId) conditions.push(`"companyId"=${bind(validated.companyId)}::uuid`);
+      if (validated.reservationId) conditions.push(`"reservationId"=${bind(validated.reservationId)}::uuid`);
       if (validated.id) conditions.push(`(id=${bind(validated.id)}::uuid${screen === "requests" ? ` OR id IN (SELECT request_id FROM leasing.reservations WHERE property_id=$1 AND id=${bind(validated.id)}::uuid)` : ""})`);
       if (validated.status) {
-        if (screen === "requests" && ["active", "cancelled", "converted"].includes(validated.status)) conditions.push(`EXISTS(SELECT 1 FROM leasing.reservations r WHERE r.property_id=$1 AND r.request_id=scoped.id AND ${validated.status === "cancelled" ? "r.status IN ('cancelled','expired')" : `r.status=${bind(validated.status)}`})`);
+        if (screen === "requests" && ["active", "expired", "cancelled", "converted"].includes(validated.status)) conditions.push(`EXISTS(SELECT 1 FROM leasing.reservations r WHERE r.property_id=$1 AND r.request_id=scoped.id AND r.status=${bind(validated.status)})`);
         else conditions.push(`status=${bind(validated.status)}`);
       }
       if (validated.query) {
         const pattern = bind("%" + validated.query.replace(/[\\%_]/g, "\\$&") + "%");
-        conditions.push(`(EXISTS(SELECT 1 FROM leasing.organizations o JOIN leasing.property_customers pc ON pc.organization_id=o.id WHERE pc.property_id=$1 AND pc.organization_id=scoped."companyId" AND pc.deleted_at IS NULL AND o.legal_name ILIKE ${pattern}) OR ${screen === "requests" ? "note" : '"rentNote"'} ILIKE ${pattern}${screen === "requests" ? "" : ` OR "referenceNumber" ILIKE ${pattern}`})`);
+        conditions.push(`(scoped."referenceCode" ILIKE ${pattern} OR EXISTS(SELECT 1 FROM leasing.organizations o JOIN leasing.property_customers pc ON pc.organization_id=o.id WHERE pc.property_id=$1 AND pc.organization_id=scoped."companyId" AND pc.deleted_at IS NULL AND o.legal_name ILIKE ${pattern}) OR ${screen === "requests" ? "note" : '"rentNote"'} ILIKE ${pattern}${screen === "requests" ? "" : ` OR "referenceNumber" ILIKE ${pattern}`})`);
       }
       const base = screen === "requests" ? requestsSql : leasesSql, where = conditions.length ? " WHERE " + conditions.join(" AND ") : "";
       const totalItems = Number((await client.query(`SELECT count(*) AS count FROM (${base}) scoped${where}`, values)).rows[0].count);

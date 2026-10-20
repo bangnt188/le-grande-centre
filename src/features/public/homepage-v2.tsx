@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { r2AssetBase } from "@/config/site";
 import { SiteFooter } from "./site-footer";
-import { WebsiteHotlineLink } from "./website-settings";
+import { WebsiteZaloLink } from "./website-settings";
 import { HomeStrategicMap } from "./home-strategic-map";
 import { readPublicLeasing } from "@/server/public-leasing";
 import { LeasingStatusBadge } from "./leasing-status-badge";
-import { GraduationCap, Landmark, MapPin, Store } from "lucide-react";
+import { GraduationCap, Landmark, MapPin, MessageCircle, Store } from "lucide-react";
 import { HomeScrollStory, Arrow, SpacesGallery, OverviewGallery } from "./homepage-v2-interactive";
 import HomeProjectVideo from "./home-project-video";
 import { homepageHeroSources, responsiveImageProps } from "./responsive-images";
@@ -46,7 +46,7 @@ const locationHighlights = [
 ];
 
 export default async function HomePageV2() {
-  const { units } = await readPublicLeasing();
+  const { units, tenants } = await readPublicLeasing();
   const featuredUnits = [1, 2, 3, 4].flatMap(floor => { const unit = units.find(item => item.floorId === floor); return unit ? [unit] : []; });
   const assetBase = r2AssetBase;
   const heroSources = homepageHeroSources(assetBase);
@@ -170,7 +170,8 @@ export default async function HomePageV2() {
 
       <section id="ly-do-lua-chon" className={styles.reasons} aria-labelledby="reasons-title"><img className={styles.reasonsImage} {...responsiveImageProps("/images/home-v2/reasons-background.webp", assetBase, "max(100vw, 1900px)")} alt="" loading="lazy" decoding="async"/><div className={styles.section}><h2 id="reasons-title"><em>Tại Sao Chọn <span>Le Grande Centre?</span></em></h2><p className={styles.reasonsIntro}>Một nơi để kinh doanh. Một nền tảng để cùng phát triển.</p><div className={styles.reasonGrid}>{reasons.map(reason => <article key={reason.title}><h3><em>{reason.title}</em></h3><p>{reason.description}</p></article>)}</div></div></section>
 
-      <section className={styles.contact} aria-labelledby="contact-title"><div><h2 id="contact-title"><em>Đặt lịch xem mặt bằng<br/>thực tế.</em></h2><p>Mỗi doanh nghiệp có một nhu cầu khác nhau.<br/>Cùng tìm không gian phù hợp với bạn.</p><div className={styles.contactActions}><Link href="/lien-he/" className={styles.paperButton} prefetch={true}>Liên hệ tư vấn <Arrow/></Link><WebsiteHotlineLink prefix="Hotline: "/></div></div></section>
+      {tenants.length > 0 && <section className={styles.tenants} aria-labelledby="tenants-title"><p className={styles.tenantsEyebrow}>CÁC DOANH NGHIỆP ĐÃ VÀ ĐANG THAM GIA</p><h2 id="tenants-title">Cùng phát triển tại Le Grande Centre</h2><div className={styles.tenantLogoRail}>{tenants.map(tenant => <div className={styles.tenantLogoCard} key={tenant.id}><img src={tenant.logoUrl} alt={tenant.name} loading="lazy" decoding="async"/></div>)}</div><details className={styles.tenantDetails}><summary>Xem tất cả tenant <Arrow/></summary><div className={styles.tenantLogoGrid}>{tenants.map(tenant => <div className={styles.tenantLogoCard} key={tenant.id}><img src={tenant.logoUrl} alt={tenant.name} loading="lazy" decoding="async"/></div>)}</div></details></section>}
+      <section className={styles.contact} aria-labelledby="contact-title"><img className={styles.contactImage} {...responsiveImageProps("/images/home-v2/reasons-background.webp", assetBase, "100vw")} alt="" loading="lazy" decoding="async"/><div className={styles.contactContent}><h2 id="contact-title">Đặt lịch tham quan Le Grande Centre</h2><p>Trải nghiệm không gian thực tế và tìm hiểu cơ hội kinh doanh phù hợp<br className={styles.contactBreak}/> cùng đội ngũ cho thuê của chúng tôi.</p><div className={styles.contactActions}><Link href="/lien-he/" className={styles.bookingButton} prefetch={true}>Đặt lịch ngay <Arrow/></Link><WebsiteZaloLink className={styles.zaloButton}><MessageCircle size={18} aria-hidden="true"/>Liên hệ qua Zalo</WebsiteZaloLink></div></div></section>
       </HomeScrollStory>
     </main>
     <SiteFooter/>

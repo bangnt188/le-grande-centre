@@ -16,7 +16,7 @@ function entity(kind: string, value: unknown): boolean {
   if (!record(value) || typeof value.id !== "string" || !value.id) return false;
   switch (kind) {
     case "media": return fields(value, ["name", "size", "scope"]) && ["Ảnh", "Tài liệu", "Video", "Model 3D", "Tài nguyên"].includes(String(value.kind)) && typeof value.hasUploadedFile === "boolean" && (value.sizeBytes === undefined || integer(value.sizeBytes)) && ["url", "thumbnailUrl", "reviewUrl"].every(key => value[key] === undefined || typeof value[key] === "string");
-    case "companies": return integer(value.version) && fields(value, ["name", "initials", "industry", "brand", "contact", "email", "phone", "owner", "note"]);
+    case "companies": return integer(value.version) && fields(value, ["name", "initials", "industry", "brand", "contact", "email", "phone", "owner", "note"]) && ["logoMediaId", "logoUrl"].every(key => value[key] === undefined || typeof value[key] === "string");
     case "leads": return integer(value.version) && floor(value.floor) && fields(value, ["referenceCode", "name", "initials", "interest", "source", "time", "note"]) && ["Mới", "Đang tư vấn", "Đã xử lý"].includes(String(value.status));
     case "appointments": return integer(value.version) && fields(value, ["companyId", "purpose", "startsAt", "location"]) && ["requested", "confirmed", "completed", "cancelled", "no_show"].includes(String(value.status)) && integer(value.durationMinutes) && value.durationMinutes > 0;
     case "slots": return floor(value.floor) && fields(value, ["code", "tenant"]) && integer(value.order) && typeof value.area === "number" && Number.isFinite(value.area) && value.area > 0 && typeof value.width === "number" && Number.isFinite(value.width) && value.width >= 0 && ["west", "east", null].includes(value.side as "west" | "east" | null) && isSlotStatus(value.status);
@@ -25,9 +25,10 @@ function entity(kind: string, value: unknown): boolean {
     case "reservations":
     case "leases": {
       if (!floor(value.floor) || !fields(value, ["companyId", "start", "end"]) || !strings(value.slotIds) || typeof value.area !== "number" || !Number.isFinite(value.area) || value.area <= 0) return false;
+      if (typeof value.referenceCode !== "string" || !value.referenceCode) return false;
       if (kind === "requests") return fields(value, ["note", "received"]) && ["submitted", "reviewing", "approved", "rejected"].includes(String(value.status));
-      if (kind === "reservations") return fields(value, ["requestId", "expiresAt", "note"]) && ["active", "cancelled", "converted"].includes(String(value.status));
-      return value.status === "executed" && typeof value.rentNote === "string";
+      if (kind === "reservations") return fields(value, ["requestId", "expiresAt", "note"]) && ["active", "cancelled", "converted", "expired"].includes(String(value.status));
+      return value.status === "executed" && typeof value.rentNote === "string" && (value.referenceNumber === undefined || value.referenceNumber === null || typeof value.referenceNumber === "string");
     }
     default: return false;
   }
@@ -37,6 +38,8 @@ function pagination(value: Record<string, unknown>): boolean {
 }
 export function parseCollectionPage<C extends AdminCollectionName>(collection: C, value: unknown): AdminCollectionPage<AdminCollectionItems[C]> {
   if (!record(value) || !integer(value.revision) || !pagination(value) || !Array.isArray(value.items) || !value.items.every(item => entity(collection, item))) invalid();
+  const summary = value.summary;
+  if (summary !== undefined && (collection !== "companies" || !record(summary) || !["totalCompanies", "rentingCompanies", "withContracts"].every(key => integer(summary[key])))) invalid();
   return value as AdminCollectionPage<AdminCollectionItems[C]>;
 }
 export function parseCollectionDetail<C extends AdminCollectionName>(collection: C, value: unknown): AdminCollectionDetail<AdminCollectionItems[C]> {
@@ -79,7 +82,7 @@ export function parseMutationReceipt(value: unknown): AdminMutationReceipt {
   return { revision: value.revision, entityId: value.entityId };
 }
 function parseUploadReceipt(value: unknown): AdminUploadReceipt {
-  if (!record(value) || !integer(value.revision) || !strings(value.mediaIds) || !value.mediaIds.every(id => id.length > 0)) invalid();
+  if (!record(value) || !integer(value.revision) || !strings(value.mediaIds) || value.mediaIds.length < 1 || value.mediaIds.length > 4 || !value.mediaIds.every(id => id.length > 0)) invalid();
   return { revision: value.revision, mediaIds: value.mediaIds };
 }
 

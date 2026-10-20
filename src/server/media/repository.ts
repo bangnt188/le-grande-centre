@@ -39,6 +39,7 @@ async function ownedMedia(client:PoolClient,identity:AdminIdentity,id:string) {
 async function assertUnlinked(client:PoolClient,identity:AdminIdentity,row:StoredMedia) {
   const {rows} = await client.query(`SELECT 1 WHERE EXISTS(SELECT 1 FROM leasing.lease_documents WHERE property_id=$1 AND document_version_id=$2) OR EXISTS(SELECT 1 FROM leasing.plan_documents WHERE property_id=$1 AND document_version_id=$2) OR EXISTS(SELECT 1 FROM leasing.document_retention WHERE property_id=$1 AND document_version_id=$2 AND (legal_hold OR retention_until>now()))`,[identity.propertyId,row.id]);
   if (rows.length) throw new MediaError("Tệp đang được lưu trong hồ sơ/hợp đồng hoặc chính sách lưu giữ; không xóa hoặc đổi liên kết.");
+  if ((await client.query("SELECT 1 FROM leasing.property_customers WHERE property_id=$1 AND logo_media_id=$2 AND deleted_at IS NULL",[identity.propertyId,row.id])).rows.length) throw new MediaError("Gỡ hoặc thay logo doanh nghiệp trước khi xóa hay đổi liên kết tệp.");
 }
 async function validScope(client:PoolClient,propertyId:string,scope:string) {
   if (['Toàn dự án','Chưa xác nhận tầng'].includes(scope)||/^Tầng [1-6]$/.test(scope)) return;

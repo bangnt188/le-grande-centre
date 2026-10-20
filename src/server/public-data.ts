@@ -29,6 +29,28 @@ const PUBLIC_PROJECTION_SQL = `
     ) AS "logoUrl",
     coalesce((
       SELECT jsonb_agg(jsonb_build_object(
+        'id', o.id,
+        'name', o.legal_name,
+        'logoUrl', logo.public_url
+      ) ORDER BY o.legal_name)
+      FROM leasing.property_customers pc
+      JOIN leasing.organizations o ON o.id = pc.organization_id
+      JOIN leasing.document_versions logo ON logo.id = pc.logo_media_id AND logo.property_id = p.id
+        AND logo.storage_provider = 'neon' AND logo.scan_state = 'clean'
+        AND logo.content_type IN ('image/png','image/jpeg','image/webp') AND logo.deleted_at IS NULL
+      JOIN leasing.documents d ON d.id = logo.document_id AND d.property_id = p.id
+        AND d.classification = 'public_media'
+      JOIN leasing.media_object_state logo_state ON logo_state.document_version_id = logo.id
+        AND logo_state.property_id = p.id AND logo_state.state = 'ready'
+      WHERE pc.property_id = p.id AND pc.deleted_at IS NULL
+        AND EXISTS (
+          SELECT 1 FROM leasing.leases l
+          WHERE l.property_id = p.id AND l.organization_id = pc.organization_id
+            AND l.status = 'executed' AND l.occupancy_period @> CURRENT_DATE
+        )
+    ), '[]'::jsonb) AS tenants,
+    coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
         'number', f.floor_number,
         'publicTitle', f.public_title,
         'publicDescription', f.public_description,
@@ -75,9 +97,8 @@ const PUBLIC_PROJECTION_SQL = `
         'dimensions', CASE WHEN jsonb_typeof(v.technical_spec->'dimensions')='object' THEN v.technical_spec->'dimensions' ELSE NULL END,
         'note', v.public_note,
         'status', CASE
-          WHEN l.id IS NOT NULL THEN 'Đã thuê'
-          WHEN s.operational_status IN ('Đang thuê','Đã thuê') THEN 'Đã thuê'
-          WHEN s.operational_status IN ('Trống','Còn trống') THEN 'Còn trống'
+          WHEN s.business_status = 'Đã thuê' OR (s.business_status = 'Đã ký' AND l.id IS NOT NULL) THEN 'Đã thuê'
+          WHEN s.business_status = 'Còn trống' THEN 'Còn trống'
           ELSE 'Liên hệ'
         END
       ) ORDER BY f.floor_number, s.display_order)
@@ -101,6 +122,7 @@ const PUBLIC_PROJECTION_SQL = `
         AND a.lease_id IS NOT NULL AND a.released_at IS NULL
       LEFT JOIN leasing.leases l
         ON l.id = a.lease_id AND l.property_id = p.id AND l.status = 'executed'
+        AND l.occupancy_period @> CURRENT_DATE
       WHERE s.property_id = p.id AND s.retired_at IS NULL
     ), '[]'::jsonb) AS units
   FROM property p

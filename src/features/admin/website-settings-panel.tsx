@@ -2,15 +2,15 @@
 
 import NextLink from "next/link";
 import { useEffect, useId, useState } from "react";
-import { AdminPanel, Alert, Button, Input, LoadingIndicator, Select, Textarea, type ToastTone } from "@mall/ui";
+import { AdminPanel, Alert, Button, Input, Textarea, type ToastTone } from "@mall/ui";
 import type { WebsiteSettings } from "@/shared/admin/website-settings";
-import type { AdminMediaDetail, AdminMediaPage } from "@/shared/admin/contracts";
+import type { AdminMediaDetail, AdminUploadReceipt, MediaItem } from "@/shared/admin/contracts";
 import { AdminEditor } from "./admin-editor";
-import { AdminPagination } from "./admin-pagination";
+import { AdminMediaField } from "./admin-media-field";
 import type { AdminData } from "./use-admin-data";
 import { adminRequest, ensureSession } from "./session";
 import { makeCacheKey, screenCache } from "./memory-cache";
-import { parseMediaDetail, parseMediaPage } from "./http-repository";
+import { parseMediaDetail } from "./http-repository";
 import styles from "./admin-records.module.css";
 
 const field = (form: FormData, name: string) => String(form.get(name) ?? "").trim();
@@ -18,20 +18,16 @@ const field = (form: FormData, name: string) => String(form.get(name) ?? "").tri
 export function WebsiteSettingsPanel({ data, onMessage }: { data: AdminData; onMessage: (message: string, tone?: ToastTone) => void }) {
   const [editing, setEditing] = useState<{ website: WebsiteSettings; revision: number } | null>(null);
   const [selectedLogo, setSelectedLogo] = useState("");
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
   const [preview, setPreview] = useState(false);
   const [actionError, setActionError] = useState("");
   const [logoFailure, setLogoFailure] = useState<{ key: string; message: string } | null>(null);
-  const [pageFailure, setPageFailure] = useState<{ key: string; message: string } | null>(null);
   const [logoResult, setLogoResult] = useState<{ key: string; version: number; value: AdminMediaDetail } | null>(null);
-  const [pageResult, setPageResult] = useState<{ key: string; version: number; value: AdminMediaPage } | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [logoFiles, setLogoFiles] = useState<File[]>([]);
+  const [libraryLogo, setLibraryLogo] = useState<MediaItem[]>([]);
   const zaloNoteId = useId();
   const website = editing?.website ?? data.settings?.website;
   const logoId = website?.logoMediaId;
   const logoKey = makeCacheKey(data.sessionKey, "", "media-detail", { id: logoId });
-  const mediaKey = makeCacheKey(data.sessionKey, "", "media", { source: "uploaded", kind: "Ảnh", query, page, pageSize: 20 });
   useEffect(() => {
     if (!logoId) return;
     const controller = new AbortController();
@@ -39,35 +35,24 @@ export function WebsiteSettingsPanel({ data, onMessage }: { data: AdminData; onM
     screenCache.load(logoKey, async signal => parseMediaDetail(await (await adminRequest(`/api/admin/media/${encodeURIComponent(logoId)}/`, {}, { signal })).json()), controller.signal).then(value => { if (!controller.signal.aborted) setLogoResult({ key: logoKey, version: data.cacheVersion, value }); }).catch(issue => { if (!controller.signal.aborted) setLogoFailure({ key: logoKey, message: issue instanceof Error ? issue.message : "Không tải được thông tin logo." }); });
     return () => controller.abort();
   }, [logoId, logoKey, data.cacheVersion]);
-  useEffect(() => {
-    if (!editing) return;
-    const controller = new AbortController();
-    setPageFailure(null);
-    const params = new URLSearchParams({ source: "uploaded", kind: "Ảnh", page: String(page), pageSize: "20", ...(query ? { query } : {}) });
-    screenCache.load(mediaKey, async signal => parseMediaPage(await (await adminRequest(`/api/admin/media/?${params}`, {}, { signal })).json()), controller.signal).then(value => { if (!controller.signal.aborted) setPageResult({ key: mediaKey, version: data.cacheVersion, value }); }).catch(issue => { if (!controller.signal.aborted) setPageFailure({ key: mediaKey, message: issue instanceof Error ? issue.message : "Không tải được danh sách logo." }); });
-    return () => controller.abort();
-  }, [!!editing, mediaKey, page, query, data.cacheVersion]);
   const currentLogo = logoResult?.key === logoKey && logoResult.version === data.cacheVersion ? logoResult.value.item : null;
-  const mediaPage = pageResult?.key === mediaKey && pageResult.version === data.cacheVersion ? pageResult.value : null;
   const logoError = logoFailure?.key === logoKey ? logoFailure.message : "";
-  const pageError = pageFailure?.key === mediaKey ? pageFailure.message : "";
   async function action(change: () => void) {
     try { await ensureSession({ userAction: true }); setActionError(""); change(); }
     catch (issue) { setActionError(issue instanceof Error ? issue.message : "Không thể thực hiện thao tác."); }
   }
-  async function upload(file: File) {
-    if (uploading) return;
-    setUploading(true);
-    try {
-      const response = await adminRequest("/api/admin/media/?source=uploaded&kind=%E1%BA%A2nh&page=1&pageSize=1", {}, { userAction: true });
-      const source = parseMediaPage(await response.json());
-      if (await data.uploadFiles([file], "Toàn dự án", source.revision)) onMessage("Đã lưu ảnh vào Neon. Mở cấu hình và chọn ảnh để công bố.");
-    } catch (issue) { setActionError(issue instanceof Error ? issue.message : "Không tải được logo."); }
-    finally { setUploading(false); }
+  function openEditor() {
+    const revision = data.screenData?.revision;
+    if (!website || revision == null) return;
+    void action(() => {
+      setEditing({ website, revision });
+      setSelectedLogo(website.logoMediaId);
+      setLogoFiles([]);
+      setLibraryLogo([]);
+    });
   }
-  const options = mediaPage?.items.filter(item => item.kind === "Ảnh" && item.hasUploadedFile) ?? [];
   return <AdminPanel className={`records-panel ${styles.detail}`}>
-    <div className={styles.heading}><h2>Cấu hình website</h2><Button disabled={!website || data.pending || data.loading || uploading} onClick={() => { const revision = data.screenData?.revision; if (website && revision != null) void action(() => { setEditing({ website, revision }); setSelectedLogo(website.logoMediaId); setQuery(""); setPage(1); }); }}>Sửa cấu hình website</Button></div>
+    <div className={styles.heading}><h2>Cấu hình website</h2><Button disabled={!website || !!editing || data.pending || data.loading} onClick={openEditor}>Sửa cấu hình website</Button></div>
     <p>Thông tin liên hệ được công bố từ hệ thống. Logo được lưu trong Neon Object Storage, không lưu dữ liệu riêng tư trong trình duyệt.</p>
     {actionError && <Alert tone="error">{actionError}</Alert>}
     {website && <dl className={styles.facts}>
@@ -75,19 +60,33 @@ export function WebsiteSettingsPanel({ data, onMessage }: { data: AdminData; onM
       <dt>Email</dt><dd>{website.email}</dd><dt>Hotline</dt><dd>{website.hotline}</dd><dt>Điện thoại bổ sung</dt><dd>{website.secondaryPhone || "Không sử dụng"}</dd><dt>Điện thoại ban quản lý</dt><dd>{website.managementPhone || "Không sử dụng"}</dd><dt>Địa chỉ</dt><dd>{website.address}</dd><dt>Đường dẫn Zalo</dt><dd>{website.zaloUrl}</dd>
     </dl>}
     <div className={styles.actions}><NextLink href="/" target="_blank" rel="noopener noreferrer">Mở website<span className="sr-only"> (tab mới)</span></NextLink></div>
-    {website && <label>Tải logo lên Neon<Input type="file" accept="image/png,image/jpeg,image/webp" disabled={!!editing || data.pending || data.loading || uploading} onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void upload(file); }}/>{uploading && <LoadingIndicator label="Đang tải logo…"/>}</label>}
-    {editing && <AdminEditor data={data} title="Cấu hình website" description="Lưu thông tin liên hệ công khai và chọn logo đã lưu trên Neon." onClose={() => setEditing(null)} onSave={async form => {
-      const values: WebsiteSettings = { logoMediaId: field(form, "logoMediaId"), email: field(form, "email"), hotline: field(form, "hotline"), secondaryPhone: field(form, "secondaryPhone"), managementPhone: field(form, "managementPhone"), address: field(form, "address"), zaloUrl: field(form, "zaloUrl") };
-      const saved = await data.execute({ type: "update-website-settings", values }, editing.revision);
+    {website && <Button disabled={!!editing || data.pending || data.loading} onClick={openEditor}>Thay logo website</Button>}
+    {editing && <AdminEditor data={data} title="Cấu hình website" description="Lưu thông tin liên hệ công khai. Chọn logo từ thư viện hoặc tải ảnh mới lên Neon; logo được công bố cùng cấu hình khi lưu." onClose={() => setEditing(null)} onSave={async form => {
+      let revision = editing.revision;
+      let logoMediaId = libraryLogo[0]?.id ?? selectedLogo;
+      if (logoFiles.length) {
+        let receipt: AdminUploadReceipt | undefined;
+        const uploaded = await data.uploadFiles(logoFiles, "Toàn dự án", revision, saved => {
+          receipt = saved;
+          setSelectedLogo(saved.mediaIds[0] ?? "");
+          setEditing(current => current ? { ...current, revision: saved.revision } : current);
+          setLogoFiles([]);
+          setLibraryLogo([]);
+        });
+        if (!uploaded || !receipt) return false;
+        revision = receipt.revision;
+        logoMediaId = receipt.mediaIds[0] ?? "";
+      }
+      const values: WebsiteSettings = { logoMediaId, email: field(form, "email"), hotline: field(form, "hotline"), secondaryPhone: field(form, "secondaryPhone"), managementPhone: field(form, "managementPhone"), address: field(form, "address"), zaloUrl: field(form, "zaloUrl") };
+      const saved = await data.execute({ type: "update-website-settings", values }, revision, receipt => {
+        setEditing(current => current ? { ...current, website: values, revision: receipt.revision } : current);
+      });
       if (saved) onMessage("Đã lưu cấu hình website trên hệ thống.");
       return saved;
     }}>
-      <label>Tìm logo<Input type="search" maxLength={200} value={query} placeholder="Tìm ảnh đã tải lên…" onChange={event => { const next = event.target.value; void action(() => { setQuery(next); setPage(1); }); }}/></label>
-      {!mediaPage && !pageError && <LoadingIndicator label="Đang tải danh sách logo…"/>}
-      {pageError && <Alert tone="error">{pageError} <Button variant="quiet" type="button" onClick={() => void action(() => screenCache.markAllStale())}>Thử lại</Button></Alert>}
-      <label>Logo website<Select name="logoMediaId" value={selectedLogo} required onChange={event => { const next = event.target.value; void action(() => setSelectedLogo(next)); }}>{!options.some(item => item.id === selectedLogo) && <option value={selectedLogo}>{selectedLogo === currentLogo?.id ? currentLogo.name : selectedLogo === editing.website.logoMediaId ? "Logo đang công bố" : selectedLogo}</option>}{options.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></label>
-      <AdminPagination state={{ page: mediaPage?.page ?? page, pageSize: 20, pageCount: mediaPage?.totalPages ?? 0, total: mediaPage?.totalItems ?? 0, start: (page - 1) * 20, setPage: next => void action(() => setPage(next)) }} label="ảnh logo"/>
-      <p className={styles.secondary}>Chỉ chọn ảnh đã được máy chủ xử lý và lưu trong Neon. Logo được công bố khi lưu cấu hình.</p>
+      <AdminMediaField data={data} id="website-logo-file" name="logoFile" label="Logo website" files={logoFiles} onFilesChange={setLogoFiles} library={libraryLogo} onLibraryChange={setLibraryLogo} max={1}/>
+      <p className={styles.secondary}>Giữ logo hiện tại nếu không chọn ảnh thay thế. Logo mới chỉ được công bố khi lưu cấu hình thành công.</p>
+      {selectedLogo !== editing.website.logoMediaId && <p role="status">Ảnh logo mới đã được tải lên. Lưu cấu hình để công bố; thử lưu lại sẽ không tải ảnh lần nữa.</p>}
       <label>Email liên hệ website<Input name="email" type="email" required maxLength={254} defaultValue={editing.website.email}/></label><label>Hotline website<Input name="hotline" type="tel" required maxLength={32} defaultValue={editing.website.hotline}/></label><label>Điện thoại bổ sung (không bắt buộc)<Input name="secondaryPhone" type="tel" maxLength={32} defaultValue={editing.website.secondaryPhone}/></label><label>Điện thoại ban quản lý (không bắt buộc)<Input name="managementPhone" type="tel" maxLength={32} defaultValue={editing.website.managementPhone}/></label><label>Địa chỉ liên hệ<Textarea name="address" required maxLength={400} defaultValue={editing.website.address}/></label><label>Đường dẫn Zalo<Input name="zaloUrl" type="url" required maxLength={240} defaultValue={editing.website.zaloUrl} aria-describedby={zaloNoteId}/></label><p id={zaloNoteId} className={styles.secondary}>Nhập đường dẫn tài khoản cụ thể dạng https://zalo.me/…; không tự tạo từ số hotline.</p>
     </AdminEditor>}
   </AdminPanel>;

@@ -19,6 +19,7 @@
   --ui-slot-contact-text:var(--ui-color-warning);--ui-slot-contact-border:var(--ui-color-warning);
   --ui-slot-selected-surface:var(--ui-color-action);--ui-slot-selected-text:var(--ui-color-action-foreground);--ui-slot-selected-border:var(--ui-color-accent);
 }
+.legrande-admin .admin-create-button{min-block-size:48px;gap:8px;padding-inline:20px;font-weight:600;white-space:nowrap}
 body:has(.legrande-admin){background:#f5f3eb}
 .mall-admin-shell>aside,.mall-admin-shell [data-admin-navigation]{
   --ui-color-surface:#082e22;--ui-color-surface-raised:#173e30;
@@ -140,20 +141,22 @@ body:has(.legrande-admin){background:#f5f3eb}
 
 .legrande-admin .slot-state-badge{gap:6px;border:1px solid var(--ui-slot-available-border);background:var(--ui-slot-available-surface);color:var(--ui-slot-available-text);white-space:nowrap}
 .legrande-admin .slot-state-badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
-.legrande-admin .slot-state-badge[data-slot-status="Liên hệ"]{border-color:var(--ui-slot-contact-border);background:var(--ui-slot-contact-surface);color:var(--ui-slot-contact-text)}
-.legrande-admin .slot-state-badge[data-slot-status="Đã thuê"],.legrande-admin .slot-state-badge[data-slot-status="Đang thuê"]{border-color:var(--ui-slot-leased-border);background:var(--ui-slot-leased-surface);color:var(--ui-slot-leased-text)}
+.legrande-admin .slot-state-badge[data-slot-status="Liên hệ"],.legrande-admin .slot-state-badge[data-slot-status="Có Lead"],.legrande-admin .slot-state-badge[data-slot-status="Đang thương lượng"],.legrande-admin .slot-state-badge[data-slot-status="Giữ chỗ"],.legrande-admin .slot-state-badge[data-slot-status="Đã ký"]{border-color:var(--ui-slot-contact-border);background:var(--ui-slot-contact-surface);color:var(--ui-slot-contact-text)}
+.legrande-admin .slot-state-badge[data-slot-status="Đã thuê"]{border-color:var(--ui-slot-leased-border);background:var(--ui-slot-leased-surface);color:var(--ui-slot-leased-text)}
 .legrande-admin .slot-register tr.selected-row{background:color-mix(in srgb,var(--ui-slot-selected-surface) 10%,var(--ui-color-surface))}
 .legrande-admin .space-inspector fieldset{display:grid;gap:14px;min-width:0;border:0;margin:0;padding:0}
 .legrande-admin .admin-editor-form{display:grid;gap:var(--ui-space-4,16px);min-width:0}
+.legrande-admin .admin-editor-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:12px;padding-top:8px}
 .legrande-admin .admin-editor-form fieldset{display:grid;gap:var(--ui-space-4,16px);border:0;padding:0;margin:0;min-width:0}
-.legrande-admin .admin-editor-form label{display:grid;gap:var(--ui-space-2,8px);min-width:0}
+/* Shared fields own their label layout; style only native wrapper labels here. */
+.legrande-admin .admin-editor-form label:not([class]){display:grid;gap:var(--ui-space-2,8px);min-width:0}
 .legrande-admin .admin-editor-form select,.legrande-admin .admin-editor-form textarea,.legrande-admin .admin-editor-form input{max-width:100%;min-width:0}
 .legrande-admin .admin-editor-form .admin-form-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ui-space-3,12px)}
 @media(max-width:480px){.legrande-admin .admin-editor-form .admin-form-row{grid-template-columns:minmax(0,1fr)}}
 .approved-plan{--reference-green:var(--ui-color-action);--reference-paper:var(--ui-color-action-foreground)}
-.approved-plan button[data-slot-status="Còn trống"],.approved-plan button[data-slot-status="Trống"]{background:var(--ui-slot-available-surface);color:var(--ui-slot-available-text);border-color:var(--ui-slot-available-border)}
+.approved-plan button[data-slot-status="Còn trống"]{background:var(--ui-slot-available-surface);color:var(--ui-slot-available-text);border-color:var(--ui-slot-available-border)}
 .approved-plan button[data-slot-status="Liên hệ"]{background:var(--ui-slot-contact-surface);color:var(--ui-slot-contact-text);border-color:var(--ui-slot-contact-border)}
-.approved-plan button[data-slot-status="Đã thuê"],.approved-plan button[data-slot-status="Đang thuê"]{background:var(--ui-slot-leased-surface);color:var(--ui-slot-leased-text);border-color:var(--ui-slot-leased-border)}
+.approved-plan button[data-slot-status="Đã thuê"]{background:var(--ui-slot-leased-surface);color:var(--ui-slot-leased-text);border-color:var(--ui-slot-leased-border)}
 .approved-plan button[aria-pressed="true"]{background:var(--ui-slot-selected-surface);color:var(--ui-slot-selected-text);border-color:var(--ui-slot-selected-border)}
 
 /* Keep the session gate calm and make its copy and recovery actions distinct. */

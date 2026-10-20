@@ -3,6 +3,7 @@
 import * as React from "react";
 import type { AdminSession } from "../../shared/admin/contracts";
 import { screenCache } from "./memory-cache";
+import { clearAdminOperationState } from "./admin-operation-state";
 
 export type { AdminSession };
 export class AdminSessionError extends Error {
@@ -31,7 +32,7 @@ export function sessionCacheKey(value: AdminSession | null): string {
 function publish(value: AdminSession | null) {
   if (sessionCacheKey(session) === sessionCacheKey(value)) return;
   const identity = (item: AdminSession | null) => item && JSON.stringify([item.actorId, item.propertyId, item.role]);
-  if (identity(session) !== identity(value)) screenCache.clear();
+  if (identity(session) !== identity(value)) { screenCache.clear(); clearAdminOperationState(); }
   session = value;
   for (const listener of listeners) listener();
 }

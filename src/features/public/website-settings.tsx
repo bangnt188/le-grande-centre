@@ -23,6 +23,10 @@ export function WebsiteHotlineLink({ prefix = "", children, className }: { prefi
   const { settings } = useWebsiteSettings();
   return <a className={className} href={telephoneHref(settings.hotline)}>{prefix}{settings.hotline}{children}</a>;
 }
+export function WebsiteZaloLink({ children, className }: { children: ReactNode; className?: string }) {
+  const { settings } = useWebsiteSettings();
+  return <a className={className} href={settings.zaloUrl} target="_blank" rel="noopener noreferrer">{children}</a>;
+}
 export function WebsiteEmailLink({ children, className, subject, body }: { children: ReactNode; className?: string; subject?: string; body?: string }) {
   const { settings } = useWebsiteSettings();
   const query = new URLSearchParams();

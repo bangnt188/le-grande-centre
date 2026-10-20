@@ -32,8 +32,8 @@ function position(geometry: PlanGeometry, width: number, height: number): CSSPro
 }
 
 function statusLabel(status: NonNullable<PlanSlot["status"]>) {
-  if (status === "Trống" || status === "Còn trống") return "Còn trống";
-  if (status === "Đang thuê" || status === "Đã thuê") return "Đã thuê";
+  if (status === "Còn trống") return "Còn trống";
+  if (status === "Đã thuê") return "Đã thuê";
   return status;
 }
 
