@@ -151,7 +151,6 @@ function AdminWorkspaceContent({ logoUrl }: { logoUrl?: string }) {
   useEffect(() => {
     if (view !== "spaces") { setSpaceEditor(null); setSplitTarget(null); }
   }, [view]);
-  useEffect(() => { if (error) notify(error, "error"); }, [error, notify]);
   const spaceList = workspace.lists.spaces ?? {};
   const planTab = spaceList.planTab === "reference" ? "reference" : "plan";
   const slotQuery = String(spaceList.query ?? "");
