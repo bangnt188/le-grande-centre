@@ -136,7 +136,7 @@ export default function SlotDetail({ id, data, onBack, onSlot, onRecord, onMedia
             <h2 id="slot-edit-heading">{group ? "Cập nhật nhóm ghép" : "Cập nhật slot"}</h2>
             {protectedCommitment && <Alert tone="warning">Mặt bằng đang có cam kết giữ chỗ hoặc hợp đồng. Không thể sửa trực tiếp hoặc tách nhóm; dùng các mục yêu cầu / hợp đồng bên cạnh để xử lý đúng luồng.</Alert>}
             <p className="muted">Xem thông tin hiện tại trong hồ sơ. Mở biểu mẫu riêng để sửa và lưu thay đổi.</p>
-            <Button variant="primary" disabled={data.pending || data.loading || protectedCommitment || members.some(member => member.status === "Đã thuê" || member.status === "Đang thuê")} onClick={() => navigation.openAction({ kind: "request", floor: slot.floor, slotIds: ids })}>Lập yêu cầu thuê cho mặt bằng này</Button>
+            <Button variant="primary" disabled={data.pending || data.loading || protectedCommitment || members.some(member => member.status === "Đã thuê")} onClick={() => navigation.openAction({ kind: "request", floor: slot.floor, slotIds: ids })}>Lập yêu cầu thuê cho mặt bằng này</Button>
             <Button variant="primary" disabled={!canEditBusinessStatus || blocked || data.screenData?.revision == null} onClick={() => void openEditor()}>Sửa {group ? "nhóm ghép" : "slot"}</Button>
             {group && <Button variant="secondary" disabled={blocked || data.screenData?.revision == null} onClick={() => void openSplit()}>Tách về {members.length} slot gốc</Button>}
           </AdminPanel>
