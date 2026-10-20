@@ -175,6 +175,7 @@ export function BusinessRecordEditor({ editor, data, onClose, onSaved }: { edito
       }
       onClose={onClose}
       onSave={save}
+      saveDisabled={!ready}
       saveLabel={editor.kind === "lease" ? "Ghi nhận hợp đồng & chuyển thuê" : "Lưu thay đổi"}
     >
       <div className="b2b-editor-fields" onChangeCapture={() => { void ensureSession({ userAction: true }).catch(issue => setActionError(issue instanceof Error ? issue.message : "Không thể tiếp tục sửa hồ sơ.")); }}>
