@@ -15,7 +15,6 @@ export type SlotRecordEntry = { view: "customers" | "requests" | "leases"; id: s
 type Props = {
   id: string;
   data: AdminData;
-  onBack: () => void;
   onSlot: (id: string) => void;
   onRecord: (entry: SlotRecordEntry) => void;
   onMedia: (id?: string, scope?: string) => void;
@@ -25,7 +24,7 @@ type Props = {
 const fmt = (value: number) => new Intl.NumberFormat("vi-VN").format(value);
 const holdLabels = { active: "Đang giữ chỗ", expired: "Đã hết hạn", cancelled: "Đã hủy", converted: "Đã chuyển hợp đồng" };
 
-export default function SlotDetail({ id, data, onBack, onSlot, onRecord, onMedia, canEditBusinessStatus, onMessage }: Props) {
+export default function SlotDetail({ id, data, onSlot, onRecord, onMedia, canEditBusinessStatus, onMessage }: Props) {
   const navigation = useAdminWorkspaceNavigation();
   const dialogContainer = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<{ slot: Slot; group?: SpaceGroup; revision: number } | null>(null);

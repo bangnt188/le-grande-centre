@@ -2,11 +2,11 @@
 
 import * as React from "react";
 
-type State = { dirty: Set<string>; pending: boolean; version: number; listeners: Set<() => void> };
+type State = { dirty: Set<string>; saving: Set<string>; pending: boolean; version: number; listeners: Set<() => void> };
 const scopes = new Map<string, State>();
 function stateFor(identity: string): State {
   let state = scopes.get(identity);
-  if (!state) { state = { dirty: new Set(), pending: false, version: 0, listeners: new Set() }; scopes.set(identity, state); }
+  if (!state) { state = { dirty: new Set(), saving: new Set(), pending: false, version: 0, listeners: new Set() }; scopes.set(identity, state); }
   return state;
 }
 function publish(state: State) { state.version++; for (const listener of state.listeners) listener(); }
@@ -20,7 +20,12 @@ export function useAdminOperationState(identity: string) {
     if (dirty) state.dirty.add(id); else state.dirty.delete(id);
     publish(state);
   }, [state]);
-  return { hasUnsavedDrafts: state.dirty.size > 0, pending: state.pending, markDraft };
+  const markSaving = React.useCallback((id: string, saving: boolean) => {
+    if (saving === state.saving.has(id)) return;
+    if (saving) state.saving.add(id); else state.saving.delete(id);
+    publish(state);
+  }, [state]);
+  return { hasUnsavedDrafts: state.dirty.size > 0, pending: state.pending || state.saving.size > 0, markDraft, markSaving };
 }
 export function beginAdminOperation(identity: string) {
   const state = stateFor(identity);
@@ -29,7 +34,7 @@ export function beginAdminOperation(identity: string) {
 }
 export function endAdminOperation(identity: string) { const state = stateFor(identity); state.pending = false; publish(state); }
 export function clearAdminOperationState() {
-  for (const state of scopes.values()) { state.dirty.clear(); state.pending = false; publish(state); }
+  for (const state of scopes.values()) { state.dirty.clear(); state.saving.clear(); state.pending = false; publish(state); }
   scopes.clear();
 }
 export function hasAdminUnsavedDrafts(identity: string) { return stateFor(identity).dirty.size > 0; }

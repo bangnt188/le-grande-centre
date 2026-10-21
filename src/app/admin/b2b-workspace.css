@@ -14,7 +14,7 @@
 
 
 .heading-count{white-space:nowrap}.b2b-workspace .records-panel{border-radius:6px}.b2b-panel-heading{padding:24px}.b2b-panel-heading>p{margin:0;color:var(--muted);font-size:13px}.b2b-dossier-header{padding:28px}.b2b-dossier-header h2{font-size:24px;letter-spacing:-.025em;font-weight:600}.b2b-dossier-header p{font-size:13px}.b2b-workspace input:not([type=checkbox]):not([type=radio]):not([type=file]),.b2b-workspace select,.b2b-workspace textarea{border-color:var(--line);border-radius:4px;background:var(--surface-soft)}.b2b-workspace input:focus,.b2b-workspace select:focus,.b2b-workspace textarea:focus{background:#fff}.b2b-workspace button:focus-visible,.b2b-workspace input:focus-visible,.b2b-workspace select:focus-visible,.b2b-workspace textarea:focus-visible,.b2b-workspace summary:focus-visible{outline:3px solid var(--gold);outline-offset:2px}.b2b-company-row,.b2b-request-row{color:var(--ink)}.b2b-company-row:hover,.b2b-request-row:hover{background:var(--surface-soft)}.b2b-company-row.is-active,.b2b-request-row.is-active{background:var(--selected-soft)}.b2b-company-mark{border-radius:6px}.b2b-facts dt{font-size:12px}.b2b-facts dd{font-size:13px;font-weight:500}.b2b-private-label{padding:5px 9px;background:var(--surface-soft);border-radius:4px}.b2b-contract-filters{display:grid;grid-template-columns:minmax(180px,1fr) minmax(160px,.8fr);gap:12px}.b2b-lease-layout{grid-template-columns:minmax(0,1.35fr) minmax(330px,1fr)}.b2b-workspace .b2b-table td{padding:19px 18px;height:auto;font-size:13px;white-space:normal}.b2b-workspace .b2b-table th{padding:14px 18px;height:auto;font-size:11px}.b2b-table td:first-child strong{font-size:13px}.b2b-table td small{font-size:12px;line-height:1.6}.b2b-table tr.selected-row{background:var(--selected-soft)}.b2b-table tbody tr:hover{background:var(--surface-soft)}.b2b-table .text-button{min-height:36px;font-size:12px;padding:6px 10px;border:1px solid var(--line);border-radius:4px;background:#fff;white-space:nowrap}.b2b-lease-detail>.b2b-section-heading{padding-bottom:18px;border-bottom:1px solid var(--line)}.b2b-lease-detail>h3{font-size:18px;font-weight:500;margin-top:20px}.b2b-lease-detail>.b2b-mini-plan{margin:22px 0 28px}.b2b-file-row>div{display:grid;gap:5px;overflow-wrap:anywhere}.b2b-file-row strong{font-size:13px}.b2b-file-row small{font-size:12px}.b2b-document-sheet{line-height:1.8}.b2b-workspace .panel-note{max-width:75ch}.b2b-workspace .text-button{font-size:12px;text-underline-offset:4px}.b2b-workspace .text-button:hover{text-decoration:underline}
-@media(min-width:801px) and (max-width:1200px){.b2b-lease-layout{grid-template-columns:1fr}.b2b-lease-detail>.b2b-mini-plan{max-width:400px}}
+@media(min-width:801px) and (max-width:1200px){.b2b-lease-layout{grid-template-columns:1fr}}
 @media(max-width:800px){.b2b-lease-layout{grid-template-columns:1fr}.b2b-contract-filters{grid-template-columns:1fr}.b2b-table .text-button{min-height:44px}.heading-count{display:none}}
 @media(max-width:520px){.b2b-dossier-header,.b2b-dossier-body,.b2b-panel-heading{padding:20px}.b2b-dossier-header h2{font-size:24px}.demo-label{max-width:110px;text-align:center}.breadcrumb{font-size:12px}.b2b-workspace .b2b-table th,.b2b-workspace .b2b-table td{padding-inline:12px}.b2b-table{min-width:540px}.b2b-table .text-button{min-width:70px}.b2b-lease-detail>h3{font-size:15px}}
 .b2b-document-pdf{display:block;width:100%;height:min(65dvh,54rem);min-height:18rem;border:1px solid var(--line);background:#fff}
@@ -89,7 +89,6 @@ body:has(.legrande-admin){margin:0;min-width:320px;background:#faf8f0}
 .b2b-enterprise-mobile-row small{font-size:12px;font-weight:400}
 .b2b-enterprise-mobile-row>svg{flex-shrink:0}
 .b2b-enterprise-mobile-row .b2b-enterprise-status{justify-self:start;max-width:100%}
-.legrande-admin .b2b-company-sheet-host [role=dialog][data-side=right]{inline-size:min(45vw,760px);min-inline-size:min(560px,100vw)}
 .b2b-company-dossier{min-width:0}
 .b2b-company-dossier .b2b-dossier-header{padding:0 0 24px;flex-wrap:wrap;gap:16px;border-bottom:0}
 .b2b-company-dossier .b2b-dossier-header>div{flex:1;min-width:0}
@@ -111,7 +110,6 @@ body:has(.legrande-admin){margin:0;min-width:320px;background:#faf8f0}
   .b2b-enterprise-summary{margin-inline:24px;padding:16px;gap:16px}
   .b2b-enterprise-filters{padding:24px;grid-template-columns:minmax(0,1fr)}
   .b2b-enterprise-register [data-ui-paginated-body]{padding-inline:24px;padding-bottom:20px}
-  .legrande-admin .b2b-company-sheet-host [role=dialog][data-side=right]{inline-size:100vw;min-inline-size:0}
 }
 @media(max-width:520px){
   .b2b-enterprise-heading{padding:20px}
@@ -208,4 +206,3 @@ body:has(.legrande-admin){margin:0;min-width:320px;background:#faf8f0}
 
 .b2b-company-logo img{object-fit:contain;background:var(--ui-color-surface)}
 .b2b-company-dossier .b2b-dossier-header>.b2b-company-logo{flex:0 0 58px}
-.b2b-company-logo-field legend{font-weight:600;margin-bottom:12px}

@@ -82,7 +82,10 @@ export default function B2BWorkspace({ view, data, mode, record, onMessage }: Pr
   const openSlots = (floor: Floor, ids: string[]) => { if (ids[0]) navigation.openRecord({ kind: "slot", id: ids[0], floor }); };
   function MiniPlan({ ids, floor }: { ids: string[]; floor: Floor }) {
     const plan = data.floorPlans.find(item => item.floor === floor);
-    return plan ? <FloorPlanMap className="b2b-mini-plan" ariaLabel={`Vị trí ${slotCodes(ids)} trên sơ đồ tham khảo tầng ${floor}`} plan={plan} slots={plan.slots} selectedIds={ids} variant="mini" showLabels={false} showArea={false} showStatus={false}/> : null;
+    return plan ? <>
+      <FloorPlanMap className="b2b-mini-plan" ariaLabel={`Vị trí ${slotCodes(ids)} trên sơ đồ tham khảo tầng ${floor}, cuộn ngang để xem toàn tầng`} plan={plan} slots={plan.slots} selectedIds={ids} variant="admin" showStatus onSelect={slot => openSlots(floor, [slot.id])}/>
+      <p className="plan-caption">Mặt bằng thuộc hồ sơ được tô đậm. Cuộn ngang để xem toàn tầng; chọn một slot để mở hồ sơ mặt bằng. Sơ đồ tham khảo, không theo tỷ lệ kỹ thuật.</p>
+    </> : data.isLoaded ? <Alert tone="warning">Chưa có dữ liệu sơ đồ tầng {floor} trong hệ thống.</Alert> : null;
   }
   function appointmentActions(item: NonNullable<typeof appointmentDetail.item>, revision: number | null) {
     return <div className="b2b-appointment-actions">

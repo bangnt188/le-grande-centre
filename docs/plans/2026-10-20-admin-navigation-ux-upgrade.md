@@ -1,10 +1,10 @@
-# Đề xuất nâng cấp điều hướng UX quản trị — để sau
+# Chuẩn hóa flow nghiệp vụ và điều hướng quản trị
 
-Ngày: 20/10/2026. Trạng thái: **backlog tùy chọn, chưa duyệt triển khai**.
+Ngày: 20/10/2026. Trạng thái: **đã được chủ đầu tư duyệt và triển khai trong source; chưa phát hành bản thay đổi này**.
 
-Chủ đầu tư xác nhận yêu cầu hiện tại là kiểm tra **flow nghiệp vụ**, không phải refactor điều hướng UX. Tài liệu này chỉ giữ lại đề xuất trước đó để xem xét khi khách có nhu cầu nâng cấp. Không dùng nó làm điều kiện chặn sửa liên kết nghiệp vụ, không tự thực hiện thay đổi URL/history/Sheet, không coi đây là phạm vi đã đặt hàng.
+Yêu cầu mới “ok triển khai fix hết đi từ flow nghiệp vụ tới flow UX” thay thế quyết định để UX trong backlog. Phần dưới giữ lại triệu chứng trước nâng cấp và phương án được chọn; contract hiện hành và bằng chứng kiểm tra nằm trong [admin-data-contract.md](../admin-data-contract.md).
 
-## Bằng chứng hiện tại
+## Bằng chứng trước nâng cấp
 
 Quan sát ứng dụng local trên browser thật với session và API fixture tổng hợp; mọi API browser được intercept, không ghi DB/cloud. Đây không phải kiểm thử private production hoặc kết luận về toàn bộ quy trình nghiệp vụ.
 
@@ -15,9 +15,9 @@ Quan sát ứng dụng local trên browser thật với session và API fixture 
 | Hồ sơ doanh nghiệp → hợp đồng → Quay lại doanh nghiệp | Về danh sách, không về hồ sơ nguồn; thêm bước history mới. |
 | Refresh một màn không phải slot | Khởi tạo lại về Tầng. |
 
-Source: `src/app/admin/admin-workspace.tsx:180–255,383–408`; `src/app/admin/b2b-workspace.tsx:46–87,110–125,204–260`. State phân tán giữa hash/history, state màn cha và state cục bộ. Một số state danh sách doanh nghiệp mất khi nhánh màn bị unmount; request/lease page/filter ở màn cha không được coi là mất theo cùng cách. Chưa có bằng chứng mất draft âm thầm; `AdminEditor` đăng ký dirty với `markDraft`, điều hướng chung có guard.
+Nguồn khi audit: `src/app/admin/admin-workspace.tsx` và `src/app/admin/b2b-workspace.tsx`. Lúc đó state phân tán giữa hash/history, state màn cha và state cục bộ. Một số state danh sách doanh nghiệp mất khi nhánh màn bị unmount; request/lease page/filter ở màn cha không được coi là mất theo cùng cách. Chưa có bằng chứng mất draft âm thầm; `AdminEditor` đã đăng ký dirty với `markDraft` và điều hướng chung có guard.
 
-## Phương án nâng cấp được đề xuất, chưa phê duyệt
+## Phương án đã triển khai
 
 Giữ màn xuất phát; xem hồ sơ liên quan trong một vùng chi tiết thống nhất có ngữ cảnh nguồn. Chỉ thao tác chuyển module rõ ràng mới rời khu vực đang làm việc. Desktop có thể dùng Sheet bên phải; mobile cùng semantics ở toàn chiều ngang. Không xếp chồng nhiều Sheet đọc hồ sơ chỉ để tạo đường quay lại.
 
@@ -33,10 +33,10 @@ Giữ màn xuất phát; xem hồ sơ liên quan trong một vùng chi tiết th
 | Lựa chọn | Trade-off |
 | --- | --- |
 | Vá từng nút Back | Ít sửa ban đầu nhưng duy trì nhiều quy tắc và nguồn state. |
-| URL định danh trạng thái + vùng chi tiết theo ngữ cảnh | Hướng đề xuất khi nâng cấp; tái sử dụng màn/Sheet và chuẩn hóa history. |
+| URL định danh trạng thái + vùng chi tiết theo ngữ cảnh | Đã chọn và triển khai; tái sử dụng màn/Sheet và chuẩn hóa history. |
 | Tách mọi hồ sơ thành route Next riêng | Deep link rõ nhưng phạm vi lớn hơn; không mặc định cần thiết. |
 
-## Điều kiện nghiệm thu nếu khách duyệt nâng cấp
+## Điều kiện nghiệm thu
 
 1. Trang 2 → doanh nghiệp → tab Yêu cầu → yêu cầu → sửa → quay lại giữ đúng ngữ cảnh.
 2. Back/Forward/Refresh và mở link trực tiếp nhất quán trên desktop/mobile.
@@ -44,6 +44,17 @@ Giữ màn xuất phát; xem hồ sơ liên quan trong một vùng chi tiết th
 4. Trở về danh sách phục hồi bộ lọc, trang, dòng và focus/scroll hợp lý.
 5. Không thay quyền, session, CAS/idempotency, scope dữ liệu, schema hoặc workflow nghiệp vụ chỉ để làm navigation.
 
-## Ranh giới với việc cần xử lý hiện tại
+## Handoff nghiệp vụ đã nối
 
-Kiểm tra business flow riêng phải trả lời: dữ liệu đầu vào đến từ đâu; lead được liên kết doanh nghiệp như thế nào; từ doanh nghiệp/mặt bằng tạo yêu cầu nào; duyệt tạo giữ chỗ gì; giữ chỗ chuyển thuê hoặc hủy/hết hạn ra sao; lịch hẹn độc lập thế nào; hành động tiếp theo phải mở đúng hồ sơ nghiệp vụ nào. Không dùng refactor UX ở tài liệu này để thay cho việc sửa các đứt gãy nghiệp vụ đó.
+- Khách tiềm năng → liên kết doanh nghiệp có sẵn hoặc tạo doanh nghiệp và liên kết trong cùng transaction. Giữ thông tin/trạng thái lead; receipt và CAS ngăn tạo trùng khi retry.
+- Doanh nghiệp → yêu cầu hoặc lịch hẹn có sẵn companyId. Mặt bằng/nhóm đang chọn → yêu cầu có đủ tầng và slot thành viên.
+- Lưu thành công mở đúng entityId từ receipt; duyệt/hủy giữ chỗ vẫn ở yêu cầu nguồn. Giữ chỗ đã chuyển thuê mở đúng hợp đồng theo reservationId, không chọn hợp đồng tùy ý của doanh nghiệp.
+- Hết hạn giữ chỗ và hủy giữ chỗ có trạng thái riêng. Không bổ sung gia hạn, thanh lý/bàn giao hoặc transition hoàn tất/vắng mặt cho lịch hẹn.
+
+## Ownership và giới hạn
+
+`admin-workspace-navigation.tsx` định nghĩa contract; `use-admin-workspace-controller.ts` sở hữu URL/history và ngữ cảnh private theo document; các màn chỉ yêu cầu mở hồ sơ/hành động. Root giữ một Sheet đọc hồ sơ; form có thể lồng nhưng không tạo nhiều Sheet chỉ đọc.
+
+URL chỉ chứa loại màn/ID/tab/phân trang/bộ lọc cấu trúc. Search tự do, vị trí/focus và dữ liệu nháp không serialize vào URL/history.state/localStorage. Refresh khôi phục vị trí nghiệp vụ từ URL, không khôi phục nội dung chưa lưu; beforeunload cảnh báo draft. Đổi identity xóa ngữ cảnh private.
+
+Chrome local đã kiểm desktop1366px/mobile390px bằng API fixture bị intercept, không ghi DB/cloud; PostgreSQL disposable kiểm transaction/CAS/replay/scope/rollback thật. Đây không phải kiểm thử mutation trên production hoặc bằng chứng đã deploy.

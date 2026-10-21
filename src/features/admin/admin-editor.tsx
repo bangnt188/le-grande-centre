@@ -4,7 +4,8 @@ import { createContext, useCallback, useContext, useEffect, useId, useRef, useSt
 import { Alert, Button, ConfirmDialog, Sheet } from "@mall/ui";
 import type { AdminData } from "./use-admin-data";
 import { useOptionalAdminWorkspaceNavigation } from "./admin-workspace-navigation";
-import { ensureSession } from "./session";
+import { ensureSession, useAdminSession } from "./session";
+import { useAdminOperationState } from "./admin-operation-state";
 
 const EditorChangeContext = createContext<(() => void) | null>(null);
 export function useAdminEditorChange() {
@@ -19,6 +20,10 @@ export function AdminEditor({ data, title, description, children, onClose, onSav
   onClose: () => void; onSave: (values: FormData) => Promise<boolean>; saveLabel?: string; saveDisabled?: boolean;
 }) {
   const id = useId();
+  const session = useAdminSession();
+  const identity = session ? JSON.stringify([session.actorId, session.propertyId]) : "";
+  const { markSaving } = useAdminOperationState(identity);
+  useEffect(() => () => markSaving(id, false), [id, markSaving]);
   const host = useRef<HTMLDivElement>(null);
   const [returnFocus] = useState(() => ({ current: typeof document !== "undefined" && document.activeElement instanceof HTMLElement ? document.activeElement : null }));
   const saving = useRef(false);
@@ -58,12 +63,12 @@ export function AdminEditor({ data, title, description, children, onClose, onSav
         event.preventDefault();
         if (saving.current || data.pending || data.loading || saveDisabled) return;
         const values = new FormData(event.currentTarget);
-        saving.current = true; setFailed(false);
+        saving.current = true; markSaving(id, true); setFailed(false);
         try {
           if (await onSave(values)) { markDraft(id, false); onClose(); }
           else setFailed(true);
         } catch { setFailed(true); }
-        finally { saving.current = false; }
+        finally { saving.current = false; markSaving(id, false); }
       }}>
         <fieldset disabled={data.pending}>{children}</fieldset>
         {sessionError && <Alert tone="error">{sessionError}</Alert>}

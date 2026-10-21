@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Button, LoadingIndicator, SelectField, TextField } from "@mall/ui";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { Alert, Button, ComboboxField, LoadingIndicator, type ComboboxOption } from "@mall/ui";
 import type { AdminCollectionName, AdminCollectionItems, AdminCollectionPage, AdminCollectionQuery } from "../../shared/admin/collection-contracts";
 import type { AdminData } from "./use-admin-data";
 import { AdminPagination } from "./admin-pagination";
@@ -9,6 +9,7 @@ import { adminRequest, ensureSession } from "./session";
 import { makeCacheKey, screenCache, stableQueryKey } from "./memory-cache";
 import { parseCollectionDetail, parseCollectionPage } from "./http-repository";
 import { useOptionalAdminWorkspaceNavigation } from "./admin-workspace-navigation";
+import { useAdminEditorChange } from "./admin-editor";
 
 function queryString(query: AdminCollectionQuery) {
   const params = new URLSearchParams();
@@ -122,36 +123,91 @@ export function CollectionFeedback({ state }: { state: { loading: boolean; error
   return <>{state.loading && <LoadingIndicator label="Đang tải hồ sơ…"/>}{state.error && <Alert tone="error">{state.error} <Button variant="quiet" onClick={state.retry}>Thử lại</Button></Alert>}</>;
 }
 
-export function CompanyPicker({ data, name, defaultValue = "", required = false, label = "Doanh nghiệp", emptyLabel = "Chọn doanh nghiệp", value, onValueChange }: { data: AdminData; name?: string; defaultValue?: string; required?: boolean; label?: string; emptyLabel?: string; value?: string; onValueChange?: (value: string) => void }) {
+export function CompanyPicker({ data, name, defaultValue = "", required = false, label = "Doanh nghiệp", emptyLabel = "Nhập tên hoặc ngành hàng…", value, onValueChange }: { data: AdminData; name?: string; defaultValue?: string; required?: boolean; label?: string; emptyLabel?: string; value?: string; onValueChange?: (value: string) => void }) {
+  const id = useId();
+  const changed = useAdminEditorChange();
+  const control = useRef<HTMLInputElement>(null);
   const [localValue, setLocalValue] = useState(defaultValue);
   const selectedId = value ?? localValue;
+  const [chosen, setChosen] = useState<ComboboxOption | null>(null);
+  const [open, setOpen] = useState(false);
+  const [input, setInput] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [inputQuery, setInputQuery] = useState("");
+  const [page, setPage] = useState(1);
   const [actionError, setActionError] = useState("");
-  const searchSerial = useRef(0);
-  const pages = useAdminCollection(data, "companies", { query });
+  const serial = useRef(0);
   const selected = useAdminRecord(data, "companies", selectedId);
-  const options = selected.item && !pages.rows.some(item => item.id === selectedId) ? [selected.item, ...pages.rows] : pages.rows;
-  async function search(next: string) {
-    setInputQuery(next);
-    const serial = ++searchSerial.current;
-    try { await ensureSession({ userAction: true }); if (serial === searchSerial.current) { setActionError(""); setQuery(next); } }
-    catch (issue) { if (serial === searchSerial.current) setActionError(issue instanceof Error ? issue.message : "Không thể tìm doanh nghiệp."); }
-  }
+  const selectedOption = chosen?.value === selectedId ? chosen : selected.item ? { value: selected.item.id, label: selected.item.name, description: selected.item.industry } : null;
+  const searching = input !== null && input.trim() !== query;
+  const editing = input !== null;
+  const requestKey = `companies/?${queryString({ query, page, pageSize: 10 })}`;
+  const results = useCollectionResource(data, requestKey, open && !searching, async signal => {
+    const response = await adminRequest(`/api/admin/collections/${requestKey}`, {}, { signal });
+    return parseCollectionPage("companies", await response.json());
+  });
+  const pageCount = Math.max(1, results.value?.totalPages ?? 1);
+  const total = results.value?.totalItems ?? 0;
+  const options = results.value?.items.map(item => ({ value: item.id, label: item.name, description: item.industry })) ?? [];
+  useEffect(() => {
+    if (!open || input === null) return;
+    const timer = setTimeout(() => {
+      const request = ++serial.current;
+      void ensureSession({ userAction: true }).then(() => {
+        if (request === serial.current) { setActionError(""); setQuery(input.trim()); }
+      }).catch(issue => { if (request === serial.current) setActionError(issue instanceof Error ? issue.message : "Không thể tìm doanh nghiệp."); });
+    }, 250);
+    return () => { clearTimeout(timer); serial.current++; };
+  }, [open, input]);
+  useEffect(() => {
+    control.current?.setCustomValidity(editing ? "Chọn một doanh nghiệp trong danh sách gợi ý hoặc nhấn Escape để giữ lựa chọn trước." : selectedId && !selectedOption ? "Chưa tải được doanh nghiệp đã chọn. Thử tải lại." : "");
+  }, [editing, input, selectedId, selectedOption]);
   async function select(next: string) {
-    try { await ensureSession({ userAction: true }); setActionError(""); setLocalValue(next); onValueChange?.(next); }
-    catch (issue) { setActionError(issue instanceof Error ? issue.message : "Không thể chọn doanh nghiệp."); }
+    const option = options.find(option => option.value === next) ?? null;
+    try {
+      await ensureSession({ userAction: true });
+      serial.current++; setActionError(""); setChosen(option); setLocalValue(next);
+      setInput(null); setQuery(""); setPage(1); onValueChange?.(next);
+      if (next !== selectedId) changed();
+    } catch (issue) { setActionError(issue instanceof Error ? issue.message : "Không thể chọn doanh nghiệp."); }
   }
-  return <div className="company-picker">
-    {name && <input type="hidden" name={name} value={selectedId}/>}
-    <TextField id="company-picker-search" label="Tìm doanh nghiệp" type="search" value={inputQuery} maxLength={200} placeholder="Tìm tên, ngành hàng…" onChange={event => { void search(event.target.value); }}/>
-    {actionError && <Alert tone="error">{actionError}</Alert>}
-    <CollectionFeedback state={pages}/><CollectionFeedback state={selected}/>
-    <SelectField id="company-picker-selection" label={label} value={selectedId} required={required} onChange={event => { void select(event.target.value); }} options={[
-      { value: "", label: emptyLabel },
-      ...(selectedId && !options.some(item => item.id === selectedId) ? [{ value: selectedId, label: selected.loading ? "Đang tải doanh nghiệp đã chọn…" : "Không tải được hồ sơ doanh nghiệp đã chọn", disabled: true }] : []),
-      ...options.map(item => ({ value: item.id, label: item.name })),
-    ]}/>
-    <AdminPagination state={pages} label="doanh nghiệp để chọn"/>
+  async function changePage(next: number) {
+    try { await ensureSession({ userAction: true }); setActionError(""); setPage(next); }
+    catch (issue) { setActionError(issue instanceof Error ? issue.message : "Không thể chuyển trang."); }
+  }
+  return <div className="company-picker" data-admin-draft-ignore="">
+    <ComboboxField id={`company-picker-${id}`} name={name} label={label} required={required}
+      options={searching ? [] : options} selectedOption={editing ? null : selectedOption}
+      value={editing ? "" : selectedId} inputValue={input ?? selectedOption?.label ?? ""}
+      controlRef={control} disabled={data.pending} filterOptions={false}
+      placeholder={emptyLabel} openLabel="Mở danh sách doanh nghiệp" clearLabel="Bỏ chọn doanh nghiệp"
+      emptyLabel="Không tìm thấy doanh nghiệp phù hợp." loading={searching || results.loading || !!selectedId && !selectedOption && selected.loading}
+      loadingLabel="Đang tìm doanh nghiệp…" popupError={actionError || results.error}
+      onRetry={() => { setActionError(""); void (selected.error ? selected.retry() : results.retry()); }} retryLabel="Thử lại"
+      onInputValueChange={(text, reason) => {
+        if (reason !== "input-change") return;
+        setInput(text); setPage(1); setActionError("");
+        void ensureSession({ userAction: true }).catch(issue => setActionError(issue instanceof Error ? issue.message : "Không thể tìm doanh nghiệp."));
+      }}
+      onOpenChange={(next, reason) => {
+        if (next) {
+          setPage(1);
+          void ensureSession({ userAction: true }).then(() => { setActionError(""); setOpen(true); }).catch(issue => setActionError(issue instanceof Error ? issue.message : "Không thể mở danh sách doanh nghiệp."));
+        } else {
+          setOpen(false);
+          if (reason === "escape-key") { serial.current++; setInput(null); setQuery(""); setPage(1); }
+        }
+      }}
+      onKeyDown={event => {
+        if ((open || editing) && event.key === "Escape") {
+          event.stopPropagation();
+          if (!open) { setInput(null); setQuery(""); setPage(1); }
+        }
+      }}
+      onValueChange={next => { void select(next); }}
+      pagination={{ page, pageCount, onPageChange: next => { void changePage(next); },
+        previousLabel: "Trước", nextLabel: "Sau",
+        pageLabel: results.value && !searching ? `Trang ${page}/${pageCount}` : searching || results.loading ? `Đang tải trang ${page}…` : `Trang ${page}`,
+        totalLabel: results.value && !searching ? `${total} doanh nghiệp` : "" }}/>
+    {!open && (actionError || selected.error) && <Alert tone="error">{actionError || selected.error} <Button type="button" variant="quiet" onClick={() => void selected.retry()}>Thử lại</Button></Alert>}
   </div>;
 }

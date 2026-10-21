@@ -5,8 +5,8 @@ import { useEffect, useId, useState } from "react";
 import { AdminPanel, Alert, Button, Input, Textarea, type ToastTone } from "@mall/ui";
 import type { WebsiteSettings } from "@/shared/admin/website-settings";
 import type { AdminMediaDetail, AdminUploadReceipt, MediaItem } from "@/shared/admin/contracts";
-import { AdminEditor } from "./admin-editor";
 import { AdminMediaField } from "./admin-media-field";
+import { AdminEditor } from "./admin-editor";
 import type { AdminData } from "./use-admin-data";
 import { adminRequest, ensureSession } from "./session";
 import { makeCacheKey, screenCache } from "./memory-cache";
@@ -24,6 +24,7 @@ export function WebsiteSettingsPanel({ data, onMessage }: { data: AdminData; onM
   const [logoResult, setLogoResult] = useState<{ key: string; version: number; value: AdminMediaDetail } | null>(null);
   const [logoFiles, setLogoFiles] = useState<File[]>([]);
   const [libraryLogo, setLibraryLogo] = useState<MediaItem[]>([]);
+  const [uploadedLogoId, setUploadedLogoId] = useState("");
   const zaloNoteId = useId();
   const website = editing?.website ?? data.settings?.website;
   const logoId = website?.logoMediaId;
@@ -49,6 +50,7 @@ export function WebsiteSettingsPanel({ data, onMessage }: { data: AdminData; onM
       setSelectedLogo(website.logoMediaId);
       setLogoFiles([]);
       setLibraryLogo([]);
+      setUploadedLogoId("");
     });
   }
   return <AdminPanel className={`records-panel ${styles.detail}`}>
@@ -63,14 +65,15 @@ export function WebsiteSettingsPanel({ data, onMessage }: { data: AdminData; onM
     {website && <Button disabled={!!editing || data.pending || data.loading} onClick={openEditor}>Thay logo website</Button>}
     {editing && <AdminEditor data={data} title="Cấu hình website" description="Lưu thông tin liên hệ công khai. Chọn logo từ thư viện hoặc tải ảnh mới lên Neon; logo được công bố cùng cấu hình khi lưu." onClose={() => setEditing(null)} onSave={async form => {
       let revision = editing.revision;
-      let logoMediaId = libraryLogo[0]?.id ?? selectedLogo;
-      if (logoFiles.length) {
+      let logoMediaId = libraryLogo[0]?.id ?? (uploadedLogoId || selectedLogo);
+      // Upload once, keep the local preview, and reuse the same media after a conflicting save.
+      if (logoFiles.length && !uploadedLogoId) {
         let receipt: AdminUploadReceipt | undefined;
         const uploaded = await data.uploadFiles(logoFiles, "Toàn dự án", revision, saved => {
           receipt = saved;
+          setUploadedLogoId(saved.mediaIds[0] ?? "");
           setSelectedLogo(saved.mediaIds[0] ?? "");
           setEditing(current => current ? { ...current, revision: saved.revision } : current);
-          setLogoFiles([]);
           setLibraryLogo([]);
         });
         if (!uploaded || !receipt) return false;
@@ -84,9 +87,9 @@ export function WebsiteSettingsPanel({ data, onMessage }: { data: AdminData; onM
       if (saved) onMessage("Đã lưu cấu hình website trên hệ thống.");
       return saved;
     }}>
-      <AdminMediaField data={data} id="website-logo-file" name="logoFile" label="Logo website" files={logoFiles} onFilesChange={setLogoFiles} library={libraryLogo} onLibraryChange={setLibraryLogo} max={1}/>
-      <p className={styles.secondary}>Giữ logo hiện tại nếu không chọn ảnh thay thế. Logo mới chỉ được công bố khi lưu cấu hình thành công.</p>
-      {selectedLogo !== editing.website.logoMediaId && <p role="status">Ảnh logo mới đã được tải lên. Lưu cấu hình để công bố; thử lưu lại sẽ không tải ảnh lần nữa.</p>}
+      <AdminMediaField data={data} id="website-logo-file" name="logoFile" label="Logo website" files={logoFiles} onFilesChange={files => { setLogoFiles(files); if (files.length) { setLibraryLogo([]); setUploadedLogoId(""); } }} library={libraryLogo} onLibraryChange={items => { setLibraryLogo(items); if (items.length) { setLogoFiles([]); setUploadedLogoId(""); } }} max={1} variant="avatar" src={libraryLogo[0]?.url ?? currentLogo?.url} fallback="LGC" removeLabel="Giữ lại logo hiện tại" onRemove={() => { setSelectedLogo(editing.website.logoMediaId); setLogoFiles([]); setLibraryLogo([]); setUploadedLogoId(""); }}/>
+      <p className={styles.secondary}>Bấm vào vòng tròn để chọn ảnh mới; ảnh chỉ được tải lên khi bấm Lưu thay đổi. Logo mới chỉ được công bố khi lưu cấu hình thành công.</p>
+      {(logoFiles.length > 0 || libraryLogo.length > 0) && <p role="status">Đang chờ tải ảnh logo lên. Lưu cấu hình để công bố; thử lưu lại sẽ không tải ảnh lần nữa.</p>}
       <label>Email liên hệ website<Input name="email" type="email" required maxLength={254} defaultValue={editing.website.email}/></label><label>Hotline website<Input name="hotline" type="tel" required maxLength={32} defaultValue={editing.website.hotline}/></label><label>Điện thoại bổ sung (không bắt buộc)<Input name="secondaryPhone" type="tel" maxLength={32} defaultValue={editing.website.secondaryPhone}/></label><label>Điện thoại ban quản lý (không bắt buộc)<Input name="managementPhone" type="tel" maxLength={32} defaultValue={editing.website.managementPhone}/></label><label>Địa chỉ liên hệ<Textarea name="address" required maxLength={400} defaultValue={editing.website.address}/></label><label>Đường dẫn Zalo<Input name="zaloUrl" type="url" required maxLength={240} defaultValue={editing.website.zaloUrl} aria-describedby={zaloNoteId}/></label><p id={zaloNoteId} className={styles.secondary}>Nhập đường dẫn tài khoản cụ thể dạng https://zalo.me/…; không tự tạo từ số hotline.</p>
     </AdminEditor>}
   </AdminPanel>;

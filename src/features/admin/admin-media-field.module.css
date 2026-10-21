@@ -5,6 +5,19 @@
   min-width: 0;
 }
 
+.compactLibrary {
+  min-width: 0;
+}
+
+.compactTrigger {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .chooserRow,
 .actions {
   display: flex;

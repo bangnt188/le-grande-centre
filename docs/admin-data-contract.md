@@ -1,6 +1,6 @@
 # Admin nội bộ — session cache và dữ liệu theo màn hình
 
-Contract hiện hành 19/10/2026; thay cho snapshot/IndexedDB demo và thiết kế kiểm tra provider/quyền DB trên từng request. Khoảng ba người sử dụng, hai vai trò nghiệp vụ; hợp đồng gốc lưu ngoài ứng dụng. Source cần build, migrate và deploy theo quy trình; ghi chú này không tuyên bố đã deploy production.
+Contract hiện hành 20/10/2026; thay cho snapshot/IndexedDB demo và thiết kế kiểm tra provider/quyền DB trên từng request. Khoảng ba người sử dụng, hai vai trò nghiệp vụ; hợp đồng gốc lưu ngoài ứng dụng. Source cần build, migrate và deploy theo quy trình; ghi chú này không tuyên bố đã deploy production.
 
 ## Session và hai quyền
 
@@ -71,13 +71,59 @@ Source này cần bot migration0007 sau0004 và bot API mới; không cần migr
 
 Mọi form thêm/sửa nghiệp vụ dùng `AdminEditor` với `@mall/ui Sheet`: tầng, mặt bằng/nhóm ghép, doanh nghiệp/ghi chú, khách tiềm năng, yêu cầu/giữ chỗ/hồ sơ thuê, lịch hẹn, media, cấu hình, nhân viên và upload logo. Inspector/hồ sơ chỉ đọc và có nút mở Sheet; tìm kiếm/lọc/phân trang vẫn inline. **Xác nhận bỏ thay đổi chưa lưu dùng popup `ConfirmDialog` giữa màn hình**, cả khi đóng form và khi rời màn hình/đăng xuất. `ConfirmSheet` chỉ giữ cho các xác nhận nghiệp vụ khác như tách nhóm, xóa media và hủy lịch. Tài liệu hợp đồng lịch sử mở bằng Sheet. Trang đăng nhập/đăng ký và public không chuyển sang Sheet.
 
-Sheet cạnh phải rộng tối đa36rem, mobile toàn chiều ngang, header/nút đóng trong viewport và cuộn riêng nội dung. Lưu/Hủy, Escape/backdrop và trả focus giữ nguyên; editor/xác nhận lồng nằm trong cây Sheet cha. Đang lưu không được đóng/gửi lặp; lỗi giữ trường và hiện ngay trong Sheet, thành công mới đóng. Revision lấy từ nguồn bản ghi khi mở sửa, không cập nhật draft theo refetch. Nhân viên dùng API quyền riêng, không dùng revision giả để thay quyền server; email khi sửa vai trò là read-only.
+Sheet biểu mẫu cạnh phải rộng tối đa36rem. Root Sheet đọc hồ sơ rộng68vw, tối đa64rem, tối thiểu640px nhưng không vượt viewport; từ720px trở xuống dùng toàn chiều ngang. Header/nút đóng trong viewport và cuộn riêng nội dung. Lưu/Hủy, Escape/backdrop và trả focus giữ nguyên; editor/xác nhận lồng nằm trong cây Sheet cha. Đang lưu không được đóng/gửi lặp; lỗi giữ trường và hiện ngay trong Sheet, thành công mới đóng. Revision lấy từ nguồn bản ghi khi mở sửa, không cập nhật draft theo refetch. Nhân viên dùng API quyền riêng, không dùng revision giả để thay quyền server; email khi sửa vai trò là read-only.
 
 Khách tiềm năng và Yêu cầu & giữ chỗ giữ danh sách toàn chiều ngang, phân trang server/bộ lọc hiện có; click dòng mới mở chi tiết, không tự chọn hồ sơ đầu hoặc tải tất cả dữ liệu.
 
 Kiểm tra UI cục bộ 19/10/2026: shared UI build/typecheck, TypeScript ứng dụng và production Next build pass; `test:admin`52pass/2skip. Chrome1440/390/320px kiểm thêm/sửa, form lồng, Hủy/Escape/focus, giữ draft sau409, chống đóng/gửi lặp khi pending và đóng sau receipt thành công. Đã mở form tầng/slot/ghép/slot dossier/doanh nghiệp/ghi chú/lead/request/duyệt/lịch hẹn/cấu hình/nhân viên/logo/media; lỗi hủy lịch/xóa media hiện trong Sheet. API browser được chặn và cấp fixture, không ghi DB/cloud; bằng chứng này không xác nhận mutation nghiệp vụ/deployment.
 
 Điều chỉnh20/10/2026: xác nhận bỏ draft/rời màn hình quay về popup Dialog theo yêu cầu chủ đầu tư; portal xác nhận chung đặt sau nội dung để không bị Sheet mobile che. Chrome1440/390/320px kiểm popup nằm giữa/trên Sheet, Tab/Escape/focus, Tiếp tục sửa/Ở lại giữ nguyên draft, Bỏ thay đổi đóng editor và Tiếp tục điều hướng mở màn được chọn. API smoke dùng fixture chặn trong browser, không ghi DB.
+
+### Flow nghiệp vụ và ngữ cảnh điều hướng — 20/10/2026
+
+- `link-lead-company` nhận leadId/companyId; `create-company-from-lead` nhận leadId/CompanyInput. Cả hai giữ thông tin/trạng thái lead và trả companyId qua receipt. Tạo organization/customer + liên kết lead cùng transaction/property lock/CAS; lỗi liên kết rollback cả doanh nghiệp mới. Lead đã liên kết không tạo thêm doanh nghiệp. Replay cùng actor/property/key trả receipt cũ; client chỉ tái dùng key khi người dùng gửi lại cùng command/revision/identity, không tự replay request nền.
+- Hồ sơ doanh nghiệp mở yêu cầu hoặc lịch hẹn với companyId đã chọn. Lựa chọn mặt bằng/nhóm và slot dossier mở yêu cầu với tầng + đầy đủ member slot IDs; không tự giữ chỗ khi tạo yêu cầu hoặc lịch hẹn.
+- Thành công dùng `receipt.entityId` mở đúng doanh nghiệp/lead/yêu cầu/lịch hẹn/hợp đồng. Receipt duyệt/hủy giữ chỗ định danh reservation nên UI giữ yêu cầu nguồn, không dùng hold ID làm request ID. `leases?reservationId=` là truy vấn chỉ dành cho leases để tìm đúng hợp đồng của giữ chỗ đã chuyển thuê.
+- Reservation projection giữ riêng `expired` và `cancelled`. Request filter/label phân biệt hai trạng thái; giữ chỗ active đã qua expiresAt không được đề nghị ghi hợp đồng. Không mở thêm nghiệp vụ gia hạn, thanh lý/bàn giao hoặc transition completed/no_show.
+- `admin-workspace-navigation` là contract chung; controller sở hữu native URL/history. Root chỉ có một Sheet đọc hồ sơ; link liên quan thay nội dung trong Sheet, không đổi module danh sách nguồn. Chuyển tầng/module/thư viện chỉ qua hành động rõ ràng. Media theo slot/nhóm/tầng có nút quay về hồ sơ nguồn.
+- URL chứa view/floor/selected IDs, detail kind/id/floor/tab/relatedPage, action và IDs nguồn, page/size/status/media filters, panel cấu hình và tab bản vẽ tham chiếu. `formCompany` tách companyId của form khỏi `companyId` bộ lọc danh sách hợp đồng. Search tự do không đi vào URL. Native history.state chỉ giữ chỉ số frame/đích đóng, không chứa hồ sơ hoặc draft.
+- Back lùi một bước; Đóng về danh sách nguồn; Hủy về hồ sơ trước form; lưu thay action bằng hồ sơ từ receipt. Browser Back/Forward/Refresh/deep link khôi phục vị trí nghiệp vụ. Private list state, DOM focus và scroll ở memory theo document/identity; trở lại hồ sơ/danh sách phục hồi focus và vị trí khi nội dung sẵn sàng. Refresh không lưu hay phục hồi draft; beforeunload cảnh báo thay đổi chưa lưu.
+- Dirty/pending registry chung cho cùng identity. `AdminEditor` đăng ký cả vòng đời submit, kể cả form dùng API riêng như tài khoản/email; request mutex của repository tách khỏi pending editor để form không tự chặn command của chính nó. Back/đổi màn/đóng khi dirty cần xác nhận; Ở lại giữ URL và trường nhập. Pending khóa đóng/điều hướng/gửi lặp. 409/refetch không thay snapshot CAS hoặc xóa draft. Lỗi lưu hiển thị inline; không phát thêm toast lỗi trùng từ workspace che nút lưu.
+- Map trong hồ sơ yêu cầu/giữ chỗ và hồ sơ thuê dùng `FloorPlanMap` variant `admin`, cùng projection hình học với màn Căn / Mặt bằng. Giữ mã slot, diện tích, kích thước, trạng thái và hai cạnh định hướng hồ/đường; slot thuộc hồ sơ tô đậm. Sơ đồ giữ thang hiển thị chuẩn và cuộn ngang bên trong Sheet, không ép thành thumbnail mất nhãn. Click slot mở hồ sơ mặt bằng trong cùng root Sheet/ngữ cảnh danh sách. Chưa có plan sau khi tải xong phải hiện cảnh báo, không im lặng bỏ map.
+
+Kiểm chứng map hồ sơ20/10/2026: Chrome localhost1440/390/320px, mỗi kích thước mở yêu cầu và hợp đồng trên tầng1/3/6 (18trường hợp). Kiểm đủ mã slot11/23/2, hai slot hồ sơ tô đậm, hướng hồ/đường, giữ tỷ lệ và cuộn trong Sheet không tràn trang; click mã slot, kể cả F.2 đa giác, mở đúng hồ sơ trong một root Sheet. Repro trước sửa không có nhãn, highlight hoặc hướng; sau sửa pass. App TypeScript và `test:admin`71pass/4live skips. API browser dùng fixture chặn, không ghi DB/cloud; không thay hình học, migration hoặc deploy.
+
+Kiểm chứng source local: `test:admin`71pass/4live skips; shared backend105pass. PostgreSQL disposable5/5 relational,2/2 outbox,2/2 email, bao gồm create+link atomic/rollback/replay/already-linked/cross-property, expired khác cancelled và lookup hợp đồng theo reservation. Database tự dọn; không ghi Neon live.
+
+Chrome dev1366/390px thực hiện doanh nghiệp trang2 → request →409/manual retry cùng key+CAS → duyệt giữ chỗ → hợp đồng đúng ID; giữ chỗ converted mở lại đúng hợp đồng; lịch hẹn có companyId; hai cách liên kết lead; chọn nhóm/slot prefill; Back Stay/discard với form nghiệp vụ và form local; pending Back/Escape; media quay nguồn, phục hồi scroll/focus và kiểm URL/storage không có nội dung private. Preview PDF lịch sử được kiểm ở mức mount iframe đúng URL private, không chứng minh nội dung PDF/provider production.
+
+Production Next build và TypeScript pass với `PUBLIC_BUILD_ORIGIN=http://localhost:3000` lấy public projection thật6tầng/81căn. Origin Worker mặc định trả404 trong lần chạy này; không sửa cấu hình hay coi endpoint đó đã phục hồi. Standalone production chạy loopback được Chrome1366/390px kiểm page2/detail/tab/Back/Forward/Refresh/dirty Stay/discard, không tràn Sheet, lưu command workspace và pending Back/Escape của form gọi staff API riêng; lỗi staff giữ draft và Refresh giữ tab nhân sự. Mọi API browser dùng fixture intercept, không mutation cloud/DB; không runtime exception quan sát được. Đây không phải bằng chứng đã commit/push/deploy bản thay đổi.
+
+### Autocomplete doanh nghiệp có phân trang
+
+`CompanyPicker` dùng một `ComboboxField` chung của `@mall/ui`, không còn input tìm kiếm + select + pagination riêng bên ngoài. Áp dụng cho yêu cầu thuê, lịch hẹn, khách tiềm năng và liên kết lead với doanh nghiệp có sẵn.
+
+- Chỉ tải danh sách khi mở gợi ý; server trả tối đa10doanh nghiệp/trang. Mở lại bắt đầu trang1; gõ tìm tên/ngành hàng debounce250ms và reset trang1. Không fetch toàn bộ catalog hoặc lọc lại một trang bằng tên ở client.
+- Popup hiện tên + ngành hàng; footer Trước/Sau, Trang X/Y và tổng kết quả. Chuyển trang không đóng popup hoặc đổi companyId. Loading/error/empty có trạng thái riêng, không hiển thị tổng0 hoặc tỷ lệ trang giả trong lúc chưa đọc được dữ liệu.
+- Prefill tải theo ID riêng. `selectedOption` không được append vào10kết quả, nên doanh nghiệp ngoài trang vẫn hiển thị đúng trong ô nhưng không tạo dòng11.
+- Chữ đang gõ chỉ là query, không phải doanh nghiệp mới. Khi chưa chọn kết quả hợp lệ, form không gửi lại ID cũ dưới nội dung đang gõ; Escape khôi phục lựa chọn trước và chỉ đóng gợi ý. Bỏ chọn là thao tác riêng. Search/pagination không đánh dirty; chọn/bỏ doanh nghiệp mới đánh dirty.
+- Arrow/Enter chọn kết quả; Tab tới actions popup và Shift+Tab quay về ô nhập. Popup dùng theme root, giới hạn viewport và có vùng cuộn riêng; không bị Sheet cắt. Quyền/session, business commands, CAS và scope server giữ nguyên; không tạo migration.
+
+Kiểm chứng20/10/2026: shared UI64tests pass, admin71pass/4live skips; UI/app TypeScript và production Next build pass (`PUBLIC_BUILD_ORIGIN=http://localhost:3000`). Chrome dev và standalone production1366/390px kiểm một ô duy nhất, prefill doanh nghiệp25 ngoài10kết quả, các trang10/10/5, tìm ngành hàng và reset trang1, reopen trang1, Tab/Shift+Tab/Enter phân trang, Arrow/Enter chọn, Escape giữ form/lựa chọn cũ, search không dirty, empty/lỗi/retry, chặn text chưa chọn, submit đúng companyId12 và409 giữ draft. Popup được đo trong viewport và kiểm ảnh desktop/mobile. Mọi API browser bị intercept bằng fixture; không ghi DB/cloud, không commit/push/deploy.
+
+### Avatar upload dùng chung
+
+Logo doanh nghiệp và logo website dùng `AvatarUploadField` của `@mall/ui`: một vòng tròn duy nhất, bấm vào để chọn ảnh, không còn khối kéo-thả lớn.
+
+- Component dùng chung sở hữu vòng tròn, nút chọn, nút gỡ, ẩn file input native và vòng đời object URL: URL cũ bị revoke khi đổi ảnh hoặc khi field unmount, nên không rò rỉ blob trong bộ nhớ.
+- Ảnh đã chọn hiển thị ngay bằng object URL ở FE, **không upload** cho tới khi bấm Lưu. File chỉ nằm trong memory của tab, không ghi localStorage/URL.
+- Validate tệp vẫn do tầng app chạy (`validateMediaFiles`): sai định dạng, quá10MiB, quá4096px hoặc trên4megapixel bị từ chối và giữ nguyên ảnh trước đó. Chỉ server mới quyết định quota/scope/decode.
+- Upload chỉ chạy **một lần** cho mỗi lần chọn ảnh. Lưu bị 409 giữ preview và media id đã upload, nên lưu lại không tải lại bytes. Chọn ảnh khác xoá media id đã upload để tải đúng bản mới.
+- Logo doanh nghiệp: nút gỡ đặt cờ xoá logo đã lưu; chọn ảnh mới xoá cờ này. Logo website bắt buộc nên nút gỡ chỉ khôi phục logo đang lưu, không tạo website không logo.
+- Thư viện ảnh vẫn là nguồn chọn ảnh đã tải lên; ở biến thể avatar nó là hành động gọn, không hiện bộ đếm ảnh hay danh sách thumbnail trùng lặp. Chọn ảnh thư viện và tệp cục bộ loại trừ nhau.
+- Quyền, session, revision CAS, idempotency và scope server không đổi; không có migration hay API mới.
+
+Kiểm chứng20/10/2026: shared UI65tests pass, admin71pass/4live skips, UI/app TypeScript và production Next build pass. Chrome dev và standalone production1366/390px đo vùng logo cao158px desktop/204px mobile, không còn dropzone hay danh sách tệp; preview ảnh tại chỗ bằng blob URL, thay ảnh revoke URL cũ, tệp sai định dạng giữ ảnh cũ, gỡ logo quay về chữ viết tắt, không upload trước khi bấm Lưu, 409 giữ preview và lưu lại không tải lại ảnh, hủy form thả file, unmount không rò blob URL. Mọi API browser bị intercept bằng fixture; không ghi DB/cloud, không commit/push/deploy.
 
 ## Media
 

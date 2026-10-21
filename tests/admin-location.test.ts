@@ -44,3 +44,14 @@ test("scoped media and expired-hold filters survive a deep link", () => {
   const requests = parseAdminLocation(new URL("https://example.invalid/admin/workspace/?view=requests&status=expired"));
   assert.equal(requests.list.status, "expired");
 });
+
+test("refresh preserves settings and reference-plan tabs without accepting free-text panel values", () => {
+  const settings = parseAdminLocation(new URL(adminLocationUrl("/admin/workspace/", { view: "settings", floor: 2, selectedIds: [] }, { settings: { panel: "staff" } }), "https://example.invalid"));
+  assert.equal(settings.list.panel, "staff");
+  const spaces = parseAdminLocation(new URL(adminLocationUrl("/admin/workspace/", { view: "spaces", floor: 3, selectedIds: ["slot-a"] }, { spaces: { planTab: "reference", query: "private tenant" } }), "https://example.invalid"));
+  assert.equal(spaces.list.planTab, "reference");
+  assert.equal(spaces.location.floor, 3);
+  assert.deepEqual(spaces.location.selectedIds, ["slot-a"]);
+  const invalid = parseAdminLocation(new URL("https://example.invalid/admin/workspace/?view=settings&panel=private%40example.invalid"));
+  assert.equal(invalid.list.panel, undefined);
+});

@@ -20,9 +20,10 @@ type Props = {
   max?: number;
   targetScope?: string;
   disabledIds?: string[];
+  compact?: boolean;
 };
 
-export function MediaLibraryPicker({ data, label, max = 1, value, onChange, targetScope, disabledIds = [] }: Props) {
+export function MediaLibraryPicker({ data, label, max = 1, value, onChange, targetScope, disabledIds = [], compact = false }: Props) {
   const trigger = useRef<HTMLButtonElement>(null);
   const host = useRef<HTMLElement | null>(null);
   const previewReturn = useRef<HTMLElement | null>(null);
@@ -63,15 +64,15 @@ export function MediaLibraryPicker({ data, label, max = 1, value, onChange, targ
     } catch (issue) { if (identity.current === expected) setError(issue instanceof Error ? issue.message : "Không thể mở thư viện ảnh."); }
   };
   const draftInvalid = draft.some(item => !!mediaSelectionReason(item, targetScope, disabledIds));
-  return <div className={styles.library} data-admin-draft-ignore="">
+  return <div className={compact ? styles.compactLibrary : styles.library} data-admin-draft-ignore="">
     <div className={styles.chooserRow}>
-      <Button ref={trigger} variant="secondary" aria-haspopup="dialog" disabled={blocked} onClick={() => { void act(() => {
+      <Button ref={trigger} variant={compact ? "quiet" : "secondary"} size={compact ? "sm" : undefined} className={compact ? styles.compactTrigger : undefined} aria-haspopup="dialog" disabled={blocked} onClick={() => { void act(() => {
         host.current = trigger.current?.closest<HTMLElement>("[data-ui-root]") ?? null;
         setDraft([...value]); setQuery(""); setScope(""); setPage(1); setPreview(null); setOpenedFor(data.sessionKey);
       }); }}>{label}</Button>
-      <span className={styles.note}>{value.length}/{max} ảnh từ thư viện</span>
+      {!compact && <span className={styles.note}>{value.length}/{max} ảnh từ thư viện</span>}
     </div>
-    {!!value.length && <ul className={styles.strip} aria-label="Ảnh thư viện đã chọn">
+    {!compact && !!value.length && <ul className={styles.strip} aria-label="Ảnh thư viện đã chọn">
       {value.map(item => <li key={item.id}>
         <div className={styles.smallThumbnail}>{item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" loading="lazy" decoding="async" width={64} height={64}/> : <span>ẢNH</span>}</div>
         <div className={styles.selectedName}><strong>{item.name}</strong><small>{item.scope}</small></div>

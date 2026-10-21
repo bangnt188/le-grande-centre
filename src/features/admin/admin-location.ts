@@ -4,6 +4,7 @@ import type { Floor } from "@/shared/admin/space-model";
 export const ADMIN_VIEWS: readonly AdminView[] = ["floors", "spaces", "customers", "leads", "requests", "leases", "appointments", "media", "settings"];
 const RECORD_KINDS: readonly AdminRecordTarget["kind"][] = ["customers", "requests", "leases", "slot", "leads", "appointments", "media"];
 const COMPANY_TABS: readonly CompanyTab[] = ["overview", "requests", "spaces", "contracts"];
+const SETTINGS_PANELS = ["settings", "website", "staff", "email"];
 export const initialAdminLocation: AdminLocation = { view: "floors", floor: 2, selectedIds: [] };
 const identifier = (value: string | null) => value && /^[a-zA-Z0-9._-]{1,128}$/.test(value) ? value : undefined;
 const positive = (value: string | null, fallback = 1, max = 100000) => value && /^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= max ? Number(value) : fallback;
@@ -18,8 +19,7 @@ export function validMediaScope(value: string | null): string | undefined {
 /** Only structural state is serializable; free-text searches and drafts stay in memory. */
 export function parseAdminLocation(url: URL): { location: AdminLocation; list: AdminListState } {
   const params = url.searchParams;
-  const legacySlot = identifier(new URLSearchParams(url.hash.slice(1)).get("slot"));
-  const view = ADMIN_VIEWS.includes(params.get("view") as AdminView) ? params.get("view") as AdminView : legacySlot ? "spaces" : "floors";
+  const view = ADMIN_VIEWS.includes(params.get("view") as AdminView) ? params.get("view") as AdminView : "floors";
   const location: AdminLocation = { view, floor: floorNumber(params.get("floor")), selectedIds: ids(params.get("selected")) };
   const scope = validMediaScope(params.get("scope"));
   if (scope) location.scope = scope;
@@ -32,7 +32,7 @@ export function parseAdminLocation(url: URL): { location: AdminLocation; list: A
       location.detail.tab = COMPANY_TABS.includes(params.get("tab") as CompanyTab) ? params.get("tab") as CompanyTab : "overview";
       location.detail.page = positive(params.get("relatedPage"));
     }
-  } else if (legacySlot) location.detail = { kind: "slot", id: legacySlot };
+  }
   const actionKind = params.get("action");
   const editId = identifier(params.get("editId"));
   const companyId = identifier(params.get("formCompany"));
@@ -50,6 +50,9 @@ export function parseAdminLocation(url: URL): { location: AdminLocation; list: A
   if (status && statuses.has(status)) list.status = status;
   const companyFilter = identifier(params.get("companyId"));
   if (view === "leases" && companyFilter) list.companyId = companyFilter;
+  const panel = params.get("panel");
+  if (view === "settings" && panel && SETTINGS_PANELS.includes(panel)) list.panel = panel;
+  if (view === "spaces" && params.get("plan") === "reference") list.planTab = "reference";
   if (view === "media") {
     const mediaKind = params.get("kind");
     if (mediaKind && ["Ảnh", "Tài liệu", "Video", "Model 3D", "Tài nguyên"].includes(mediaKind)) list.kind = mediaKind;
@@ -77,6 +80,8 @@ export function adminLocationUrl(pathname: string, location: AdminLocation, list
   if (list.pageSize) params.set("size", String(list.pageSize));
   if (typeof list.status === "string" && statuses.has(list.status)) params.set("status", list.status);
   if (location.view === "leases" && typeof list.companyId === "string" && identifier(list.companyId)) params.set("companyId", list.companyId);
+  if (location.view === "settings" && typeof list.panel === "string" && SETTINGS_PANELS.includes(list.panel)) params.set("panel", list.panel);
+  if (location.view === "spaces" && list.planTab === "reference") params.set("plan", "reference");
   if (location.view === "media") {
     if (list.kind) params.set("kind", String(list.kind));
     if (list.source) params.set("source", String(list.source));

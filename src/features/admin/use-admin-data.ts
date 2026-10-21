@@ -106,7 +106,7 @@ export function useAdminData(activeScreen: string | null = "floors", screenQuery
       const renewed = await ensureSession({ userAction: true });
       if (!identity || identity !== JSON.stringify([renewed.actorId, renewed.propertyId])) throw new Error("Tài khoản đã thay đổi. Tải lại dữ liệu trước khi lưu.");
       if (revision === null || !Number.isSafeInteger(revision) || revision < 0) throw new Error("Chưa tải phiên bản dữ liệu của màn hình. Tải lại trước khi lưu.");
-      const requestFingerprint = JSON.stringify([fingerprint ?? crypto.randomUUID(), revision]);
+      const requestFingerprint = JSON.stringify([identityKey, fingerprint ?? crypto.randomUUID(), revision]);
       if (retryReceipt.current?.fingerprint !== requestFingerprint) retryReceipt.current = { fingerprint: requestFingerprint, key: crypto.randomUUID() };
       const receipt = await operation(revision, retryReceipt.current.key);
       retryReceipt.current = null;

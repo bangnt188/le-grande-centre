@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Alert, Avatar, Button, Checkbox, CheckboxField, LoadingIndicator, Select, SelectField, Textarea, TextareaField, TextField } from "@mall/ui";
+import { Alert, Button, Checkbox, LoadingIndicator, Select, SelectField, Textarea, TextareaField, TextField } from "@mall/ui";
 import { AdminEditor } from "@/features/admin/admin-editor";
 import { useAdminData, type AdminData } from "@/features/admin/use-admin-data";
 import type { Appointment, B2BCommand, Company, LeasingRequest, Reservation } from "@/shared/admin/b2b-model";
 import { FLOORS, type Floor } from "@/shared/admin/space-model";
 import type { AdminMutationReceipt, AdminUploadReceipt, MediaItem } from "@/shared/admin/contracts";
 import { CompanyPicker } from "@/features/admin/admin-collections";
-import { ensureSession } from "@/features/admin/session";
 import { AdminMediaField } from "@/features/admin/admin-media-field";
+import { ensureSession } from "@/features/admin/session";
 
 export type BusinessEditor = (
   | { kind: "company"; record?: Company }
@@ -36,6 +36,7 @@ export function BusinessRecordEditor({ editor, data, onClose, onSaved }: { edito
   const [logoFiles, setLogoFiles] = useState<File[]>([]);
   const [logoLibrarySelection, setLogoLibrarySelection] = useState<MediaItem[]>([]);
   const [logoMediaId, setLogoMediaId] = useState(editor.kind === "company" ? editor.record?.logoMediaId ?? "" : "");
+  const [uploadedLogoId, setUploadedLogoId] = useState("");
   const [removeLogo, setRemoveLogo] = useState(false);
 
   const defaultsData = useAdminData(editor.kind === "approve" || (editor.kind === "appointment" && !editor.record) ? "defaults" : null);
@@ -60,13 +61,15 @@ export function BusinessRecordEditor({ editor, data, onClose, onSaved }: { edito
   async function save(values: FormData) {
     if (!ready || saveRevision == null) return false;
     let expectedRevision = saveRevision;
-    let selectedLogo = removeLogo ? "" : logoLibrarySelection[0]?.id ?? logoMediaId;
-    if (editor.kind === "company" && logoFiles.length) {
+    let selectedLogo = removeLogo ? "" : uploadedLogoId || logoLibrarySelection[0]?.id || logoMediaId;
+    // The uploaded logo keeps its local preview and is uploaded only once, so a retry after a
+    // conflicting command never uploads the same bytes twice.
+    if (editor.kind === "company" && logoFiles.length && !uploadedLogoId) {
       let uploaded: AdminUploadReceipt | undefined;
       const saved = await data.uploadFiles(logoFiles, "Toàn dự án", expectedRevision, receipt => {
         uploaded = receipt;
+        setUploadedLogoId(receipt.mediaIds[0] ?? "");
         setLogoMediaId(receipt.mediaIds[0] ?? "");
-        setLogoFiles([]);
         setLogoLibrarySelection([]);
         setRemoveLogo(false);
         setSaveRevision(receipt.revision);
@@ -183,12 +186,7 @@ export function BusinessRecordEditor({ editor, data, onClose, onSaved }: { edito
         {(spaces.error || defaultsData.error || actionError) && <Alert tone="error">{actionError || spaces.error || defaultsData.error}<Button variant="quiet" type="button" onClick={() => { void (editor.kind === "request" ? spaces.reload() : defaultsData.reload()); }}>Thử lại</Button></Alert>}
         {editor.kind === "company" && (
           <>
-            <fieldset className="b2b-company-logo-field">
-              <legend>Logo doanh nghiệp</legend>
-              <Avatar className="b2b-company-logo" name={editor.record?.name ?? "Logo doanh nghiệp"} fallback={editor.record?.initials ?? "DN"} src={!removeLogo ? logoLibrarySelection[0]?.url ?? (logoMediaId === editor.record?.logoMediaId ? editor.record?.logoUrl : undefined) : undefined} size="lg"/>
-              <AdminMediaField data={data} id="company-logo-file" name="logoFile" label="Chọn logo doanh nghiệp" files={logoFiles} onFilesChange={files => { setLogoFiles(files); if (files.length) setRemoveLogo(false); }} library={logoLibrarySelection} onLibraryChange={items => { setLogoLibrarySelection(items); if (items.length) setRemoveLogo(false); }} max={1}/>
-              {!!logoMediaId && <CheckboxField id="company-remove-logo" name="removeLogo" label="Gỡ logo hiện tại" checked={removeLogo} onCheckedChange={setRemoveLogo}/>}
-            </fieldset>
+            <AdminMediaField data={data} id="company-logo-file" name="logoFile" label="Logo doanh nghiệp" files={logoFiles} onFilesChange={files => { setLogoFiles(files); if (files.length) { setRemoveLogo(false); setUploadedLogoId(""); } }} library={logoLibrarySelection} onLibraryChange={items => { setLogoLibrarySelection(items); if (items.length) { setRemoveLogo(false); setUploadedLogoId(""); setLogoFiles([]); } }} max={1} variant="avatar" src={!removeLogo ? logoLibrarySelection[0]?.url ?? (logoMediaId === editor.record?.logoMediaId ? editor.record?.logoUrl : undefined) : undefined} fallback={editor.record?.initials ?? "DN"} removeLabel="Gỡ logo hiện tại" onRemove={() => { setRemoveLogo(true); setLogoFiles([]); setLogoLibrarySelection([]); setUploadedLogoId(""); }}/>
             <TextField id="company-name" name="name" label="Tên doanh nghiệp" defaultValue={editor.record?.name} required maxLength={80} />
             <TextField id="company-industry" name="industry" label="Ngành hàng" defaultValue={editor.record?.industry} maxLength={120} />
             <TextField id="company-brand" name="brand" label="Thương hiệu" defaultValue={editor.record?.brand} maxLength={80} />

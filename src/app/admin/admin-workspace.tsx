@@ -33,7 +33,6 @@ const BusinessActionHost = lazy(() => import("./b2b-workspace").then(m => ({ def
 const LeadActionHost = lazy(() => import("@/features/admin/admin-records").then(m => ({ default: m.LeadActionHost })));
 const LeadQualificationHost = lazy(() => import("@/features/admin/lead-qualification").then(m => ({ default: m.LeadQualificationHost })));
 
-type View = AdminView | "slot";
 type SpaceEditor = { revision: number } & (
   | { kind: "edit"; slot: Slot; group?: SpaceGroup }
   | { kind: "merge"; floor: Floor; slots: Slot[]; name: string }
@@ -62,7 +61,7 @@ function Status({ value }: { value: Slot["status"] }) {
   return <Badge className="slot-state-badge" data-slot-status={value} tone={tone}>{value}</Badge>;
 }
 const fmt = (value: number) => new Intl.NumberFormat("vi-VN").format(value);
-const labels: Record<View, string> = { slot: "Hồ sơ slot", floors: "Tầng", customers: "Doanh nghiệp", requests: "Yêu cầu & giữ chỗ", leases: "Hợp đồng", appointments: "Lịch hẹn", spaces: "Căn / Mặt bằng", leads: "Khách tiềm năng", media: "Media", settings: "Cấu hình" };
+const labels: Record<AdminView, string> = { floors: "Tầng", customers: "Doanh nghiệp", requests: "Yêu cầu & giữ chỗ", leases: "Hợp đồng", appointments: "Lịch hẹn", spaces: "Căn / Mặt bằng", leads: "Khách tiềm năng", media: "Media", settings: "Cấu hình" };
 
 
 export default function AdminWorkspace() {
@@ -396,7 +395,7 @@ function AdminDetailView({ record, onMessage, canEditBusinessStatus }: { record:
   const workspace = useAdminWorkspaceNavigation();
   const screen = record.kind === "slot" || record.kind === "requests" || record.kind === "leases" ? record.kind : null;
   const data = useAdminData(screen, { id: record.id });
-  if (record.kind === "slot") return <SlotDetail id={record.id} data={data} canEditBusinessStatus={canEditBusinessStatus} onMessage={onMessage} onBack={workspace.back} onSlot={id => workspace.openRecord({ kind: "slot", id, floor: record.floor })} onRecord={entry => workspace.openRecord({ kind: entry.view, id: entry.id })} onMedia={(id, scope) => id ? workspace.openRecord({ kind: "media", id }) : workspace.navigateView("media", { scope })}/>;
+  if (record.kind === "slot") return <SlotDetail id={record.id} data={data} canEditBusinessStatus={canEditBusinessStatus} onMessage={onMessage} onSlot={id => workspace.openRecord({ kind: "slot", id, floor: record.floor })} onRecord={entry => workspace.openRecord({ kind: entry.view, id: entry.id })} onMedia={(id, scope) => id ? workspace.openRecord({ kind: "media", id }) : workspace.navigateView("media", { scope })}/>;
   if (record.kind === "leads") return <LeadsWorkspace mode="detail" record={record} data={data} onMessage={onMessage}/>;
   if (record.kind === "media") return <MediaWorkspace mode="detail" record={record} data={data} onMessage={onMessage}/>;
   return <B2BWorkspace view={record.kind} mode="detail" record={record} data={data} onMessage={onMessage}/>;
