@@ -200,7 +200,7 @@ try {
     console.log("PASS investor-letter: tinted CSS background remains static through reveal.");
   } else {
     await send("Page.navigate", { url: new URL("mat-bang/", base).href });
-    await waitFor(() => !!document.querySelector('button[id="leasing-plan-A.1"]'));
+    await waitFor(() => !!document.querySelector('button[aria-label^="A.1,"]'));
   await evaluate(() => document.fonts.ready.then(() => true));
   for (const width of [1366, 1201, 1200, 1100, 720, 390, 320]) {
     await viewport(width);
@@ -214,15 +214,15 @@ try {
     }
   }
   await viewport(1366);
-  const slot = 'button[id="leasing-plan-A.1"]';
+  const slot = 'button[aria-label^="A.1,"]';
   await click(slot);
   await waitFor(() => document.querySelector('[role="dialog"] h2')?.textContent === "Mặt bằng A.1");
   assert.equal(await evaluate(() => location.pathname.replace(/\/$/, "")), new URL("mat-bang/", base).pathname.replace(/\/$/, ""), "slot click navigated before detail action");
   await escape();
-  await waitFor(() => !document.querySelector('[role="dialog"]') && document.activeElement.id === "leasing-plan-A.1");
+  await waitFor(() => !document.querySelector('[role="dialog"]') && (document.activeElement?.getAttribute("aria-label") ?? "").startsWith("A.1,"));
   await click('button[aria-label="Xem danh sách (List)"]');
   await waitFor(() => document.querySelector("#leasing-floor-content")?.dataset.view === "list");
-  assert(await evaluate(() => !document.querySelector('button[id^="leasing-plan-"]')), "map remains rendered while the list is selected");
+  assert(await evaluate(() => document.querySelectorAll('#leasing-floor-content button[aria-label*="mét vuông"]').length === 0), "map remains rendered while the list is selected");
   await click('button[id="leasing-list-A.1"]');
   await waitFor(() => document.querySelector('[role="dialog"] h2')?.textContent === "Mặt bằng A.1");
   await click(`${dialog} a[href*="/mat-bang/"]`);
@@ -234,7 +234,7 @@ try {
   await waitFor(() => [...document.querySelectorAll('[role="dialog"] [aria-live]')].some(el => el.textContent === "125%"));
   await click(`${dialog} button[aria-label="Ảnh tiếp theo"]`);
   await waitFor(() => [...document.querySelectorAll('[role="dialog"] [aria-live]')].some(el => el.textContent.startsWith("2 / 5")));
-  assert(await evaluate(() => [...document.querySelectorAll('[role="dialog"] [aria-live]')].some(el => el.textContent === "100%")), "photo change did not reset zoom");
+  await waitFor(() => [...document.querySelectorAll('[role="dialog"] [aria-live]')].some(el => el.textContent === "100%"), "photo change did not reset zoom");
   await escape();
   await waitFor(() => !document.querySelector('[role="dialog"]') && document.activeElement.matches('button[aria-label^="Mở ảnh:"]'));
   assert(await evaluate(() => document.querySelector('[aria-label^="Ảnh dự án tham khảo"] p[aria-live]').textContent.startsWith("2 / 5")), "modal/gallery selection diverged");
