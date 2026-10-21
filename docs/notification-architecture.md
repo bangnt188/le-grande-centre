@@ -2,7 +2,7 @@
 
 ## Hosting and scope
 
-Owner confirms this project is **not deployed on Vercel**. Target remains the existing `le-grande-centre-stage2` Worker plus Render. On2026-10-20 Cloudflare API confirmed workers.dev/previews disabled, no attached domain/zone route, but cron still active. Preserve that disabled public state; do not reopen the website or change DNS for this hotfix.
+Owner confirms this project is **not deployed on Vercel**. Target remains the existing `le-grande-centre-stage2` Worker plus Render. On2026-10-20 Cloudflare API confirmed no attached domain/zone route and previews disabled, but cron still active. The website's own workers.dev hostname was already serving traffic before the 21/10/2026 release, and the owner confirmed on that date that it must stay reachable, so `workers_dev` is `true` in `wrangler.jsonc` and no domain route, DNS change or new public endpoint is added. The **bot** ingress for Zalo/email webhooks stays closed as described under [Render sleep decision](#render-sleep-decision); that is a different endpoint and must not be reopened.
 
 Canonical local `.env.local` and stage2 Worker runtime `DATABASE_URL` use Neon `production` (`br-tiny-butterfly-b3uuw92p`). The former test branch `lgc-bot-test` was removed on 19/10/2026 after moving the Worker to production. Production has migrations 001–015 and the approved plan seed. Auth/media remain separate runtime targets. Build/deploy never runs migrations or seeds DB; no historical notification backfill was performed.
 

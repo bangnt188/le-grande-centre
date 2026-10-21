@@ -10,7 +10,8 @@
   "triggers": {
     "crons": ["*/15 * * * *"]
   },
-  "workers_dev": false,
+  "workers_dev": true,
+  "preview_urls": false,
   "placement": {
     "region": "aws:ap-southeast-1"
   },
