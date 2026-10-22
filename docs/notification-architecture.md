@@ -1,4 +1,4 @@
-# Lead notifications — Zalo + Cloudflare email (API channel `gmail`)
+# Lead notifications — Zalo + email theo provider của tenant (Cloudflare/Resend) (API channel `gmail`)
 
 ## Hosting and scope
 
@@ -38,6 +38,8 @@ Notification copies only reference, name, phone and intent. Gmail additionally h
 | `NOTIFICATIONS_API_KEY` | Current finite website key, server-only |
 | `NOTIFICATION_DISPATCH_SECRET` | Dedicated random ≥32characters; not website key/webhook secret |
 
+The same service key also opens its **email-settings** API, which this website's admin backend already calls (`src/server/email-notifications.ts`): `GET /v1/email-settings` → `{revision,from,replyTo,senderVerifiedAt,providerConfigured,dailyLimit,recipients[{email,verifiedAt}]}`, `PUT /v1/email-settings` with `{expectedRevision,recipients[]}` (0..20) and `POST /v1/email-settings/verify` with `{expectedRevision}`. The service owns the provider, sender and secrets; the website only manages the recipient list, so `providerConfigured` can be false while a tenant has no provider configured. For `resend` tenants the service additionally accepts signed `POST /v1/webhooks/resend/RESEND_KEY_<SITE>` callbacks and reports `emailDelivery` counts (pending/accepted/delayed/delivered/bounced/complained/failed) on the notification receipt; `sent` still means provider ACK, not inbox placement.
+
 `POST /api/internal/notifications/dispatch/` requires `Authorization: Bearer <dispatchsecret>` before DB access. Wrong/missing/unconfigured secret→401; storage/setup failure→503; success→`{claimed,forwarded}` with no-store. Counts represent source responsibility transfer, not final provider delivery. Native maxDuration180 does not delay public intake.
 
 Generic `@suntech/notifications` SDK takes service-origin `baseUrl`, not this app's full endpoint. Website uses native fetch and transactional source jobs. SDK has no automatic retry and cannot replace source outbox. No frontend/CORS public sending or `NEXT_PUBLIC_*` credentials.
@@ -55,7 +57,7 @@ Configure Render owner ID/token; owner opens PRIVATE chat. Only owner PRIVATE ca
 | `/site gmail https://example.com owner@gmail.com` | Set fixed receiving mailbox |
 | `/site email https://example.com notification@example.com contact@example.com` | Set tenant-bound sender and optional Reply-To; preserve current daily cap |
 | `/site email-limit https://example.com 100` | Set daily UTC provider-attempt cap1..100000 |
-| `/site email-verify https://example.com` | Live Cloudflare account/zone/routing/destination check, then compare-and-set verification |
+| `/site email-verify https://example.com` | Live provider check of the tenant's provider (Cloudflare account/zone/routing/destination, or a Resend connection test), then compare-and-set verification |
 | `/site info https://example.com` | State/expiry/group usage/Gmail recipient, no key |
 | `/site list` or `/site list 2` | Metadata3 sites/page |
 | `/site revoke https://example.com` | Revoke new auth/bindings |
@@ -72,15 +74,17 @@ Owner registers intended Zalo groups by sending in **each group**:
 
 Existing active/unexpired registry required. One website→many groups up to cap; one group→one website globally. Repeat binding succeeds at cap; SQL locks/triggers enforce concurrent cap and reject decreases below count. Do not select arbitrary groups from historical messages. Non-owner PRIVATE text/images/commands reply exactly `Liên hệ chủ sở hữu để mở khóa tính năng`, no AI/tools/quota/context.
 
-## Cloudflare email: sender and inbound Routing
+## Email provider theo tenant và inbound Routing
 
 **Inbound stays:** `contact@legrandecentre.vn` → **Cloudflare Email Routing** → **`ntmcongty@gmail.com`**. Routing is free with active Cloudflare DNS and verified destination. Preserve/import all website/Auth/media/mail DNS before any nameserver cutover; configuring notifications does not implicitly authorize changing DNS or hosting. Test forwarding from a different mailbox. This is not a hosted mailbox, Gmail send-as or automatic inbound AI/lead processing.
 
-**Outbound:** Render calls Cloudflare REST HTTPS directly with From `notification@legrandecentre.vn`, Reply-To `contact@legrandecentre.vn`, recipient from registry. Only verified destination addresses are allowed in this free-only design; sender domain belongs to the website and same Cloudflare account. Transport checks eligibility again before every send. Sender/recipient changes invalidate verification; queued snapshots stay unchanged.
+**Outbound:** the notification service picks the provider from its own registry per tenant, never from the request. This tenant is registered with provider `cloudflare`, so Render calls Cloudflare REST HTTPS with From `notification@legrandecentre.vn`, Reply-To `contact@legrandecentre.vn`, recipient from registry. Only verified destination addresses are allowed in this free-only design; sender domain belongs to the website and same Cloudflare account. Transport checks eligibility again before every send. Sender/recipient changes invalidate verification; queued snapshots stay unchanged.
+
+**Provider options in the service (2026-10-22):** `cloudflare` (this tenant, unchanged) or `resend` (BYOK — each customer owns the Resend account/domain and a domain-scoped `sending_access` key that lives only in the bot runtime). The service never falls back between providers, and a tenant with an unverified Resend domain still cannot send. The website backend never sends provider, From/To or keys; it keeps using `channel: gmail` with its own finite key. The 2026-10-22 live release proves the Resend path end to end on an isolated `workers.dev` demo tenant, not on this property.
 
 Only Render needs `CLOUDFLARE_EMAIL_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN`, `EMAIL_DAILY_LIMIT` (default1000). Website retains its three existing secrets and both stable channel keys; **no Google OAuth variables or Cloudflare provider token on the website**. Owner configures recipient/sender, completes Cloudflare destination confirmation, then runs `/site email-verify`. Never mark verification via SQL to bypass provider checks.
 
-Cloudflare verified-destination sends are free and excluded from monthly/daily sending quotas; API/account/abuse restrictions still apply. Unverified arbitrary recipients need Workers Paid. Mailjet/Resend fallback and incoming-mail automation are out of scope. See [provider pricing](https://developers.cloudflare.com/email-service/platform/pricing/), [limits](https://developers.cloudflare.com/email-service/platform/limits/) and the [central design/runbook](https://github.com/bangnt188/zalo-render-bot/blob/main/docs/notification-architecture.md).
+Cloudflare verified-destination sends are free and excluded from monthly/daily sending quotas; API/account/abuse restrictions still apply. Unverified arbitrary recipients need Workers Paid. There is **no provider fallback**: `resend` is a per-tenant provider choice (BYOK), not an automatic fallback, and Mailjet/incoming-mail automation stay out of scope. See [provider pricing](https://developers.cloudflare.com/email-service/platform/pricing/), [limits](https://developers.cloudflare.com/email-service/platform/limits/) and the [central design/runbook](https://github.com/bangnt188/zalo-render-bot/blob/main/docs/notification-architecture.md).
 
 Actual release requires provider token with email/verification permissions, active domain/routing and confirmed mailbox. Code/fixture success alone is not live sending or inbox proof; source jobs remain durable until responsibility is transferred.
 
@@ -98,6 +102,10 @@ An attempted durable workers.dev ingress passed local restart smoke but real Zal
 - Intended group delivery needs owner `/init`; do not claim group delivery while group count is0. Actual email now requires Cloudflare domain/destination verification and live provider proof, not Gmail OAuth. No unobserved production-domain, inbox delivery or exactly-once claim.
 
 Historical release evidence **before the Cloudflare email cutover**:44 bot tests passed; website owned PostgreSQL5 tests and TypeScript passed, including same-batch token fencing and email recovery without Zalo resend. Render code `a6c149d` deployed live as `dep-dba1h1avcj2c739q773g`; owner `/site info` reached Zalo ACK. Zalo testWebhook passed. Wake Worker `2d0695d0-8c55-4f21-bbdc-b82bc668d8c0` had5minute cron and a manual `/wake`→Render DB health200; this does not prove an observed scheduled tick or the new email deployment.
+
+### Notification service release — 2026-10-22
+
+The bot service (Render `zalo-render-bot`, commit `f2bb8e1`, deploy `dep-dbcmj0c9v7es73bngab0`) now ships the Resend BYOK provider, the signed Resend webhook route and the email-settings API; bot Neon migrations 1–9 are applied and `/v1/email-settings` answers 401 without a key. End-to-end proof runs on an **isolated demo tenant** (a separate `notification-demo` Worker on `workers.dev` with its own D1 outbox and a fixed recipient that is the Resend account address): form → durable outbox → `POST /v1/notifications` 202 → Resend ACK → signed callback → receipt `sent` with `delivered=1`. This property (`https://legrandecentre.vn`) is unchanged: provider `cloudflare`, recipient `ntmcongty@gmail.com`, still unverified, no Cloudflare token installed, no DNS/MX/nameserver change. The website source was not redeployed for that release; the contract this website uses (`channel: gmail`, `NOTIFICATIONS_URL`, `NOTIFICATIONS_API_KEY`, email-settings endpoints) is unchanged.
 
 
 ### Cloudflare email cutover — current source evidence
