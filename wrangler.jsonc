@@ -8,7 +8,7 @@
     "global_fetch_strictly_public"
   ],
   "triggers": {
-    "crons": ["*/15 * * * *"]
+    "crons": []
   },
   "workers_dev": true,
   "preview_urls": false,
@@ -23,6 +23,10 @@
     {
       "binding": "WORKER_SELF_REFERENCE",
       "service": "le-grande-centre-stage2"
+    },
+    {
+      "binding": "WAKE_SCHEDULER",
+      "service": "zalo-render-wakeup"
     }
   ],
   "r2_buckets": [
@@ -66,7 +70,8 @@
     "NEXT_PUBLIC_SITE_URL": "https://legrandecentre.vn/",
     "SEO_INDEXABLE": "false",
     "R2_PRIVATE_BUCKET": "mall-documents",
-    "R2_ACCOUNT_ID": "4e577220abb44fa926f2a11b8cf10b55"
+    "R2_ACCOUNT_ID": "4e577220abb44fa926f2a11b8cf10b55",
+    "NOTIFICATION_WAKE_URL": "https://zalo-render-wakeup.nguyenbang-skyone.workers.dev/schedules/website"
   },
   "observability": {
     "logs": {

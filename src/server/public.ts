@@ -9,6 +9,7 @@ import { withTransaction, WorkspaceError } from "./database";
 import { readPublicWebsiteData } from "./public-data";
 import { parseContactInput } from "./contact-input";
 import { contactNotificationText } from "./contact-notifications";
+import { armNotificationWake, lockNotificationWake } from "./notification-wake";
 
 export const PUBLIC_WEBSITE_CACHE_TAG = "public-website";
 
@@ -48,6 +49,7 @@ export async function submitContact(input:ContactSubmission,options:{idempotency
  if(!/^[A-Za-z0-9_-]{16,100}$/.test(options.idempotencyKey)||!/^[a-f0-9]{64}$/.test(options.ipHash))throw new WorkspaceError('Invalid intake identity');
  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(fields))),hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
  return withTransaction('public:intake',async client=>{
+  await lockNotificationWake(client);
   const property=(await client.query("SELECT id FROM leasing.properties WHERE code='le-grande-centre' FOR UPDATE")).rows[0];if(!property)throw new WorkspaceError('Website has not been initialized',503);
   const p=property.id,receipt=(await client.query('SELECT intake.id,intake.request_sha256,lead.reference_code FROM leasing.contact_intake intake JOIN leasing.leads lead ON lead.id=intake.lead_id WHERE intake.idempotency_key=$1 AND intake.property_id=$2',[options.idempotencyKey,p])).rows[0];
   if(receipt){if(receipt.request_sha256!==hash)throw new WorkspaceError('Intake key reused',409);return {accepted:true,id:receipt.id,referenceCode:receipt.reference_code,created:false};}
@@ -55,6 +57,7 @@ export async function submitContact(input:ContactSubmission,options:{idempotency
   if(Number(rate.recent)>0||Number(rate.daily)>=20)throw new WorkspaceError('Vui lòng chờ năm phút trước khi gửi yêu cầu khác.',429);
   let floor=1;
   if(fields.unitId){const slot=(await client.query('SELECT f.floor_number FROM leasing.slots s JOIN leasing.floors f ON f.id=s.floor_id WHERE s.property_id=$1 AND s.code=$2 AND s.retired_at IS NULL',[p,fields.unitId])).rows[0];if(!slot)throw new WorkspaceError('Mặt bằng không tồn tại.');floor=slot.floor_number;}
+  await armNotificationWake();
   const lead=crypto.randomUUID(),id=crypto.randomUUID(),interest=[fields.intent,fields.business,fields.area].filter(Boolean).join(' · ');
   const createdLead=await client.query("INSERT INTO leasing.leads(id,property_id,name,interest,floor_number,source,status,note,email,phone) VALUES($1,$2,$3,$4,$5,'Form website','Mới',$6,$7,$8) RETURNING reference_code",[lead,p,fields.name,interest,floor,fields.note,fields.email,fields.phone]);
   const referenceCode=createdLead.rows[0].reference_code as string;

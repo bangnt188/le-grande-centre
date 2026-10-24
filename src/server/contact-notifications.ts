@@ -2,6 +2,7 @@ import "server-only";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { withTransaction } from "./database";
 import type { ContactSubmission } from "../shared/public/contracts";
+import { reconcileNotificationWake } from "./notification-wake";
 
 const actor = "system:notification-dispatch";
 const intentLabel = { consultation: "Tư vấn", visit: "Tham quan", callback: "Gọi lại" } as const;
@@ -19,7 +20,7 @@ export function authorizeNotificationDispatch(request: Request): boolean {
 
 type ClaimedNotification = { intake_id: string; channel: "zalo" | "gmail"; subject: string | null; request_key: string; payload: string; attempts: number; lease_token: string };
 
-export async function dispatchContactNotifications(): Promise<{ claimed: number; forwarded: number }> {
+export async function dispatchContactNotifications(): Promise<{ claimed: number; forwarded: number; nextWakeAt: number | null }> {
   const endpoint = process.env.NOTIFICATIONS_URL, apiKey = process.env.NOTIFICATIONS_API_KEY;
   if (!endpoint || !apiKey) throw new Error("Notification service is not configured");
   const url = new URL(endpoint);
@@ -74,5 +75,6 @@ export async function dispatchContactNotifications(): Promise<{ claimed: number;
       return false;
     });
   }));
-  return { claimed: rows.length, forwarded: forwarded.filter(Boolean).length };
+  const nextWakeAt = await reconcileNotificationWake();
+  return { claimed: rows.length, forwarded: forwarded.filter(Boolean).length, nextWakeAt };
 }
